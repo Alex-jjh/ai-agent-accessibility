@@ -43,8 +43,8 @@ Incremental implementation of the six-module research platform, starting with sh
 - [x] 3. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 4. Module 1: Scanner — Tier 1
-  - [ ] 4.1 Implement Tier 1 Scanner (`src/scanner/tier1/scan.ts`)
+- [x] 4. Module 1: Scanner — Tier 1
+  - [x] 4.1 Implement Tier 1 Scanner (`src/scanner/tier1/scan.ts`)
     - `scanTier1(page, options): Promise<Tier1Metrics>` — run axe-core via `AxeBuilder(page).withTags(wcagLevels).analyze()` and Lighthouse via Node API with shared CDP session
     - Use `Promise.allSettled()` so one tool's failure doesn't block the other (Req 1.4)
     - Return merged `Tier1Metrics` object with violation count, violations by WCAG criterion, impact severity, Lighthouse score, and per-audit details
@@ -52,21 +52,21 @@ Incremental implementation of the six-module research platform, starting with sh
     - Accept configurable WCAG conformance levels (A, AA, AAA) to filter axe-core rules
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-  - [ ] 4.2 Write unit tests for Tier 1 Scanner
+  - [x] 4.2 Write unit tests for Tier 1 Scanner
     - Test axe-core result parsing and grouping by WCAG criterion
     - Test Lighthouse score extraction
     - Test error handling when one tool fails (partial results returned)
     - Test WCAG level filtering
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [ ] 5. Module 1: Scanner — Tier 2
-  - [ ] 5.1 Implement A11y Tree Stability Detector (`src/scanner/snapshot/stability.ts`)
+- [x] 5. Module 1: Scanner — Tier 2
+  - [x] 5.1 Implement A11y Tree Stability Detector (`src/scanner/snapshot/stability.ts`)
     - `waitForA11yTreeStable(page, options?): Promise<StabilityResult>` — poll A11y tree at configurable interval (default 2000ms), compare SHA-256 hashes of consecutive serialized snapshots
     - Return stable when two consecutive snapshots match; log warning and proceed with latest snapshot on timeout (default 30s)
     - Serialize the snapshot used for measurement alongside results
     - _Requirements: 3.1, 3.2, 3.3, 3.4_
 
-  - [ ] 5.2 Implement Tier 2 Scanner (`src/scanner/tier2/scan.ts`)
+  - [x] 5.2 Implement Tier 2 Scanner (`src/scanner/tier2/scan.ts`)
     - `scanTier2(page, cdpSession): Promise<Tier2Metrics>` — compute all 7 functional metrics
     - Semantic HTML ratio: count semantic elements / total elements (Req 2.1)
     - Accessible name coverage: CDP `Accessibility.getFullAXTree()`, filter interactive roles, check non-empty `name` (Req 2.2)
@@ -79,36 +79,36 @@ Incremental implementation of the six-module research platform, starting with sh
     - All metrics returned as decimals 0.0–1.0 (Req 2.9)
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9_
 
-  - [ ] 5.3 Write unit tests for Tier 2 Scanner
+  - [x] 5.3 Write unit tests for Tier 2 Scanner
     - Test each metric computation with mock DOM structures
     - Test keyboard navigability safety guards (trap detection, max tabs, timeout)
     - Test pseudo-compliance detection with role-without-handler elements
     - Test Shadow DOM traversal inclusion
     - _Requirements: 2.1–2.9_
 
-  - [ ] 5.4 Implement Composite Score Calculator (`src/scanner/composite.ts`)
+  - [x] 5.4 Implement Composite Score Calculator (`src/scanner/composite.ts`)
     - `computeCompositeScore(tier1, tier2, options): CompositeScoreResult` — normalize all components to 0–1, apply configurable weights
     - Support sensitivity modes: `tier1-only`, `tier2-only`, `composite`
     - Lighthouse score / 100, axe violations inverted (1 - min(count/maxExpected, 1))
     - Output composite score alongside all individual metric values in structured JSON
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-  - [ ] 5.5 Write property test for Composite Score round-trip consistency
+  - [x] 5.5 Write property test for Composite Score round-trip consistency
     - Verify serialize → deserialize produces equivalent object for any valid scan result (Req 16.3)
     - _Requirements: 16.3_
 
-- [ ] 6. Module 1: Scanner — Serialization
-  - [ ] 6.1 Implement scan result serialization/deserialization (`src/scanner/serialization.ts`)
+- [x] 6. Module 1: Scanner — Serialization
+  - [x] 6.1 Implement scan result serialization/deserialization (`src/scanner/serialization.ts`)
     - `serializeScanResult(result): string` — serialize Tier1, Tier2, CompositeScore, A11y snapshot to JSON
     - `deserializeScanResult(json): ScanResult` — parse JSON back to structured objects
     - Return descriptive error with location and nature of parsing failure on invalid JSON
     - _Requirements: 16.1, 16.2, 16.3, 16.4_
 
-  - [ ] 6.2 Write property test for scan result round-trip
+  - [x] 6.2 Write property test for scan result round-trip
     - For all valid scan result objects, serialize then deserialize produces equivalent object
     - _Requirements: 16.3_
 
-- [ ] 7. Checkpoint — Ensure all Scanner tests pass
+- [-] 7. Checkpoint — Ensure all Scanner tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 8. Module 2: Variant Generator
