@@ -179,8 +179,8 @@ Incremental implementation of the six-module research platform, starting with sh
     - Test text-only vs vision observation modes
     - _Requirements: 7.1–7.8_
 
-- [ ] 11. Module 3: Agent Runner — Experiment Matrix
-  - [ ] 11.1 Implement Experiment Matrix Scheduler (`src/runner/scheduler.ts`)
+- [x] 11. Module 3: Agent Runner — Experiment Matrix
+  - [x] 11.1 Implement Experiment Matrix Scheduler (`src/runner/scheduler.ts`)
     - `executeExperiment(matrix, resumeFrom?): Promise<ExperimentRun>` — execute all combinations: 4 apps × 4 variants × 3–5 tasks per app
     - Fisher-Yates shuffle for randomized execution order
     - Configurable repetitions (default 3) per test case
@@ -188,17 +188,17 @@ Incremental implementation of the six-module research platform, starting with sh
     - Store ActionTrace, task outcome, scan results, and AgentConfig as single experiment record in JSON
     - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-  - [ ] 11.2 Implement Action Trace serialization/deserialization (`src/runner/serialization.ts`)
+  - [x] 11.2 Implement Action Trace serialization/deserialization (`src/runner/serialization.ts`)
     - `serializeActionTrace(trace): string` — serialize preserving step order, timestamps, observations, reasoning, actions, results
     - `deserializeActionTrace(json): ActionTrace` — parse back to structured objects
     - Return descriptive error on invalid JSON
     - _Requirements: 17.1, 17.2, 17.3, 17.4_
 
-  - [ ] 11.3 Write property test for Action Trace round-trip
+  - [x] 11.3 Write property test for Action Trace round-trip
     - For all valid ActionTrace objects, serialize then deserialize produces equivalent object
     - _Requirements: 17.3_
 
-  - [ ] 11.4 Write unit tests for Experiment Matrix Scheduler
+  - [x] 11.4 Write unit tests for Experiment Matrix Scheduler
     - Test matrix generates correct number of test cases (apps × variants × tasks × repetitions)
     - Test randomization produces different orderings
     - Test resume skips completed cases

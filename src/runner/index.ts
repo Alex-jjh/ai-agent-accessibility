@@ -12,6 +12,26 @@ export type {
   BridgeProcess,
 } from './agents/executor.js';
 
+export {
+  executeExperiment,
+  generateTestCases,
+  parseTestCaseId,
+  fisherYatesShuffle,
+  loadRunState,
+} from './scheduler.js';
+export type {
+  ExperimentRecord,
+  ExecuteExperimentOptions,
+  TestCaseParams,
+  TestCaseResult,
+} from './scheduler.js';
+
+export {
+  serializeActionTrace,
+  deserializeActionTrace,
+  ActionTraceParseError,
+} from './serialization.js';
+
 export type {
   ObservationMode,
   LlmBackend,
