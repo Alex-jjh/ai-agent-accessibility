@@ -355,25 +355,25 @@ Incremental implementation of the six-module research platform, starting with sh
     - Test site identity anonymization replaces URLs with opaque IDs
     - _Requirements: 15.1–15.4_
 
-- [ ] 21. Integration wiring
-  - [ ] 21.1 Wire Scanner concurrent execution (`src/scanner/concurrent.ts`)
+- [x] 21. Integration wiring
+  - [x] 21.1 Wire Scanner concurrent execution (`src/scanner/concurrent.ts`)
     - Support concurrent scanning of multiple URLs with configurable limit (default 5)
     - Isolate browser contexts per scan
     - _Requirements: 19.1, 19.3_
 
-  - [ ] 21.2 Wire end-to-end experiment pipeline (`src/index.ts`)
+  - [x] 21.2 Wire end-to-end experiment pipeline (`src/index.ts`)
     - Load config → validate → generate variants → scan → run agents → classify failures → export results → generate manifest
     - Connect all modules through the experiment matrix scheduler
     - Ensure Track A (WebArena variants) and Track B (HAR replay) pipelines both work through the same runner
     - _Requirements: 8.1, 8.4, 12.4, 18.1, 18.3_
 
-  - [ ] 21.3 Write integration tests for end-to-end pipeline
+  - [x] 21.3 Write integration tests for end-to-end pipeline
     - Test config → scan → export flow with mock browser
     - Test variant generation → validation → agent run flow
     - Test HAR capture → replay → scan flow
     - _Requirements: 8.1–8.5, 12.1–12.5, 15.1–15.4_
 
-- [ ] 22. Final checkpoint — Ensure all tests pass
+- [x] 22. Final checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 23. Pilot Study Execution (20 sites)

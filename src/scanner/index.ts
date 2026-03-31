@@ -4,6 +4,12 @@ export { scanTier2 } from './tier2/scan.js';
 export { waitForA11yTreeStable } from './snapshot/stability.js';
 export { computeCompositeScore } from './composite.js';
 export { serializeScanResult, deserializeScanResult, ScanResultParseError } from './serialization.js';
+export { scanUrlsConcurrently } from './concurrent.js';
+export type {
+  ConcurrentScanOptions,
+  UrlScanOutcome,
+  ConcurrentScanResult,
+} from './concurrent.js';
 export type {
   Tier1Metrics,
   Tier1ScanOptions,
