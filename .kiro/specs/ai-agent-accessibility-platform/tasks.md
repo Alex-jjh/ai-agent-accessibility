@@ -108,11 +108,11 @@ Incremental implementation of the six-module research platform, starting with sh
     - For all valid scan result objects, serialize then deserialize produces equivalent object
     - _Requirements: 16.3_
 
-- [-] 7. Checkpoint — Ensure all Scanner tests pass
+- [x] 7. Checkpoint — Ensure all Scanner tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 8. Module 2: Variant Generator
-  - [ ] 8.1 Implement DOM Patch Engine (`src/variants/patches/`)
+- [x] 8. Module 2: Variant Generator
+  - [x] 8.1 Implement DOM Patch Engine (`src/variants/patches/`)
     - `applyVariant(page, level, appName): Promise<VariantDiff>` — apply DOM manipulations per variant level
     - Low: replace semantic elements with divs, remove ARIA/role attrs, remove labels, remove keyboard handlers, wrap in closed Shadow DOM
     - Medium-Low: rule-based pseudo-compliance strategy (deterministic, self-adaptive across apps):
@@ -126,18 +126,18 @@ Incremental implementation of the six-module research platform, starting with sh
     - Record all changes as reversible `DomChange[]` with original/modified state and DOM hash before/after
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.7, 6.1_
 
-  - [ ] 8.2 Implement variant reversal (`src/variants/patches/revert.ts`)
+  - [x] 8.2 Implement variant reversal (`src/variants/patches/revert.ts`)
     - `revertVariant(page, diff): Promise<{ success: boolean; domHashAfterRevert: string }>` — restore DOM using recorded diff
     - Verify restored DOM matches original by comparing SHA-256 hash of serialized DOM tree
     - _Requirements: 6.1, 6.2, 6.3_
 
-  - [ ] 8.3 Implement Variant Validator (`src/variants/validation/`)
+  - [x] 8.3 Implement Variant Validator (`src/variants/validation/`)
     - `validateVariant(page, level, scanner): Promise<VariantValidationResult>` — run Scanner on variant, check composite score falls within expected range per level
     - Expected ranges: Low 0.0–0.25, Medium-Low 0.25–0.50, Base 0.40–0.70, High 0.75–1.0
     - Apply to all 4 WebArena apps (Reddit, GitLab, CMS, E-commerce)
     - _Requirements: 5.5, 5.6_
 
-  - [ ] 8.4 Write unit tests for Variant Generator
+  - [x] 8.4 Write unit tests for Variant Generator
     - Test Low variant removes semantic elements and ARIA attributes
     - Test Medium-Low variant creates pseudo-compliance (role present, handler absent)
     - Test Base variant returns empty diff

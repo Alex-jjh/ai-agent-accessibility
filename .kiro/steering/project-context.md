@@ -18,6 +18,7 @@ Next: Task 4+ (Scanner Tier 1, Tier 2, Composite Score, Serialization).
 - Experiment matrix scheduler (Module 3) orchestrates sequential execution
 - Python Analysis Engine consumes CSV exports only
 - Always read before you edit if the file exists
+- Commit when a feature is completed
 
 ## Coding Standards
 
