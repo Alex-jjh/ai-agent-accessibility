@@ -327,28 +327,28 @@ Incremental implementation of the six-module research platform, starting with sh
     - Test sensitivity analysis runs all three modes
     - _Requirements: 13.1–13.5, 14.1–14.4_
 
-- [ ] 19. Checkpoint — Ensure all Analysis Engine tests pass
+- [x] 19. Checkpoint — Ensure all Analysis Engine tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 20. Cross-cutting: Data Export and Manifest
-  - [ ] 20.1 Implement Experiment Manifest generator (`src/export/manifest.ts`)
+- [x] 20. Cross-cutting: Data Export and Manifest
+  - [x] 20.1 Implement Experiment Manifest generator (`src/export/manifest.ts`)
     - `generateManifest(run): ExperimentManifest` — list all test cases, outcomes, software versions (axe-core, Lighthouse, Playwright, LLM model versions), and config parameters
     - Include full configuration file content for reproducibility
     - _Requirements: 15.2, 15.3, 18.3_
 
-  - [ ] 20.2 Implement CSV Exporter (`src/export/csv.ts`)
+  - [x] 20.2 Implement CSV Exporter (`src/export/csv.ts`)
     - `exportToCsv(records, options): string[]` — export experiment data as CSV files for R/Python import
     - Generate: `experiment-data.csv`, `scan-metrics.csv`, `failure-classifications.csv`, `trace-summaries.csv`
     - PII anonymization: regex-based scrubbing of cookies, auth tokens, emails, user-specific URL segments from HAR metadata
     - Site identity anonymization: replace URLs with opaque IDs (e.g. `site_001`) when `anonymizeSiteIdentity` enabled, store private mapping separately
     - _Requirements: 15.1, 15.3, 15.4_
 
-  - [ ] 20.3 Implement JSON data store (`src/export/store.ts`)
+  - [x] 20.3 Implement JSON data store (`src/export/store.ts`)
     - Store all experiment records (scan results, ActionTraces, task outcomes, failure classifications) in structured JSON with documented schema
     - Follow file system layout: `data/track-a/runs/{runId}/cases/{caseId}/`, `data/track-b/har/{harId}/`, `data/exports/`
     - _Requirements: 15.1_
 
-  - [ ] 20.4 Write unit tests for Data Export
+  - [x] 20.4 Write unit tests for Data Export
     - Test manifest includes all required software versions and config
     - Test CSV export produces valid CSV with correct columns
     - Test PII anonymization removes cookies, tokens, emails
