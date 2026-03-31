@@ -14,8 +14,14 @@ import type { CompositeScoreOptions } from './scanner/types.js';
 
 const URLS = [
   'https://example.com',
+  'https://github.com',
+  'https://www.google.com',
+  'https://www.bing.com',
   'https://www.w3.org',
   'https://developer.mozilla.org/en-US/',
+  'https://www.taobao.com/',
+  'http://baidu.com/',
+  'https://www.alibabacloud.com/',
 ];
 
 const COMPOSITE_OPTIONS: CompositeScoreOptions = {

@@ -49,6 +49,7 @@ const REQUIRED_ARIA_PROPS: Record<string, string[]> = {
 const MAX_TAB_PRESSES = 200;
 const KEYBOARD_TIMEOUT_MS = 30000;
 const TRAP_THRESHOLD = 5; // consecutive same-element = trapped
+const MAX_SHADOW_DEPTH = 10; // prevent infinite recursion in deep Shadow DOM
 
 // --- Helper functions ---
 
@@ -80,13 +81,13 @@ async function computeSemanticHtmlRatio(
   traverseShadowDOM: boolean,
 ): Promise<number> {
   const [semanticCount, totalCount] = await page.evaluate(
-    ({ semanticTags, traverseShadow }) => {
-      const collectElements = (root: Document | ShadowRoot): Element[] => {
+    ({ semanticTags, traverseShadow, maxDepth }) => {
+      const collectElements = (root: Document | ShadowRoot, depth = 0): Element[] => {
         const elements = Array.from(root.querySelectorAll('*'));
-        if (traverseShadow) {
+        if (traverseShadow && depth < maxDepth) {
           for (const el of elements) {
             if (el.shadowRoot) {
-              elements.push(...collectElements(el.shadowRoot));
+              elements.push(...collectElements(el.shadowRoot, depth + 1));
             }
           }
         }
@@ -100,7 +101,7 @@ async function computeSemanticHtmlRatio(
       ).length;
       return [semantic, total];
     },
-    { semanticTags: SEMANTIC_ELEMENTS, traverseShadow: traverseShadowDOM },
+    { semanticTags: SEMANTIC_ELEMENTS, traverseShadow: traverseShadowDOM, maxDepth: MAX_SHADOW_DEPTH },
   );
 
   return safeRatio(semanticCount, totalCount);
@@ -227,14 +228,14 @@ async function computeAriaCorrectness(
   traverseShadowDOM: boolean,
 ): Promise<number> {
   const { valid, total } = await page.evaluate(
-    ({ requiredProps, traverseShadow }) => {
-      const collectElements = (root: Document | ShadowRoot): Element[] => {
+    ({ requiredProps, traverseShadow, maxDepth }) => {
+      const collectElements = (root: Document | ShadowRoot, depth = 0): Element[] => {
         const elements = Array.from(root.querySelectorAll('[role], [aria-hidden], [aria-label], [aria-labelledby], [aria-checked], [aria-expanded], [aria-selected], [aria-valuenow], [aria-controls], [aria-level]'));
-        if (traverseShadow) {
+        if (traverseShadow && depth < maxDepth) {
           const allEls = Array.from(root.querySelectorAll('*'));
           for (const el of allEls) {
             if (el.shadowRoot) {
-              elements.push(...collectElements(el.shadowRoot));
+              elements.push(...collectElements(el.shadowRoot, depth + 1));
             }
           }
         }
@@ -287,7 +288,7 @@ async function computeAriaCorrectness(
 
       return { valid: validCount, total: ariaElements.length };
     },
-    { requiredProps: REQUIRED_ARIA_PROPS, traverseShadow: traverseShadowDOM },
+    { requiredProps: REQUIRED_ARIA_PROPS, traverseShadow: traverseShadowDOM, maxDepth: MAX_SHADOW_DEPTH },
   );
 
   return safeRatio(valid, total);
@@ -368,14 +369,14 @@ async function computeFormLabelingCompleteness(
   traverseShadowDOM: boolean,
 ): Promise<number> {
   const { labeled, total } = await page.evaluate(
-    ({ traverseShadow }) => {
-      const collectFormControls = (root: Document | ShadowRoot): Element[] => {
+    ({ traverseShadow, maxDepth }) => {
+      const collectFormControls = (root: Document | ShadowRoot, depth = 0): Element[] => {
         const controls = Array.from(root.querySelectorAll('input, select, textarea'));
-        if (traverseShadow) {
+        if (traverseShadow && depth < maxDepth) {
           const allEls = Array.from(root.querySelectorAll('*'));
           for (const el of allEls) {
             if (el.shadowRoot) {
-              controls.push(...collectFormControls(el.shadowRoot));
+              controls.push(...collectFormControls(el.shadowRoot, depth + 1));
             }
           }
         }
@@ -413,7 +414,7 @@ async function computeFormLabelingCompleteness(
 
       return { labeled: labeledCount, total: visibleControls.length };
     },
-    { traverseShadow: traverseShadowDOM },
+    { traverseShadow: traverseShadowDOM, maxDepth: MAX_SHADOW_DEPTH },
   );
 
   return safeRatio(labeled, total);
@@ -428,8 +429,8 @@ async function computeLandmarkCoverage(
   traverseShadowDOM: boolean,
 ): Promise<number> {
   const { landmarkTextLength, totalTextLength } = await page.evaluate(
-    ({ landmarkSels, traverseShadow }) => {
-      const getVisibleTextLength = (root: Element | ShadowRoot): number => {
+    ({ landmarkSels, traverseShadow, maxDepth }) => {
+      const getVisibleTextLength = (root: Element | ShadowRoot, depth = 0): number => {
         let length = 0;
         const walker = document.createTreeWalker(
           root as Node,
@@ -445,11 +446,11 @@ async function computeLandmarkCoverage(
           }
           length += (node.textContent?.trim().length ?? 0);
         }
-        if (traverseShadow && root instanceof Element) {
+        if (traverseShadow && depth < maxDepth && root instanceof Element) {
           const allEls = Array.from(root.querySelectorAll('*'));
           for (const el of allEls) {
             if (el.shadowRoot) {
-              length += getVisibleTextLength(el.shadowRoot);
+              length += getVisibleTextLength(el.shadowRoot, depth + 1);
             }
           }
         }
@@ -484,7 +485,7 @@ async function computeLandmarkCoverage(
 
       return { landmarkTextLength: landmarkLen, totalTextLength: totalLen };
     },
-    { landmarkSels: LANDMARK_SELECTORS, traverseShadow: traverseShadowDOM },
+    { landmarkSels: LANDMARK_SELECTORS, traverseShadow: traverseShadowDOM, maxDepth: MAX_SHADOW_DEPTH },
   );
 
   return safeRatio(landmarkTextLength, totalTextLength);
