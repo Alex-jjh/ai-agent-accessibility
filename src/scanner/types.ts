@@ -35,6 +35,8 @@ export interface Tier1ScanOptions {
   url: string;
   wcagLevels: ('A' | 'AA' | 'AAA')[];
   lighthouseFlags?: Record<string, unknown>;
+  /** Optional CDP port for Lighthouse. If not provided, auto-detection is attempted. */
+  lighthouseCdpPort?: number;
 }
 
 /** Tier 2 functional accessibility metrics (all decimals 0.0–1.0 except counts/booleans) */

@@ -81,7 +81,7 @@ async function computeSemanticHtmlRatio(
 ): Promise<number> {
   const [semanticCount, totalCount] = await page.evaluate(
     ({ semanticTags, traverseShadow }) => {
-      function collectElements(root: Document | ShadowRoot): Element[] {
+      const collectElements = (root: Document | ShadowRoot): Element[] => {
         const elements = Array.from(root.querySelectorAll('*'));
         if (traverseShadow) {
           for (const el of elements) {
@@ -91,7 +91,7 @@ async function computeSemanticHtmlRatio(
           }
         }
         return elements;
-      }
+      };
 
       const allElements = collectElements(document);
       const total = allElements.length;
@@ -228,7 +228,7 @@ async function computeAriaCorrectness(
 ): Promise<number> {
   const { valid, total } = await page.evaluate(
     ({ requiredProps, traverseShadow }) => {
-      function collectElements(root: Document | ShadowRoot): Element[] {
+      const collectElements = (root: Document | ShadowRoot): Element[] => {
         const elements = Array.from(root.querySelectorAll('[role], [aria-hidden], [aria-label], [aria-labelledby], [aria-checked], [aria-expanded], [aria-selected], [aria-valuenow], [aria-controls], [aria-level]'));
         if (traverseShadow) {
           const allEls = Array.from(root.querySelectorAll('*'));
@@ -239,7 +239,7 @@ async function computeAriaCorrectness(
           }
         }
         return elements;
-      }
+      };
 
       const ariaElements = collectElements(document);
       if (ariaElements.length === 0) return { valid: 0, total: 0 };
@@ -369,7 +369,7 @@ async function computeFormLabelingCompleteness(
 ): Promise<number> {
   const { labeled, total } = await page.evaluate(
     ({ traverseShadow }) => {
-      function collectFormControls(root: Document | ShadowRoot): Element[] {
+      const collectFormControls = (root: Document | ShadowRoot): Element[] => {
         const controls = Array.from(root.querySelectorAll('input, select, textarea'));
         if (traverseShadow) {
           const allEls = Array.from(root.querySelectorAll('*'));
@@ -380,7 +380,7 @@ async function computeFormLabelingCompleteness(
           }
         }
         return controls;
-      }
+      };
 
       const controls = collectFormControls(document);
       if (controls.length === 0) return { labeled: 0, total: 0 };
@@ -429,7 +429,7 @@ async function computeLandmarkCoverage(
 ): Promise<number> {
   const { landmarkTextLength, totalTextLength } = await page.evaluate(
     ({ landmarkSels, traverseShadow }) => {
-      function getVisibleTextLength(root: Element | ShadowRoot): number {
+      const getVisibleTextLength = (root: Element | ShadowRoot): number => {
         let length = 0;
         const walker = document.createTreeWalker(
           root as Node,
@@ -454,7 +454,7 @@ async function computeLandmarkCoverage(
           }
         }
         return length;
-      }
+      };
 
       const totalLen = getVisibleTextLength(document.body);
       if (totalLen === 0) return { landmarkTextLength: 0, totalTextLength: 0 };

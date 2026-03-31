@@ -1,10 +1,13 @@
-#!/usr/bin/env npx tsx
+#!/usr/bin/env node
 /**
  * Local Scanner verification script.
  * Scans a few real websites with Tier 1 + Tier 2 to verify the pipeline works.
  * No Docker, no LLM, no cost.
  *
- * Usage: npx tsx scripts/verify-scanner.ts
+ * Usage:
+ *   npm run build && node dist/scanner/verify-scanner.js
+ *   — OR —
+ *   npx tsx scripts/verify-scanner.ts  (may have esbuild __name issues)
  */
 
 import { chromium } from 'playwright';

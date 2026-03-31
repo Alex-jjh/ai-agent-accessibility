@@ -108,25 +108,56 @@ function parseWcagTag(tag: string): string {
 
 /**
  * Run Lighthouse accessibility audit on the given page.
- * Uses the Playwright page's CDP session to share the browser connection.
+ * Lighthouse needs a raw CDP port to connect. We try multiple strategies:
+ * 1. Use an explicit port passed via options
+ * 2. Extract from browser wsEndpoint (available when using launchServer)
+ * 3. Create a temporary CDP session and query the browser version endpoint
+ * If none work, Lighthouse is skipped gracefully (Req 1.4).
  */
-async function runLighthouse(page: Page, url: string): Promise<LighthouseResult> {
-  // Dynamic import for Lighthouse
+async function runLighthouse(page: Page, url: string, cdpPort?: number): Promise<LighthouseResult> {
   const lighthouse = (await import('lighthouse')).default;
 
-  // Lighthouse accepts a Puppeteer-like page. Playwright's page works
-  // with Lighthouse's navigation() when passed directly.
+  let port = cdpPort;
+
+  if (!port) {
+    // Try extracting from browser wsEndpoint
+    const browser = page.context().browser();
+    if (browser) {
+      const wsEndpoint = (browser as any).wsEndpoint?.() as string | undefined;
+      if (wsEndpoint) {
+        const match = wsEndpoint.match(/:(\d+)\//);
+        if (match) port = parseInt(match[1], 10);
+      }
+    }
+  }
+
+  if (!port) {
+    // Try getting debugger URL via CDP
+    try {
+      const cdpSession = await page.context().newCDPSession(page);
+      const { webSocketDebuggerUrl } = await cdpSession.send('Browser.getVersion' as any) as any;
+      if (webSocketDebuggerUrl) {
+        const match = (webSocketDebuggerUrl as string).match(/:(\d+)\//);
+        if (match) port = parseInt(match[1], 10);
+      }
+      await cdpSession.detach();
+    } catch {
+      // CDP approach failed
+    }
+  }
+
+  if (!port) {
+    throw new Error('Could not determine browser CDP port for Lighthouse');
+  }
+
   const result = await lighthouse(
     url,
     {
       onlyCategories: ['accessibility'],
       output: 'json',
-      // Suppress Chrome logging
       logLevel: 'error' as const,
+      port,
     },
-    undefined,
-    // Lighthouse accepts a Puppeteer-compatible page object
-    page as unknown as import('lighthouse').Puppeteer.Page
   );
 
   if (!result?.lhr) {
@@ -165,12 +196,12 @@ export async function scanTier1(
   page: Page,
   options: Tier1ScanOptions
 ): Promise<Tier1Metrics> {
-  const { url, wcagLevels } = options;
+  const { url, wcagLevels, lighthouseCdpPort } = options;
 
   // Run both tools concurrently — neither blocks the other (Req 1.4)
   const [axeSettled, lighthouseSettled] = await Promise.allSettled([
     runAxeCore(page, wcagLevels),
-    runLighthouse(page, url),
+    runLighthouse(page, url, lighthouseCdpPort),
   ]);
 
   let axeCore: AxeCoreResult;

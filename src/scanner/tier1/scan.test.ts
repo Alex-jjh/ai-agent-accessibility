@@ -23,7 +23,14 @@ import type { Tier1ScanOptions } from '../types.js';
 
 /** Minimal Playwright Page stub */
 function createMockPage(): any {
-  return { url: () => 'https://example.com' };
+  return {
+    url: () => 'https://example.com',
+    context: () => ({
+      browser: () => ({
+        wsEndpoint: () => 'ws://127.0.0.1:9222/devtools/browser/fake-id',
+      }),
+    }),
+  };
 }
 
 /** Build a realistic axe-core result */
