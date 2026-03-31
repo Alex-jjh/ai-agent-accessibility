@@ -32,6 +32,37 @@ export {
   ActionTraceParseError,
 } from './serialization.js';
 
+export {
+  executeConcurrently,
+  captureResourceSnapshot,
+  Semaphore,
+} from './concurrency.js';
+export type {
+  ConcurrencyConfig,
+  ResourceSnapshot,
+  ConcurrentExecutionResult,
+  RunTestCaseFn,
+  BrowserContextFactory,
+} from './concurrency.js';
+
+export {
+  verifyWebArenaServices,
+  resetWebArenaApp,
+  resetAllWebArenaApps,
+  buildWebArenaConfig,
+  DEFAULT_WEBARENA_APPS,
+} from './webarena.js';
+export type {
+  WebArenaAppName,
+  ResetStrategy,
+  WebArenaAppConfig,
+  WebArenaConfig,
+  AppConnectivityStatus,
+  ServiceVerificationResult,
+  AppResetResult,
+  ResetAllResult,
+} from './webarena.js';
+
 export type {
   ObservationMode,
   LlmBackend,

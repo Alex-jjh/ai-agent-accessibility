@@ -204,14 +204,14 @@ Incremental implementation of the six-module research platform, starting with sh
     - Test resume skips completed cases
     - _Requirements: 8.1–8.5_
 
-- [ ] 12. Module 3: Agent Runner — Concurrency and WebArena integration
-  - [ ] 12.1 Implement concurrent execution with browser context isolation (`src/runner/concurrency.ts`)
+- [x] 12. Module 3: Agent Runner — Concurrency and WebArena integration
+  - [x] 12.1 Implement concurrent execution with browser context isolation (`src/runner/concurrency.ts`)
     - Support concurrent test case execution with configurable limit (default 3)
     - Isolate each browser context to prevent cross-contamination
     - Log resource utilization (memory, CPU) at configurable intervals
     - _Requirements: 19.2, 19.3, 19.4_
 
-  - [ ] 12.2 Implement WebArena Docker integration (`src/runner/webarena.ts`)
+  - [x] 12.2 Implement WebArena Docker integration (`src/runner/webarena.ts`)
     - Configure connections to 4 WebArena Docker apps (Reddit, GitLab, CMS, E-commerce) via URLs
     - Verify all services reachable before experiment start, report connectivity failures
     - Spike: investigate WebArena's reset mechanism (`bash prepare.sh` vs `docker compose down && up` vs DB restore). Document which apps support clean reset and which don't.
