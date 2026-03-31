@@ -6,13 +6,13 @@ Incremental implementation of the six-module research platform, starting with sh
 
 ## Tasks
 
-- [ ] 1. Project scaffolding and shared types
-  - [ ] 1.1 Initialize TypeScript project with Playwright, axe-core, and Lighthouse dependencies
+- [x] 1. Project scaffolding and shared types
+  - [x] 1.1 Initialize TypeScript project with Playwright, axe-core, and Lighthouse dependencies
     - Create `package.json`, `tsconfig.json`, install `@axe-core/playwright`, `lighthouse`, `playwright`, `litellm` client, `js-yaml`
     - Create directory structure: `src/scanner/`, `src/variants/`, `src/runner/`, `src/classifier/`, `src/recorder/`, `src/config/`, `src/export/`
     - _Requirements: 1.1, 2.1, 18.1_
 
-  - [ ] 1.2 Define core TypeScript interfaces and types
+  - [x] 1.2 Define core TypeScript interfaces and types
     - Implement `Tier1Metrics`, `Tier2Metrics`, `CompositeScoreResult`, `SensitivityMode` interfaces in `src/scanner/types.ts`
     - Implement `VariantLevel`, `DomChange`, `VariantDiff` types in `src/variants/types.ts`
     - Implement `AgentConfig`, `ActionTraceStep`, `ActionTrace`, `TaskOutcome`, `ObservationMode`, `LlmBackend` in `src/runner/types.ts`
@@ -21,26 +21,26 @@ Incremental implementation of the six-module research platform, starting with sh
     - Implement `ExperimentConfig`, `ExperimentManifest`, `CsvExportOptions` in `src/config/types.ts`
     - _Requirements: 1.1–1.5, 2.1–2.9, 5.1–5.7, 7.1–7.8, 9.1–9.6, 11.1–11.6, 15.1–15.4, 18.1–18.4_
 
-  - [ ]* 1.3 Write unit tests for type validation helpers
+  - [x] 1.3 Write unit tests for type validation helpers
     - Test that metric values enforce 0.0–1.0 range (Req 2.9)
     - Test VariantLevel enum completeness
     - Test FailureType enum covers all 11 types across 4 domains
     - _Requirements: 2.9, 9.1_
 
-- [ ] 2. Configuration management
-  - [ ] 2.1 Implement config loader and validator (`src/config/loader.ts`)
+- [x] 2. Configuration management
+  - [x] 2.1 Implement config loader and validator (`src/config/loader.ts`)
     - `loadConfig(filePath: string): ExperimentConfig` — parse YAML or JSON config files
     - `validateConfig(config: unknown): { valid: boolean; errors: string[] }` — validate all required fields, report specific errors for missing/invalid values
     - Apply documented default values for unspecified fields (step limits, retry counts, concurrency, intervals)
     - _Requirements: 18.1, 18.2, 18.4_
 
-  - [ ]* 2.2 Write unit tests for config loader
+  - [x] 2.2 Write unit tests for config loader
     - Test valid YAML and JSON parsing
     - Test validation error reporting for missing required fields
     - Test default value application
     - _Requirements: 18.1, 18.2, 18.4_
 
-- [ ] 3. Checkpoint — Ensure all tests pass
+- [x] 3. Checkpoint — Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
 - [ ] 4. Module 1: Scanner — Tier 1
@@ -52,7 +52,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - Accept configurable WCAG conformance levels (A, AA, AAA) to filter axe-core rules
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-  - [ ]* 4.2 Write unit tests for Tier 1 Scanner
+  - [ ] 4.2 Write unit tests for Tier 1 Scanner
     - Test axe-core result parsing and grouping by WCAG criterion
     - Test Lighthouse score extraction
     - Test error handling when one tool fails (partial results returned)
@@ -79,7 +79,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - All metrics returned as decimals 0.0–1.0 (Req 2.9)
     - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 2.7, 2.8, 2.9_
 
-  - [ ]* 5.3 Write unit tests for Tier 2 Scanner
+  - [ ] 5.3 Write unit tests for Tier 2 Scanner
     - Test each metric computation with mock DOM structures
     - Test keyboard navigability safety guards (trap detection, max tabs, timeout)
     - Test pseudo-compliance detection with role-without-handler elements
@@ -93,7 +93,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - Output composite score alongside all individual metric values in structured JSON
     - _Requirements: 4.1, 4.2, 4.3, 4.4_
 
-  - [ ]* 5.5 Write property test for Composite Score round-trip consistency
+  - [ ] 5.5 Write property test for Composite Score round-trip consistency
     - Verify serialize → deserialize produces equivalent object for any valid scan result (Req 16.3)
     - _Requirements: 16.3_
 
@@ -104,7 +104,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - Return descriptive error with location and nature of parsing failure on invalid JSON
     - _Requirements: 16.1, 16.2, 16.3, 16.4_
 
-  - [ ]* 6.2 Write property test for scan result round-trip
+  - [ ] 6.2 Write property test for scan result round-trip
     - For all valid scan result objects, serialize then deserialize produces equivalent object
     - _Requirements: 16.3_
 
@@ -137,7 +137,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - Apply to all 4 WebArena apps (Reddit, GitLab, CMS, E-commerce)
     - _Requirements: 5.5, 5.6_
 
-  - [ ]* 8.4 Write unit tests for Variant Generator
+  - [ ] 8.4 Write unit tests for Variant Generator
     - Test Low variant removes semantic elements and ARIA attributes
     - Test Medium-Low variant creates pseudo-compliance (role present, handler absent)
     - Test Base variant returns empty diff
@@ -172,7 +172,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - Terminate on configurable step limit (default 30) with timeout outcome
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.7_
 
-  - [ ]* 10.3 Write unit tests for Agent Executor
+  - [ ] 10.3 Write unit tests for Agent Executor
     - Test action trace logging captures all required fields
     - Test step limit enforcement and timeout recording
     - Test LLM retry with exponential backoff
@@ -194,11 +194,11 @@ Incremental implementation of the six-module research platform, starting with sh
     - Return descriptive error on invalid JSON
     - _Requirements: 17.1, 17.2, 17.3, 17.4_
 
-  - [ ]* 11.3 Write property test for Action Trace round-trip
+  - [ ] 11.3 Write property test for Action Trace round-trip
     - For all valid ActionTrace objects, serialize then deserialize produces equivalent object
     - _Requirements: 17.3_
 
-  - [ ]* 11.4 Write unit tests for Experiment Matrix Scheduler
+  - [ ] 11.4 Write unit tests for Experiment Matrix Scheduler
     - Test matrix generates correct number of test cases (apps × variants × tasks × repetitions)
     - Test randomization produces different orderings
     - Test resume skips completed cases
@@ -236,7 +236,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - Support dual reporting: conservative (accessibility-only) and inclusive (all failures)
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
 
-  - [ ]* 14.2 Write unit tests for Auto-Classifier
+  - [ ] 14.2 Write unit tests for Auto-Classifier
     - Test each of the 11 failure type pattern detectors with mock traces
     - Test multi-domain classification with primary/secondary assignment
     - Test confidence scoring and review flagging threshold
@@ -250,7 +250,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - `computeCohensKappa(auto, manual): InterRaterResult` — compute Cohen's kappa, agreement rate, confusion matrix
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
-  - [ ]* 14.4 Write unit tests for Cohen's kappa computation
+  - [ ] 14.4 Write unit tests for Cohen's kappa computation
     - Test perfect agreement (kappa = 1.0)
     - Test random agreement (kappa ≈ 0.0)
     - Test confusion matrix correctness
@@ -279,7 +279,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - Support running Scanner and Agent_Runner against replayed pages identically to live pages
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
 
-  - [ ]* 16.3 Write unit tests for HAR Recorder
+  - [ ] 16.3 Write unit tests for HAR Recorder
     - Test HAR capture produces valid HAR files with metadata
     - Test replay serves recorded responses and returns 404 for unmatched
     - Test functional vs non-functional request classification
@@ -320,7 +320,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - `failure_taxonomy_sankey(classifications)` — Sankey diagram of failure type distribution
     - _Requirements: 13.3, 14.2, 14.4_
 
-  - [ ]* 18.5 Write unit tests for Analysis Engine
+  - [ ] 18.5 Write unit tests for Analysis Engine
     - Test CLMM and GEE model fitting with synthetic data
     - Test Random Forest training and SHAP computation
     - Test interaction effect detection with known gradient patterns
@@ -348,7 +348,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - Follow file system layout: `data/track-a/runs/{runId}/cases/{caseId}/`, `data/track-b/har/{harId}/`, `data/exports/`
     - _Requirements: 15.1_
 
-  - [ ]* 20.4 Write unit tests for Data Export
+  - [ ] 20.4 Write unit tests for Data Export
     - Test manifest includes all required software versions and config
     - Test CSV export produces valid CSV with correct columns
     - Test PII anonymization removes cookies, tokens, emails
@@ -367,7 +367,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - Ensure Track A (WebArena variants) and Track B (HAR replay) pipelines both work through the same runner
     - _Requirements: 8.1, 8.4, 12.4, 18.1, 18.3_
 
-  - [ ]* 21.3 Write integration tests for end-to-end pipeline
+  - [ ] 21.3 Write integration tests for end-to-end pipeline
     - Test config → scan → export flow with mock browser
     - Test variant generation → validation → agent run flow
     - Test HAR capture → replay → scan flow
