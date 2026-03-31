@@ -1,0 +1,93 @@
+# Experiment Configuration
+# Full Track A + Track B experiment matrix.
+
+webarena:
+  apps:
+    reddit:
+      url: "http://localhost:9999"
+      resetEndpoint: "http://localhost:9999/api/reset"
+    gitlab:
+      url: "http://localhost:8023"
+    cms:
+      url: "http://localhost:7770"
+    ecommerce:
+      url: "http://localhost:7780"
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 30000
+  concurrency: 5
+
+variants:
+  levels: ["low", "medium-low", "base", "high"]
+  scoreRanges:
+    low:        { min: 0.0,  max: 0.25 }
+    medium-low: { min: 0.25, max: 0.50 }
+    base:       { min: 0.40, max: 0.70 }
+    high:       { min: 0.75, max: 1.0  }
+
+runner:
+  repetitions: 3
+  maxSteps: 30
+  concurrency: 3
+  agentConfigs:
+    # Primary: Claude Opus (strongest model, both modes)
+    - observationMode: "text-only"
+      llmBackend: "claude-opus"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    - observationMode: "vision"
+      llmBackend: "claude-opus"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+    # Claude Sonnet (mid-tier, both modes)
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    - observationMode: "vision"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+    # Claude Haiku (lightweight, text-only)
+    - observationMode: "text-only"
+      llmBackend: "claude-haiku"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+    # Amazon Nova Pro (text-only)
+    - observationMode: "text-only"
+      llmBackend: "nova-pro"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+    # Meta Llama 4 (text-only)
+    - observationMode: "text-only"
+      llmBackend: "llama4"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 5
+
+output:
+  dataDir: "./data"
+  exportFormats: ["json", "csv"]

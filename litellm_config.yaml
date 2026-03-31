@@ -1,0 +1,32 @@
+# LiteLLM Proxy Configuration
+# Routes model names used in config.yaml to AWS Bedrock endpoints.
+# Start with: litellm --config litellm_config.yaml --port 4000
+
+model_list:
+  # --- Anthropic Claude (via Bedrock) ---
+  - model_name: claude-opus
+    litellm_params:
+      model: bedrock/us.anthropic.claude-opus-4-v1
+      aws_region_name: us-east-1
+
+  - model_name: claude-sonnet
+    litellm_params:
+      model: bedrock/us.anthropic.claude-sonnet-4-v1
+      aws_region_name: us-east-1
+
+  - model_name: claude-haiku
+    litellm_params:
+      model: bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0
+      aws_region_name: us-east-1
+
+  # --- Amazon Nova (via Bedrock) ---
+  - model_name: nova-pro
+    litellm_params:
+      model: bedrock/us.amazon.nova-pro-v1:0
+      aws_region_name: us-east-1
+
+  # --- Meta Llama (via Bedrock) ---
+  - model_name: llama4
+    litellm_params:
+      model: bedrock/us.meta.llama4-maverick-17b-instruct-v1:0
+      aws_region_name: us-east-1
