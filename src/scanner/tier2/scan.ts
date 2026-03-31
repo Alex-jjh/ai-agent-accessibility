@@ -147,81 +147,75 @@ async function computeAccessibleNameCoverage(
  * - Trap detection (5 consecutive same-element = trapped)
  */
 async function computeKeyboardNavigability(page: Page): Promise<number> {
-  return await page.evaluate(
-    ({ maxTabs, timeoutMs, trapThreshold }) => {
-      return new Promise<number>((resolve) => {
-        const startTime = Date.now();
-        const startElement = document.activeElement;
-        const focusedElements = new Set<Element>();
-        let consecutiveSame = 0;
-        let lastElement: Element | null = null;
-        let tabCount = 0;
+  // Count total focusable elements first
+  const totalFocusable = await page.evaluate(() => {
+    const focusableSelector =
+      'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    return document.querySelectorAll(focusableSelector).length;
+  });
 
-        // Count total focusable elements
-        const focusableSelector =
-          'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
-        const totalFocusable = document.querySelectorAll(focusableSelector).length;
+  if (totalFocusable === 0) return 0;
 
-        if (totalFocusable === 0) {
-          resolve(0);
-          return;
-        }
+  // Use page.keyboard.press('Tab') — the real browser focus management —
+  // instead of dispatchEvent which doesn't actually move focus.
+  const focusedTagNames = new Set<string>();
+  let consecutiveSame = 0;
+  let lastTag = '';
+  let lastId = '';
+  const startTime = Date.now();
 
-        function step() {
-          if (tabCount >= maxTabs || Date.now() - startTime > timeoutMs) {
-            resolve(totalFocusable === 0 ? 0 : Math.min(1, focusedElements.size / totalFocusable));
-            return;
-          }
+  // Record the starting element
+  const startInfo = await page.evaluate(() => {
+    const el = document.activeElement;
+    return { tag: el?.tagName ?? '', id: el?.id ?? '' };
+  });
 
-          // Simulate Tab key
-          const event = new KeyboardEvent('keydown', {
-            key: 'Tab',
-            code: 'Tab',
-            bubbles: true,
-            cancelable: true,
-          });
-          document.activeElement?.dispatchEvent(event);
+  for (let tabCount = 0; tabCount < MAX_TAB_PRESSES; tabCount++) {
+    // Timeout guard
+    if (Date.now() - startTime > KEYBOARD_TIMEOUT_MS) break;
 
-          // Move focus manually since KeyboardEvent doesn't actually move focus
-          // We need to use the browser's built-in focus management
-          // This is a limitation — in real Playwright we'd use page.keyboard.press('Tab')
-          // For evaluate context, we track what's focusable
-          tabCount++;
+    await page.keyboard.press('Tab');
 
-          const current = document.activeElement;
-          if (current && current !== document.body) {
-            focusedElements.add(current);
-          }
+    // Check where focus landed
+    const current = await page.evaluate(() => {
+      const el = document.activeElement;
+      if (!el || el === document.body) return null;
+      return {
+        tag: el.tagName.toLowerCase(),
+        id: el.id ?? '',
+        // Build a unique-ish key for this element
+        key: `${el.tagName}#${el.id}.${el.className}`,
+      };
+    });
 
-          // Trap detection
-          if (current === lastElement) {
-            consecutiveSame++;
-            if (consecutiveSame >= trapThreshold) {
-              // Keyboard trap detected — break
-              resolve(totalFocusable === 0 ? 0 : Math.min(1, focusedElements.size / totalFocusable));
-              return;
-            }
-          } else {
-            consecutiveSame = 0;
-          }
-          lastElement = current;
+    if (!current) {
+      // Focus went to body — cycle complete
+      if (tabCount > 0) break;
+      continue;
+    }
 
-          // Cycle complete: focus returned to start or body
-          if (tabCount > 1 && (current === startElement || current === document.body)) {
-            resolve(totalFocusable === 0 ? 0 : Math.min(1, focusedElements.size / totalFocusable));
-            return;
-          }
+    focusedTagNames.add(current.key);
 
-          // Continue on next microtask
-          setTimeout(step, 0);
-        }
+    // Trap detection: same element N times in a row
+    const currentFingerprint = `${current.tag}#${current.id}`;
+    if (currentFingerprint === `${lastTag}#${lastId}`) {
+      consecutiveSame++;
+      if (consecutiveSame >= TRAP_THRESHOLD) break; // keyboard trap
+    } else {
+      consecutiveSame = 0;
+    }
+    lastTag = current.tag;
+    lastId = current.id;
 
-        step();
-      });
-    },
-    { maxTabs: MAX_TAB_PRESSES, timeoutMs: KEYBOARD_TIMEOUT_MS, trapThreshold: TRAP_THRESHOLD },
-  );
+    // Cycle complete: focus returned to starting element
+    if (tabCount > 0 && current.tag === startInfo.tag && current.id === startInfo.id && startInfo.id !== '') {
+      break;
+    }
+  }
+
+  return safeRatio(focusedTagNames.size, totalFocusable);
 }
+
 
 /**
  * Req 2.4: ARIA correctness.
@@ -308,7 +302,8 @@ async function computePseudoCompliance(
   page: Page,
   cdpSession: CDPSession,
 ): Promise<{ count: number; ratio: number }> {
-  // Get all elements with interactive roles
+  // Get all elements with interactive ARIA roles (Req 2.5)
+  // Use page.$$ to get ALL matching elements, not just the first one
   const elementHandles = await page.$$('[role="button"], [role="link"], [role="checkbox"], [role="tab"], [role="menuitem"]');
 
   if (elementHandles.length === 0) {
@@ -319,15 +314,28 @@ async function computePseudoCompliance(
 
   for (const handle of elementHandles) {
     try {
-      // Get the element's remote object ID via CDP
+      // Stamp a unique data attribute on this specific element so we can
+      // locate it via CDP Runtime.evaluate and get its remote objectId.
+      // This avoids the bug of always querying document.querySelector('[role]')
+      // which would only ever inspect the first role element.
+      const uid = `__pc_${Math.random().toString(36).slice(2)}`;
+      await handle.evaluate((el: Element, id: string) => {
+        el.setAttribute('data-pc-uid', id);
+      }, uid);
+
       const { result } = await cdpSession.send('Runtime.evaluate' as any, {
-        expression: `document.querySelector('[role]')`,
+        expression: `document.querySelector('[data-pc-uid="${uid}"]')`,
         returnByValue: false,
+      });
+
+      // Clean up the temporary attribute
+      await handle.evaluate((el: Element) => {
+        el.removeAttribute('data-pc-uid');
       });
 
       if (!result?.objectId) continue;
 
-      // Check for event listeners
+      // Check for event listeners on this specific element
       const { listeners } = await cdpSession.send('DOMDebugger.getEventListeners' as any, {
         objectId: result.objectId,
       }) as { listeners: Array<{ type: string }> };
@@ -349,6 +357,7 @@ async function computePseudoCompliance(
     ratio: safeRatio(pseudoCompliantCount, elementHandles.length),
   };
 }
+
 
 /**
  * Req 2.6: Form labeling completeness.
