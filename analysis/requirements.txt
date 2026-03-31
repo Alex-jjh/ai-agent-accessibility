@@ -1,0 +1,15 @@
+# Analysis Engine (Module 6) — Python dependencies
+# Statistical modeling
+statsmodels>=0.14.0
+pymer4>=0.8.1          # Python wrapper for R's lme4 (requires R runtime)
+
+# Machine learning
+scikit-learn>=1.4.0
+shap>=0.45.0
+
+# Visualization
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# Data handling
+pandas>=2.1.0

@@ -222,8 +222,8 @@ Incremental implementation of the six-module research platform, starting with sh
 - [ ] 13. Checkpoint — Ensure all Runner tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 14. Module 4: Failure Classifier
-  - [ ] 14.1 Implement Auto-Classifier (`src/classifier/taxonomy/classify.ts`)
+- [x] 14. Module 4: Failure Classifier
+  - [x] 14.1 Implement Auto-Classifier (`src/classifier/taxonomy/classify.ts`)
     - `classifyFailure(trace: ActionTrace): FailureClassification` — pattern matching on ActionTrace entries
     - Implement all 11 failure type detectors across 4 domains:
       - Accessibility: F_ENF (≥3 consecutive failed selectors), F_WEA (wrong element actuation), F_KBT (tab cycles), F_PCT (role + no handler), F_SDI (shadow DOM invisible)
@@ -236,21 +236,21 @@ Incremental implementation of the six-module research platform, starting with sh
     - Support dual reporting: conservative (accessibility-only) and inclusive (all failures)
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
 
-  - [ ] 14.2 Write unit tests for Auto-Classifier
+  - [x] 14.2 Write unit tests for Auto-Classifier
     - Test each of the 11 failure type pattern detectors with mock traces
     - Test multi-domain classification with primary/secondary assignment
     - Test confidence scoring and review flagging threshold
     - Test conservative vs inclusive reporting modes
     - _Requirements: 9.1–9.6_
 
-  - [ ] 14.3 Implement Manual Review interface (`src/classifier/review/`)
+  - [x] 14.3 Implement Manual Review interface (`src/classifier/review/`)
     - `selectForReview(classifications, sampleRate): ReviewItem[]` — randomly select 10% of classified failures
     - Present ActionTrace, auto-classification, confidence, page screenshot, and A11y tree snapshot
     - Store both auto and manual classifications for inter-rater reliability
     - `computeCohensKappa(auto, manual): InterRaterResult` — compute Cohen's kappa, agreement rate, confusion matrix
     - _Requirements: 10.1, 10.2, 10.3, 10.4_
 
-  - [ ] 14.4 Write unit tests for Cohen's kappa computation
+  - [x] 14.4 Write unit tests for Cohen's kappa computation
     - Test perfect agreement (kappa = 1.0)
     - Test random agreement (kappa ≈ 0.0)
     - Test confusion matrix correctness
@@ -259,8 +259,8 @@ Incremental implementation of the six-module research platform, starting with sh
 - [ ] 15. Checkpoint — Ensure all Classifier tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 16. Module 5: HAR Recorder
-  - [ ] 16.1 Implement HAR Capture (`src/recorder/capture/capture.ts`)
+- [x] 16. Module 5: HAR Recorder
+  - [x] 16.1 Implement HAR Capture (`src/recorder/capture/capture.ts`)
     - `captureHar(options): Promise<HarCaptureResult[]>` — navigate to each URL via Playwright, capture full HTTP transaction log as HAR
     - Capture all sub-resource requests (scripts, stylesheets, images, fonts, API calls)
     - Execute page JS and wait configurable time (default 10s after load) for dynamic content
@@ -270,7 +270,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - Support at least 50 websites across multiple sectors and geographies
     - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 19.1_
 
-  - [ ] 16.2 Implement HAR Replay Server (`src/recorder/replay/replay.ts`)
+  - [x] 16.2 Implement HAR Replay Server (`src/recorder/replay/replay.ts`)
     - `createReplaySession(browser, options): Promise<ReplaySession>` — serve recorded HTTP responses via Playwright's `routeFromHAR`
     - Intercept unmatched requests: return 404 and log URL
     - Classify requests as functional (HTML, JS, CSS, API) vs non-functional (analytics, ads, tracking — matched by domain patterns)
@@ -279,7 +279,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - Support running Scanner and Agent_Runner against replayed pages identically to live pages
     - _Requirements: 12.1, 12.2, 12.3, 12.4, 12.5_
 
-  - [ ] 16.3 Write unit tests for HAR Recorder
+  - [x] 16.3 Write unit tests for HAR Recorder
     - Test HAR capture produces valid HAR files with metadata
     - Test replay serves recorded responses and returns 404 for unmatched
     - Test functional vs non-functional request classification
@@ -289,15 +289,15 @@ Incremental implementation of the six-module research platform, starting with sh
 - [ ] 17. Checkpoint — Ensure all TypeScript module tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 18. Module 6: Analysis Engine (Python)
-  - [ ] 18.1 Set up Python analysis project (`analysis/`)
+- [x] 18. Module 6: Analysis Engine (Python)
+  - [x] 18.1 Set up Python analysis project (`analysis/`)
     - Create `requirements.txt` with `statsmodels`, `scikit-learn`, `shap`, `matplotlib`, `seaborn`, `pandas`, `pymer4` (Python wrapper for R's lme4, preferred for mixed-effects logistic regression)
     - If `pymer4` install fails (requires R runtime): fall back to `statsmodels.genmod.generalized_estimating_equations.GEE` with ordinal coding for Track A. Document the trade-off in `analysis/README.md` — paper should justify the model choice.
     - Alternative path: install R + `ordinal` package + `rpy2` for true CLMM. Only pursue if `pymer4` is insufficient for the paper's statistical claims.
     - Create directory structure: `analysis/models/`, `analysis/viz/`
     - _Requirements: 13.1, 14.1_
 
-  - [ ] 18.2 Implement Primary Analysis models (`analysis/models/primary.py`)
+  - [x] 18.2 Implement Primary Analysis models (`analysis/models/primary.py`)
     - `PrimaryAnalysis.fit_clmm(data)` — mixed-effects logistic regression for Track A via `pymer4` (or `statsmodels.GEE` with ordinal coding as fallback); DV: agent_success (binary), IV: a11y_variant_level (ordinal, 4 levels), random effects: (1|app), (1|llm_backend). Note: true CLMM (ordinal DV) only needed if using three-level outcome (failure/partial/success).
     - `PrimaryAnalysis.fit_gee(data)` — GEE with logit link for Track B; DV: agent_success (binary), IV: criterion-level Tier 1+2 feature vector (NOT Composite_Score), random intercepts: (1|website), (1|llm_backend)
     - `PrimaryAnalysis.interaction_effect(data)` — test a11y_variant × observation_mode interaction; expected: Text-Only shows strong gradient, Vision shows weak/null gradient
@@ -306,21 +306,21 @@ Incremental implementation of the six-module research platform, starting with sh
     - Report coefficients, confidence intervals, p-values, effect sizes for all predictors
     - _Requirements: 13.1, 13.2, 13.3, 13.4, 13.5, 8.6_
 
-  - [ ] 18.3 Implement Secondary Analysis models (`analysis/models/secondary.py`)
+  - [x] 18.3 Implement Secondary Analysis models (`analysis/models/secondary.py`)
     - `SecondaryAnalysis.train_random_forest(X, y)` — features: individual WCAG criterion pass/fail indicators, target: agent success (binary)
     - `SecondaryAnalysis.compute_shap(model, X)` — SHAP values for each WCAG criterion
     - `SecondaryAnalysis.partial_dependence_plots(model, X, top_n=10)` — PDP for top 10 most important criteria
     - Rank WCAG criteria by SHAP importance, output top predictors with scores
     - _Requirements: 14.1, 14.2, 14.3, 14.4_
 
-  - [ ] 18.4 Implement Visualization Engine (`analysis/viz/figures.py`)
+  - [x] 18.4 Implement Visualization Engine (`analysis/viz/figures.py`)
     - `variant_success_heatmap(data)` — heatmap of success rates by variant × app
     - `shap_summary_plot(shap_values, features)` — SHAP summary beeswarm plot
     - `interaction_effect_plot(data)` — Text-Only vs Vision gradient comparison
     - `failure_taxonomy_sankey(classifications)` — Sankey diagram of failure type distribution
     - _Requirements: 13.3, 14.2, 14.4_
 
-  - [ ] 18.5 Write unit tests for Analysis Engine
+  - [x] 18.5 Write unit tests for Analysis Engine
     - Test CLMM and GEE model fitting with synthetic data
     - Test Random Forest training and SHAP computation
     - Test interaction effect detection with known gradient patterns
