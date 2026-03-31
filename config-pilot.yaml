@@ -1,0 +1,39 @@
+# Pilot Experiment Config — minimal Track A run
+# 1 app × 2 variants × 3 tasks × 1 LLM × 3 reps = 18 test cases
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://localhost:7780"
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["low", "high"]
+  scoreRanges:
+    low:  { min: 0.0, max: 0.25 }
+    high: { min: 0.75, max: 1.0 }
+
+runner:
+  repetitions: 3
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/pilot"
+  exportFormats: ["json", "csv"]
