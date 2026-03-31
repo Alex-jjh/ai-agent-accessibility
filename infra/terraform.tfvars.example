@@ -1,0 +1,6 @@
+# Copy to terraform.tfvars and fill in your values
+aws_region          = "us-east-1"
+instance_type       = "r6i.2xlarge"
+ssh_public_key_path = "~/.ssh/id_rsa.pub"
+project_name        = "a11y-platform"
+github_repo         = "https://github.com/Alex-jjh/ai-agent-accessibility.git"
