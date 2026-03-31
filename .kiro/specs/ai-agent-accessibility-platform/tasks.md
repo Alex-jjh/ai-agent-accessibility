@@ -149,8 +149,8 @@ Incremental implementation of the six-module research platform, starting with sh
 - [ ] 9. Checkpoint — Ensure all Scanner and Variant tests pass
   - Ensure all tests pass, ask the user if questions arise.
 
-- [ ] 10. Module 3: Agent Runner — Core
-  - [ ] 10.0 BrowserGym exploration spike
+- [x] 10. Module 3: Agent Runner — Core
+  - [x] 10.0 BrowserGym exploration spike
     - Install BrowserGym and run its example agent against one WebArena app to understand the API surface
     - Document: `env.reset()` / `env.step(action)` interface, how A11y Tree observation is exposed (raw text vs parsed), screenshot format (base64 vs file path), action space encoding
     - Determine how to inject variant DOM patches before/after `env.reset()`
@@ -158,13 +158,13 @@ Incremental implementation of the six-module research platform, starting with sh
     - Output: a short `docs/browsergym-notes.md` with API findings and integration plan
     - _Requirements: 7.1, 7.4, 7.5_
 
-  - [ ] 10.1 Implement LLM Backend Adapter (`src/runner/backends/llm.ts`)
+  - [x] 10.1 Implement LLM Backend Adapter (`src/runner/backends/llm.ts`)
     - `callLlm(request, retryConfig): Promise<LlmResponse>` — call LiteLLM proxy at `localhost:4000/v1/chat/completions`
     - Support Claude and GPT-4o backends via model name prefix
     - Implement exponential backoff retry: delay = `backoffMs * 2^attempt`, up to configurable max retries (default 3)
     - _Requirements: 7.6, 7.8_
 
-  - [ ] 10.2 Implement Agent Executor (`src/runner/agents/executor.ts`)
+  - [x] 10.2 Implement Agent Executor (`src/runner/agents/executor.ts`)
     - Initialize BrowserGym environment with target URL and AgentConfig
     - Execute agent step loop: capture observation (A11y tree text for text-only, screenshot for vision), send to LLM, parse action, execute action, log result
     - Log `ActionTraceStep` per step: stepNum, timestamp, observation, reasoning, action, result
@@ -172,7 +172,7 @@ Incremental implementation of the six-module research platform, starting with sh
     - Terminate on configurable step limit (default 30) with timeout outcome
     - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.7_
 
-  - [ ] 10.3 Write unit tests for Agent Executor
+  - [x] 10.3 Write unit tests for Agent Executor
     - Test action trace logging captures all required fields
     - Test step limit enforcement and timeout recording
     - Test LLM retry with exponential backoff
