@@ -16,6 +16,7 @@
 import { chromium } from 'playwright';
 import { loadConfig } from '../src/config/index.js';
 import { executeAgentTask } from '../src/runner/agents/executor.js';
+import { writeFileSync, mkdirSync } from 'node:fs';
 
 // Targeted task list: app → task IDs
 const TASKS: Record<string, string[]> = {
@@ -75,6 +76,13 @@ async function main() {
           failureType: trace.failureType,
           lastAction: lastAction.substring(0, 80),
         });
+
+        // Persist full trace
+        const outDir = './data/regression/cases';
+        mkdirSync(outDir, { recursive: true });
+        writeFileSync(`${outDir}/${app}_${taskId}.json`, JSON.stringify({
+          app, taskId, trace, config: config.runner.agentConfigs[0],
+        }, null, 2));
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         console.log(`  ⚠️ Error: ${msg.substring(0, 100)}`);
@@ -101,6 +109,12 @@ async function main() {
     const icon = r.success ? '✅' : '❌';
     console.log(`${icon} ${r.app}:${r.taskId} — ${r.steps} steps, ${r.durationSec}s${r.failureType ? `, ${r.failureType}` : ''}`);
   }
+
+  // Save summary
+  const outDir = './data/regression';
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(`${outDir}/summary.json`, JSON.stringify(results, null, 2));
+  console.log(`\nResults saved to ${outDir}/`);
 }
 
 main().catch((err) => {
