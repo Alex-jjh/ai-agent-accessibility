@@ -117,15 +117,22 @@ def main() -> None:
     import os
     os.environ["PLAYWRIGHT_TIMEOUT"] = "60000"
 
-    # Ensure all WA_* env vars are set (BrowserGym asserts on init)
+    # Ensure all WA_* env vars are set (BrowserGym + webarena assert on import)
+    # Use targetUrl as fallback base for missing services
+    target_url = config.get("targetUrl", "http://localhost:7770")
+    # Extract base IP:port pattern from targetUrl
+    import re
+    base_match = re.match(r'(https?://[^:/]+)', target_url)
+    base_host = base_match.group(1) if base_match else "http://localhost"
+
     wa_defaults = {
-        "WA_SHOPPING": "",
-        "WA_SHOPPING_ADMIN": "",
-        "WA_REDDIT": "",
-        "WA_GITLAB": "",
-        "WA_WIKIPEDIA": "",
-        "WA_MAP": "",
-        "WA_HOMEPAGE": "",
+        "WA_SHOPPING": f"{base_host}:7770",
+        "WA_SHOPPING_ADMIN": f"{base_host}:7780",
+        "WA_REDDIT": f"{base_host}:9999",
+        "WA_GITLAB": f"{base_host}:8023",
+        "WA_WIKIPEDIA": f"{base_host}:8888",
+        "WA_MAP": f"{base_host}:3000",
+        "WA_HOMEPAGE": f"{base_host}:7770",
     }
     for key, default in wa_defaults.items():
         os.environ.setdefault(key, default)
