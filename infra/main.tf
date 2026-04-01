@@ -141,7 +141,7 @@ resource "aws_route_table_association" "private" {
 resource "aws_security_group" "instance" {
   name_prefix = "${var.project_name}-sg-"
   vpc_id      = aws_vpc.main.id
-  description = "Private instance — no inbound from internet, HTTPS for VPC endpoints"
+  description = "Private instance - no inbound from internet, HTTPS for VPC endpoints"
 
   # Allow HTTPS inbound from VPC (for VPC endpoints)
   ingress {
