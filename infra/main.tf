@@ -25,7 +25,7 @@ provider "aws" {
 
 variable "aws_region" {
   type    = string
-  default = "us-east-1"
+  default = "us-east-2"  # Same region as WebArena AMI
 }
 
 variable "instance_type" {
