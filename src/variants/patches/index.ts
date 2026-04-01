@@ -12,12 +12,16 @@ import type { VariantLevel, DomChange, VariantDiff } from '../types.js';
  * using the Web Crypto API (crypto.subtle.digest).
  */
 async function computeDomHash(page: Page): Promise<string> {
-  return page.evaluate(async () => {
+  return page.evaluate(() => {
+    // Use a simple djb2 hash instead of crypto.subtle.digest
+    // because crypto.subtle is only available in secure contexts (HTTPS).
+    // WebArena runs on HTTP, so we need a pure-JS fallback.
     const html = document.documentElement.outerHTML;
-    const data = new TextEncoder().encode(html);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    let hash = 5381;
+    for (let i = 0; i < html.length; i++) {
+      hash = ((hash << 5) + hash + html.charCodeAt(i)) >>> 0;
+    }
+    return hash.toString(16).padStart(8, '0');
   });
 }
 

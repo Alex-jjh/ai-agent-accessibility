@@ -10,17 +10,18 @@ import type { Page } from 'playwright';
 import type { VariantDiff, DomChange } from '../types.js';
 
 /**
- * Compute SHA-256 hash of the serialized DOM inside the browser
- * using the Web Crypto API (crypto.subtle.digest).
- * Same approach as in patches/index.ts for consistency.
+ * Compute hash of the serialized DOM inside the browser.
+ * Uses djb2 hash instead of crypto.subtle because WebArena
+ * runs on HTTP (not a secure context).
  */
 async function computeDomHash(page: Page): Promise<string> {
-  return page.evaluate(async () => {
+  return page.evaluate(() => {
     const html = document.documentElement.outerHTML;
-    const data = new TextEncoder().encode(html);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    let hash = 5381;
+    for (let i = 0; i < html.length; i++) {
+      hash = ((hash << 5) + hash + html.charCodeAt(i)) >>> 0;
+    }
+    return hash.toString(16).padStart(8, '0');
   });
 }
 
