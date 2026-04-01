@@ -204,8 +204,54 @@ Use the official AMI (`ami-08a862bf98e3bd7aa` in us-east-2) instead.
 ### WA_HOMEPAGE Required
 BrowserGym asserts all WA_* env vars are set. Set `WA_HOMEPAGE` to shopping URL as fallback (no dedicated homepage service).
 
-### Magento 302 Redirect
-Magento redirects to configured base URL. Must set base URL to the actual IP after deployment. Also causes `fetch` timeout — platform uses `redirect: 'manual'` and 30s timeout.
+### Magento 302 Redirect → Chromium Connection Refused (CRITICAL)
+Magento redirects to its configured `base_url`. The WebArena AMI's user-data script tries to auto-configure this using `curl metadata`, but on private subnets the metadata may return a public hostname (e.g., `ec2-3-131-244-37.us-east-2.compute.amazonaws.com`). Chromium follows the redirect to the public hostname, which is unreachable from the private subnet → `ERR_CONNECTION_REFUSED`. `curl` appears to work because `-o /dev/null` ignores the redirect body.
+
+**Fix:** After every deploy, SSM into WebArena and manually set base URLs to the private IP:
+```bash
+PRIVATE_IP=<webarena_private_ip_from_terraform_output>
+sudo docker exec shopping /var/www/magento2/bin/magento setup:store-config:set --base-url="http://$PRIVATE_IP:7770/"
+sudo docker exec shopping mysql -u magentouser -pMyPassword magentodb -e "UPDATE core_config_data SET value='http://$PRIVATE_IP:7770/' WHERE path = 'web/secure/base_url';"
+sudo docker exec shopping /var/www/magento2/bin/magento cache:flush
+sudo docker exec shopping_admin /var/www/magento2/bin/magento setup:store-config:set --base-url="http://$PRIVATE_IP:7780/"
+sudo docker exec shopping_admin mysql -u magentouser -pMyPassword magentodb -e "UPDATE core_config_data SET value='http://$PRIVATE_IP:7780/' WHERE path = 'web/secure/base_url';"
+sudo docker exec shopping_admin /var/www/magento2/bin/magento cache:flush
+```
+**Verify:** `curl -v http://<IP>:7770 2>&1 | grep Location` should show NO Location header (200, not 302).
+
+### Python Playwright Needs Separate Browser Install
+Node's `npx playwright install chromium` and Python's `python -m playwright install chromium` are independent. BrowserGym uses the Python version. You must run both:
+```bash
+npx playwright install chromium
+python -m playwright install chromium
+```
+
+### SSM Session Doesn't Load nvm
+SSM sessions use `sh` not `bash`, and don't source `.bashrc`. Node/npm/npx won't be found.
+**Fix:** Bootstrap script now writes nvm loader to `.bashrc`. For existing sessions:
+```bash
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+```
+
+### GitLab Takes 10-15 Minutes to Start
+GitLab container shows `(unhealthy)` for up to 15 minutes on `t3a.xlarge`. Wait or `sudo docker restart gitlab`. Check with `sudo docker ps --format "table {{.Names}}\t{{.Status}}" | grep gitlab`.
+
+### WA_MAP and WA_SHOPPING_ADMIN Env Vars
+BrowserGym tries to login to ALL `WA_*` services on reset. If a service isn't running, it fails. Only set env vars for services that are actually up:
+```bash
+unset WA_MAP            # No map service in WebArena AMI
+unset WA_SHOPPING_ADMIN # Only set if 7780 is confirmed working
+```
+
+### Bedrock Region Must Match VPC Endpoint
+LiteLLM config must use the same region as the VPC endpoint (us-east-2). Using us-east-1 causes 403 because the IAM policy and VPC endpoint are in us-east-2. All `aws_region_name` in `litellm_config.yaml` must be `us-east-2`.
+
+### Terraform Inline vs Standalone SG Rules Conflict
+Never mix inline `ingress {}` blocks in `aws_security_group` with standalone `aws_security_group_rule` resources. Terraform will silently drop one set. All ingress rules are now inline in `main.tf`.
+
+### IAM Roles Persist After State Loss
+If you `terraform state rm` or lose state, IAM roles remain in AWS (they're global). Next `terraform apply` fails with `EntityAlreadyExists`. Fix: `terraform import aws_iam_role.<name> <role-name>`.
 
 ### crypto.subtle on HTTP
 WebArena runs HTTP (not HTTPS). `crypto.subtle` unavailable. DOM hashing uses djb2 instead.

@@ -61,6 +61,9 @@ python -m pip install --user 'litellm[proxy]'
 # BrowserGym + WebArena
 python -m pip install --user gymnasium browsergym-webarena Pillow numpy
 
+# Python Playwright browsers (separate from Node's npx playwright install)
+python -m playwright install chromium
+
 # --- 5. Build TypeScript ---
 echo "[5/6] Building TypeScript..."
 npm run build
