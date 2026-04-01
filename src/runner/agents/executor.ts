@@ -73,12 +73,26 @@ function buildSystemPrompt(goal: string, observationMode: 'text-only' | 'vision'
     '',
     modeNote,
     '',
-    'Respond with a JSON object containing:',
-    '- "reasoning": your step-by-step thinking',
-    '- "action": the BrowserGym action to execute (e.g., click("bid"), fill("bid", "text"), send_msg_to_user("done"))',
+    'The accessibility tree shows elements with their BrowserGym IDs (bid). Use these IDs in your actions.',
     '',
-    'If the task is complete, use send_msg_to_user("done") as your action.',
-    'If you cannot proceed, use send_msg_to_user("cannot complete") as your action.',
+    'Available actions (use EXACTLY this syntax with regular double quotes):',
+    '  click("bid")           - Click an element by its bid',
+    '  fill("bid", "text")    - Fill a text field with the given text',
+    '  scroll(x, y)           - Scroll by x,y pixels (e.g., scroll(0, 500))',
+    '  hover("bid")           - Hover over an element',
+    '  goto("url")            - Navigate to a URL',
+    '  go_back()              - Go back in browser history',
+    '  send_msg_to_user("msg") - Send a message (use "done" when task is complete)',
+    '  noop()                 - Do nothing (wait for page to load)',
+    '',
+    'IMPORTANT:',
+    '- Use regular double quotes " not escaped quotes \\" in your action strings',
+    '- Use bid values from the accessibility tree, e.g., click("123") not click("some text")',
+    '- If the page is loading, use noop() and wait',
+    '- If you cannot complete the task after trying, use send_msg_to_user("cannot complete")',
+    '- If the task is complete, use send_msg_to_user("done")',
+    '',
+    'Respond with a JSON object: {"reasoning": "your thinking", "action": "the action to execute"}',
   ].join('\n');
 }
 
@@ -88,14 +102,33 @@ function buildSystemPrompt(goal: string, observationMode: 'text-only' | 'vision'
 function buildUserMessage(
   obs: BrowserGymObservation,
   observationMode: 'text-only' | 'vision',
+  previousSteps?: ActionTraceStep[],
 ): string | object[] {
-  const textContent = [
-    `Current URL: ${obs.url}`,
-    obs.last_action_error ? `Last action error: ${obs.last_action_error}` : '',
-    '',
-    'Accessibility Tree:',
-    obs.axtree_txt,
-  ].filter(Boolean).join('\n');
+  const parts: string[] = [];
+
+  parts.push(`Current URL: ${obs.url}`);
+
+  if (obs.last_action_error) {
+    parts.push(`Last action error: ${obs.last_action_error}`);
+    parts.push('(Try a different approach or different element)');
+  }
+
+  // Include last 2 steps for context (helps agent avoid repeating failed actions)
+  if (previousSteps && previousSteps.length > 0) {
+    const recent = previousSteps.slice(-2);
+    parts.push('');
+    parts.push('Recent actions:');
+    for (const step of recent) {
+      const status = step.result === 'success' ? '✓' : '✗';
+      parts.push(`  ${status} ${step.action.substring(0, 80)}${step.resultDetail ? ` — ${step.resultDetail.substring(0, 60)}` : ''}`);
+    }
+  }
+
+  parts.push('');
+  parts.push('Accessibility Tree:');
+  parts.push(obs.axtree_txt || '[Page content not available]');
+
+  const textContent = parts.join('\n');
 
   if (observationMode === 'vision' && obs.screenshot_base64) {
     return [
@@ -108,6 +141,27 @@ function buildUserMessage(
   }
 
   return textContent;
+}
+
+/**
+ * Clean up action string for BrowserGym compatibility.
+ * Fixes common issues from LLM output:
+ * - Escaped quotes: fill(\"bid\", \"text\") → fill("bid", "text")
+ * - Smart quotes: fill("bid") → fill("bid")
+ * - Trailing/leading whitespace
+ */
+function cleanAction(raw: string): string {
+  let action = raw.trim();
+
+  // Remove escaped backslash-quotes: \" → "
+  action = action.replace(/\\"/g, '"');
+  // Remove escaped single quotes: \' → '
+  action = action.replace(/\\'/g, "'");
+  // Replace smart quotes
+  action = action.replace(/[\u201C\u201D]/g, '"');
+  action = action.replace(/[\u2018\u2019]/g, "'");
+
+  return action;
 }
 
 /**
@@ -127,7 +181,7 @@ export function parseLlmResponse(content: string): { reasoning: string; action: 
     if (typeof parsed.action === 'string') {
       return {
         reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
-        action: parsed.action,
+        action: cleanAction(parsed.action),
       };
     }
   } catch {
@@ -140,7 +194,7 @@ export function parseLlmResponse(content: string): { reasoning: string; action: 
     if (typeof parsed.action === 'string') {
       return {
         reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
-        action: parsed.action,
+        action: cleanAction(parsed.action),
       };
     }
   } catch {
@@ -153,7 +207,7 @@ export function parseLlmResponse(content: string): { reasoning: string; action: 
   const action = actionMatch?.[1]?.trim() ?? 'noop()';
   const reasoning = content.replace(actionMatch?.[0] ?? '', '').trim();
 
-  return { reasoning, action };
+  return { reasoning, action: cleanAction(action) };
 }
 
 /**
@@ -218,7 +272,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
 
     for (let stepNum = 1; stepNum <= agentConfig.maxSteps; stepNum++) {
       const stepTimestamp = new Date().toISOString();
-      const userContent = buildUserMessage(obs, agentConfig.observationMode);
+      const userContent = buildUserMessage(obs, agentConfig.observationMode, steps);
 
       // Call LLM
       const llmRequest: LlmRequest = {

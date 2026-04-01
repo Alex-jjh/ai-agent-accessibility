@@ -244,9 +244,12 @@ def main() -> None:
         obs, info = env.reset()
 
         # Increase page timeout after reset for subsequent actions
+        # BrowserGym default is 500ms which is way too short for WebArena
         try:
             if hasattr(env, 'unwrapped') and hasattr(env.unwrapped, 'page'):
-                env.unwrapped.page.set_default_timeout(60000)
+                env.unwrapped.page.set_default_timeout(10000)  # 10s for actions
+            if hasattr(env, 'unwrapped') and hasattr(env.unwrapped, 'context'):
+                env.unwrapped.context.set_default_timeout(10000)
         except Exception:
             pass
 
@@ -264,6 +267,12 @@ def main() -> None:
 
             action = action_msg.get("action", "noop()")
             step += 1
+
+            # Clean up action string — fix common LLM output issues
+            # Remove escaped quotes that break Python eval
+            action = action.replace('\\"', '"').replace("\\'", "'")
+            # Remove leading/trailing whitespace
+            action = action.strip()
 
             # Debug: log the action being sent to BrowserGym
             print(f"[bridge] Step {step}: executing action: {action[:200]}", file=sys.stderr)
