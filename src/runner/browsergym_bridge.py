@@ -151,13 +151,20 @@ def main() -> None:
         _original_ui_login = wa_inst.WebArenaInstance.ui_login
 
         def _patched_ui_login(self, site, page):
-            """Wrapper that increases timeout and catches login failures."""
-            # Set page-level timeout to 60s for this login attempt
-            page.context.set_default_timeout(60000)
+            """Wrapper that increases timeout for real logins and skips problematic sites."""
+            # Skip sites that don't have working login pages
+            # shopping_admin: BrowserGym navigates to storefront URL, not /admin/ — Username label not found
+            # map: service doesn't exist in WebArena AMI
+            skip_sites = {"shopping_admin", "map"}
+            if site in skip_sites:
+                print(f"[bridge] Skipping ui_login for {site} (known non-functional)", file=sys.stderr)
+                return
+
+            # Set timeout to 30s for real login attempts
+            page.context.set_default_timeout(30000)
             try:
                 _original_ui_login(self, site, page)
             except Exception as e:
-                # Log but don't crash — some sites (map) don't have login pages
                 print(f"[bridge] ui_login for {site} failed (non-fatal): {e}", file=sys.stderr)
 
         wa_inst.WebArenaInstance.ui_login = _patched_ui_login
