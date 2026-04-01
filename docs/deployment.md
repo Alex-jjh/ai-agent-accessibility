@@ -1,104 +1,110 @@
 # Deployment Guide
 
-## Quick Start (New EC2)
+## CRITICAL: Burner Account Security Rules
+
+Burner accounts will be **automatically closed** if EC2 instances have public access. You MUST:
+
+- **NEVER** assign public IPs to EC2 instances
+- **NEVER** create security groups with `0.0.0.0/0` inbound rules
+- **ALWAYS** use SSM Session Manager instead of SSH
+- **ALWAYS** use private subnets with NAT gateway for outbound internet
+
+Our Terraform handles all of this automatically. Do NOT manually create EC2 instances through the AWS console — the default "Review and Launch" creates a public security group that triggers account closure.
+
+## Quick Start (New Deployment)
 
 ```bash
-# 1. Clone and bootstrap
-git clone https://github.com/Alex-jjh/ai-agent-accessibility.git ~/platform
+# 1. Get burner account
+#    Go to https://iad.merlon.amazon.dev/burner-accounts
+#    Name: <username>-a11y-pilot
+
+# 2. Get credentials
+mwinit -o
+ada credentials update --account=<ACCOUNT_ID> --provider=conduit --role=IibsAdminAccess-DO-NOT-DELETE --once --profile=a11y-pilot
+
+# PowerShell:
+$env:AWS_PROFILE = "a11y-pilot"
+# Bash:
+export AWS_PROFILE=a11y-pilot
+
+# 3. Deploy infrastructure
+cd infra
+terraform init
+terraform apply
+
+# 4. Connect via SSM (NOT SSH)
+aws ssm start-session --target <instance-id> --region us-east-1
+
+# 5. Bootstrap platform (on EC2)
 cd ~/platform
 bash scripts/bootstrap-platform.sh
 
-# 2. Set WebArena env vars
-export WA_SHOPPING="http://<WEBARENA_IP>:7770"
-export WA_SHOPPING_ADMIN="http://<WEBARENA_IP>:7780"
-export WA_REDDIT="http://<WEBARENA_IP>:9999"
-export WA_GITLAB="http://<WEBARENA_IP>:8023"
-export WA_WIKIPEDIA="http://<WEBARENA_IP>:8888"
-export WA_MAP="http://<WEBARENA_IP>:3000"
-export WA_HOMEPAGE=""
-
-# 3. Update config with WebArena IP
-WEBARENA_IP=<your_ip>
-sed -i "s/localhost:7770/$WEBARENA_IP:7770/g" config-pilot.yaml
-
-# 4. Start LiteLLM
-~/.local/bin/litellm --config litellm_config.yaml --port 4000 &
-
-# 5. Run
-npx tsx scripts/run-pilot.ts
+# 6. Set WebArena env vars + start LiteLLM + run pilot
+# (see sections below)
 ```
 
-## Infrastructure Overview
+## Architecture (Private Subnet)
 
-Two EC2 instances across two AWS regions:
+```
+┌─────────────────────────────────────────────────┐
+│ VPC 10.0.0.0/16                                 │
+│                                                 │
+│  ┌──────────────┐    ┌───────────────────────┐  │
+│  │ Public Subnet │    │ Private Subnet        │  │
+│  │ 10.0.0.0/24  │    │ 10.0.1.0/24           │  │
+│  │              │    │                       │  │
+│  │  NAT Gateway ├────┤  EC2 (no public IP)   │  │
+│  │              │    │  ├─ Platform code      │  │
+│  └──────┬───────┘    │  ├─ LiteLLM proxy     │  │
+│         │            │  └─ Playwright         │  │
+│  ┌──────┴───────┐    │                       │  │
+│  │ IGW          │    │  VPC Endpoints:        │  │
+│  └──────────────┘    │  ├─ SSM (Session Mgr)  │  │
+│                      │  ├─ Bedrock Runtime    │  │
+│                      │  └─ S3 Gateway         │  │
+│                      └───────────────────────┘  │
+└─────────────────────────────────────────────────┘
+```
 
-| Instance | Region | Type | AMI | SSH User |
-|----------|--------|------|-----|----------|
-| Platform | us-east-1 | r6i.2xlarge | Amazon Linux 2023 | ec2-user |
-| WebArena | us-east-2 | t3a.xlarge | WebArena AMI `ami-08a862bf98e3bd7aa` | ubuntu |
+- EC2 in private subnet — no public IP, no SSH
+- NAT gateway for outbound internet (yum, git, pip)
+- VPC Endpoints for SSM, Bedrock, S3 (traffic stays on AWS backbone)
+- Access via `aws ssm start-session`
 
-Supporting: S3 bucket (experiment data), IAM role (Bedrock + S3).
-
-## Terraform Deployment
+## Connecting to EC2
 
 ```bash
-cd infra
-cp terraform.tfvars.example terraform.tfvars
-# Edit: set ssh_public_key_path to your RSA key
+# Shell access (replaces SSH)
+aws ssm start-session --target <instance-id> --region us-east-1
 
-terraform init
-terraform apply -var="ssh_public_key_path=<path_to_rsa_pub_key>"
+# Port forwarding (access LiteLLM from local machine)
+aws ssm start-session --target <instance-id> \
+  --document-name AWS-StartPortForwardingSession \
+  --parameters portNumber=4000,localPortNumber=4000 \
+  --region us-east-1
 ```
 
-Note: EC2 key pairs require RSA format. ECDSA keys are rejected.
+Requires: AWS CLI v2 + Session Manager plugin installed locally.
+Install plugin: https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html
 
-## Known Issues & Solutions
+## Platform Bootstrap (on EC2)
 
-### Python Version
-BrowserGym requires Python 3.10+ (`match/case` syntax). Amazon Linux 2023 ships with 3.9.
+After SSM connect:
 
-**Fix:** `sudo yum install -y python3.11 python3.11-pip && sudo ln -sf /usr/bin/python3.11 /usr/bin/python`
-
-### Playwright on Amazon Linux
-`npx playwright install --with-deps` fails because it tries `apt-get` (Debian only).
-
-**Fix:** Install system deps manually with yum:
 ```bash
-sudo yum install -y nss atk at-spi2-atk cups-libs libdrm libXcomposite \
-  libXdamage libXrandr mesa-libgbm pango alsa-lib libxkbcommon
-npx playwright install chromium
+cd ~/platform
+bash scripts/bootstrap-platform.sh
 ```
 
-### LiteLLM Missing Proxy Dependencies
-`pip install litellm` doesn't include proxy server deps (websockets, uvicorn).
+This script handles all known gotchas (see Known Issues below).
 
-**Fix:** `pip install --user 'litellm[proxy]'`
+## WebArena Setup
 
-### LiteLLM Guardrail Errors on Python 3.9
-LiteLLM shows `TypeError: unsupported operand type(s) for |` errors on startup. These are Python 3.10+ syntax in optional guardrail modules.
+WebArena runs on a separate EC2 in us-east-2 using the official AMI.
 
-**Impact:** None — proxy works fine, guardrails are optional.
-
-### Bedrock IAM: inference-profile ARN
-Bedrock geo inference IDs (`us.anthropic.*`) use `inference-profile` ARN, not `foundation-model`. The IAM policy must include both:
-```
-arn:aws:bedrock:us-east-1::foundation-model/*
-arn:aws:bedrock:us-east-1:<account_id>:inference-profile/*
-```
-
-### WebArena Docker Images
-The `ghcr.io/web-arena-x/webarena-*` images don't exist. Use the official WebArena AMI instead (`ami-08a862bf98e3bd7aa` in us-east-2).
-
-### WebArena Environment Variables
-BrowserGym requires these env vars to connect to WebArena:
 ```bash
-WA_SHOPPING, WA_SHOPPING_ADMIN, WA_REDDIT, WA_GITLAB, WA_WIKIPEDIA, WA_MAP, WA_HOMEPAGE
-```
-
-### Magento Base URL Configuration
-After deploying WebArena, Magento redirects to the AMI's original hostname. Must reconfigure:
-```bash
-ssh ubuntu@<WEBARENA_IP>
+# After WebArena EC2 is up, configure Magento URLs:
+ssh ubuntu@<WEBARENA_IP>  # WebArena AMI uses ubuntu user
 sudo docker exec shopping /var/www/magento2/bin/magento setup:store-config:set --base-url="http://<WEBARENA_IP>:7770/"
 sudo docker exec shopping mysql -u magentouser -pMyPassword magentodb -e "UPDATE core_config_data SET value='http://<WEBARENA_IP>:7770/' WHERE path = 'web/secure/base_url';"
 sudo docker exec shopping /var/www/magento2/bin/magento cache:flush
@@ -108,42 +114,78 @@ sudo docker exec shopping_admin mysql -u magentouser -pMyPassword magentodb -e "
 sudo docker exec shopping_admin /var/www/magento2/bin/magento cache:flush
 ```
 
-### GitLab 502 on First Boot
-GitLab takes 3-5 minutes to initialize. If persistent 502:
+Set env vars on platform EC2:
 ```bash
-sudo docker exec gitlab rm -f /var/opt/gitlab/postgresql/data/postmaster.pid
-sudo docker exec -u gitlab-psql gitlab /opt/gitlab/embedded/bin/pg_resetwal -f /var/opt/gitlab/postgresql/data
-sudo docker exec gitlab gitlab-ctl restart
+export WA_SHOPPING="http://<WEBARENA_IP>:7770"
+export WA_SHOPPING_ADMIN="http://<WEBARENA_IP>:7780"
+export WA_REDDIT="http://<WEBARENA_IP>:9999"
+export WA_GITLAB="http://<WEBARENA_IP>:8023"
+export WA_WIKIPEDIA="http://<WEBARENA_IP>:8888"
+export WA_MAP="http://<WEBARENA_IP>:3000"
+export WA_HOMEPAGE="http://<WEBARENA_IP>:7770"
 ```
 
-### WebArena Connectivity Timeout
-Magento cold-start after cache flush takes >10s. Platform uses 30s timeout for verification.
+## Running Experiments
+
+```bash
+# Start LiteLLM
+~/.local/bin/litellm --config litellm_config.yaml --port 4000 &
+
+# Scanner verification
+node dist/verify-scanner.js
+
+# Pilot experiment
+npx tsx scripts/run-pilot.ts
+
+# Sync results to S3
+~/sync-to-s3.sh
+```
+
+## Known Issues & Solutions
+
+### Burner Account: Public Access = Account Closure
+Security groups with `0.0.0.0/0` inbound rules trigger automatic account closure. Our Terraform uses private subnets + SSM. NEVER manually create public security groups.
+
+### Python 3.11 Required
+BrowserGym uses `match/case` (Python 3.10+). Amazon Linux 2023 ships 3.9.
+**Fix:** `sudo yum install -y python3.11 python3.11-pip && sudo ln -sf /usr/bin/python3.11 /usr/bin/python`
+
+### Playwright on Amazon Linux
+`--with-deps` fails (tries apt-get). Install deps manually:
+```bash
+sudo yum install -y nss atk at-spi2-atk cups-libs libdrm libXcomposite \
+  libXdamage libXrandr mesa-libgbm pango alsa-lib libxkbcommon
+npx playwright install chromium
+```
+
+### LiteLLM Proxy Dependencies
+`pip install litellm` misses proxy deps. Use: `pip install --user 'litellm[proxy]'`
+
+### Bedrock IAM: inference-profile ARN
+Geo inference IDs (`us.anthropic.*`) need `inference-profile/*` in IAM, not just `foundation-model/*`.
+
+### WebArena Docker Images Don't Exist on ghcr.io
+Use the official AMI (`ami-08a862bf98e3bd7aa` in us-east-2) instead.
+
+### WA_HOMEPAGE Required
+BrowserGym asserts all WA_* env vars are set. Set `WA_HOMEPAGE` to shopping URL as fallback (no dedicated homepage service).
+
+### Magento 302 Redirect
+Magento redirects to configured base URL. Must set base URL to the actual IP after deployment. Also causes `fetch` timeout — platform uses `redirect: 'manual'` and 30s timeout.
 
 ### crypto.subtle on HTTP
-`crypto.subtle.digest()` requires HTTPS. WebArena runs on HTTP. DOM hashing uses djb2 instead.
-
-### tsx vs tsc for page.evaluate
-`tsx` (esbuild) injects `__name` helper into all function declarations, which breaks `page.evaluate()` in browser context. Use `npm run build && node dist/...` for Scanner verification. `npx tsx` works for pilot runner since it doesn't use `page.evaluate` directly.
-
-### Lighthouse CDP Port
-Lighthouse needs `--remote-debugging-port=9222` passed to `chromium.launch()`. The verify-scanner script handles this. In the pilot pipeline, Lighthouse failures are logged but don't block (axe-core still works).
+WebArena runs HTTP (not HTTPS). `crypto.subtle` unavailable. DOM hashing uses djb2 instead.
 
 ### Shadow DOM Stack Overflow
-Sites with deep Web Components (Bing, etc.) can overflow the call stack in `querySelectorAll('*')`. All Tier 2 metrics have `safe()` wrappers that return 0 on error. `MAX_SHADOW_DEPTH=10` limits recursion.
+Sites with deep Web Components crash `querySelectorAll('*')`. All Tier 2 metrics wrapped in `safe()` — returns 0 on error. `MAX_SHADOW_DEPTH=10`.
 
-## WebArena Task IDs
-Tasks are numeric: `browsergym/webarena.{0-811}`. The bridge resolves task IDs:
-- Pure number → `browsergym/webarena.{N}`
-- Already prefixed → used as-is
+### tsx __name Injection
+esbuild injects `__name` helper into `page.evaluate()` callbacks. Use `npm run build && node dist/...` for Scanner. `npx tsx` works for pilot runner.
 
-Default task mapping in `buildTasksPerApp`:
-- Shopping: 0, 1, 2
-- Reddit: 100, 101, 102
-- GitLab: 200, 201, 202
-- CMS: 300, 301, 302
+### WebArena Task IDs
+Numeric only: `browsergym/webarena.{0-811}`. Default mapping: shopping 0-2, reddit 100-102, gitlab 200-202, cms 300-302.
 
 ## Bedrock Model IDs
-Verified against AWS docs (April 2026):
 
 | Alias | Bedrock Geo Inference ID |
 |-------|-------------------------|
@@ -153,20 +195,18 @@ Verified against AWS docs (April 2026):
 | nova-pro | `us.amazon.nova-pro-v1:0` |
 | llama4 | `us.meta.llama4-maverick-17b-instruct-v1:0` |
 
-## Cost Estimate
+## ADA Credential Refresh
 
-| Resource | Hourly | Daily |
-|----------|--------|-------|
-| r6i.2xlarge (platform) | ~$0.50 | ~$12 |
-| t3a.xlarge (WebArena) | ~$0.15 | ~$3.60 |
-| Bedrock LLM (pilot) | — | ~$10 |
-| **Total** | | **~$25/day** |
-
-Burner accounts auto-delete after 7 days.
+Credentials expire frequently. Re-run when you get 403:
+```bash
+ada credentials update --account=<ACCOUNT_ID> --provider=conduit --role=IibsAdminAccess-DO-NOT-DELETE --once --profile=a11y-pilot
+```
 
 ## Teardown
 
 ```bash
 cd infra
-terraform destroy -var="ssh_public_key_path=<path>"
+terraform destroy
 ```
+
+Burner accounts auto-delete after 7 days regardless.

@@ -9,8 +9,18 @@ Six modules: Scanner, Variants, Runner, Classifier, Recorder, Analysis (Python).
 ## Current Status
 
 Tasks 1–22 complete (all 6 modules implemented, 318 TS + 56 Python tests passing).
-Scanner verified on real websites (EC2 + local). WebArena AMI deployed in us-east-2.
-Next: Task 23 (Pilot Study) — connect LiteLLM to Bedrock and run pilot experiment.
+Scanner verified on real websites (EC2 + local). LiteLLM → Bedrock verified.
+Infrastructure: private subnet + SSM (no public access, burner account compliant).
+Next: Task 23 (Pilot Study) — deploy to new burner account and run full pilot.
+
+## Deployment Rules (CRITICAL)
+
+- Burner accounts auto-close if EC2 has public access (0.0.0.0/0 inbound SG)
+- ALWAYS use private subnet + SSM Session Manager (no SSH, no public IP)
+- Use `terraform apply` from infra/ — it handles all security correctly
+- NEVER manually create EC2 via AWS console
+- Connect via: `aws ssm start-session --target <instance-id>`
+- See docs/deployment.md for full guide including all known issues
 
 ## Architecture Rules
 
