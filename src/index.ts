@@ -257,7 +257,7 @@ export async function runTrackA(options: TrackAOptions): Promise<TrackAResult> {
           records.push(record);
 
           // Persist to store
-          await store.storeRecord(run?.runId ?? caseId, record, classifications.get(caseId));
+          await store.storeRecord(caseId, record, classifications.get(caseId));
 
           return { trace, taskOutcome: outcome, scanResults };
         } finally {
@@ -426,9 +426,20 @@ export async function runTrackB(options: TrackBOptions): Promise<TrackBResult> {
 function buildTasksPerApp(config: ExperimentConfig): Record<string, string[]> {
   const apps = Object.keys(config.webarena.apps);
   const tasksPerApp: Record<string, string[]> = {};
+
+  // WebArena tasks are registered as numeric IDs: browsergym/webarena.{N}
+  // Map app names to known task ID ranges from the WebArena benchmark.
+  // Shopping: tasks 0-99, Reddit: 100-199, GitLab: 200-299, CMS: 300-399
+  const defaultTaskIds: Record<string, string[]> = {
+    ecommerce: ['0', '1', '2'],
+    shopping:  ['0', '1', '2'],
+    reddit:    ['100', '101', '102'],
+    gitlab:    ['200', '201', '202'],
+    cms:       ['300', '301', '302'],
+  };
+
   for (const app of apps) {
-    // Default: 3 generic tasks per app if not specified elsewhere
-    tasksPerApp[app] = [`${app}-task-1`, `${app}-task-2`, `${app}-task-3`];
+    tasksPerApp[app] = defaultTaskIds[app] ?? ['0', '1', '2'];
   }
   return tasksPerApp;
 }
