@@ -11,6 +11,34 @@ Burner accounts will be **automatically closed** if EC2 instances have public ac
 
 Our Terraform handles all of this automatically. Do NOT manually create EC2 instances through the AWS console — the default "Review and Launch" creates a public security group that triggers account closure.
 
+## ⚠️ CRITICAL: AWS Profile — VERIFY BEFORE EVERY COMMAND ⚠️
+
+**Terraform will deploy to your PERSONAL AWS account if you forget to set the profile.**
+This has happened multiple times and costs real money. The provider is now locked to
+`profile = "a11y-pilot"` in `main.tf`, but you MUST still configure the profile credentials.
+
+**Before EVERY terminal session:**
+```bash
+# 1. Set the profile
+# PowerShell:
+$env:AWS_PROFILE = "a11y-pilot"
+# Bash:
+export AWS_PROFILE=a11y-pilot
+
+# 2. VERIFY — do this EVERY TIME before terraform or aws commands
+aws sts get-caller-identity
+# ✅ Confirm the Account number is your BURNER account
+# ❌ If you see 730883237142 or any personal account — STOP, fix credentials first
+```
+
+**If credentials expired:**
+```bash
+mwinit -o
+ada credentials update --account=<BURNER_ACCOUNT_ID> --provider=conduit --role=IibsAdminAccess-DO-NOT-DELETE --once --profile=a11y-pilot
+```
+
+**Rule: `aws sts get-caller-identity` before every `terraform apply/destroy` and `aws ssm`. No exceptions.**
+
 ## Quick Start (New Deployment)
 
 ```bash
@@ -142,6 +170,12 @@ npx tsx scripts/run-pilot.ts
 ```
 
 ## Known Issues & Solutions
+
+### ⚠️ Wrong AWS Account = Money Burned
+If you forget `$env:AWS_PROFILE = "a11y-pilot"`, Terraform deploys to your PERSONAL account. r6i.2xlarge + t3a.xlarge + NAT + VPC endpoints = ~$0.75/hr. Always run `aws sts get-caller-identity` before any AWS command. The Terraform provider is now locked to `profile = "a11y-pilot"` but you still need the credentials configured.
+
+### Burner Account S3 403 Errors
+Burner account SCPs block `GetBucketVersioning`, `GetBucketEncryption`, `GetPublicAccessBlock`. The S3 bucket versioning/encryption/public-access-block resources have been removed from Terraform. The bucket itself works fine for data storage.
 
 ### Burner Account: Public Access = Account Closure
 Security groups with `0.0.0.0/0` inbound rules trigger automatic account closure. Our Terraform uses private subnets + SSM. NEVER manually create public security groups.
