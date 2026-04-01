@@ -253,6 +253,15 @@ Never mix inline `ingress {}` blocks in `aws_security_group` with standalone `aw
 ### IAM Roles Persist After State Loss
 If you `terraform state rm` or lose state, IAM roles remain in AWS (they're global). Next `terraform apply` fails with `EntityAlreadyExists`. Fix: `terraform import aws_iam_role.<name> <role-name>`.
 
+### Lighthouse CDP Port: "Could not determine browser CDP port"
+Lighthouse needs a raw CDP debugging port. `chromium.launch()` doesn't expose one by default. `run-pilot.ts` now passes `--remote-debugging-port=9222` in launch args. If you still see this error, ensure no other Chromium process is using port 9222.
+
+### BrowserGym Requires ALL 7 WA_* Env Vars
+BrowserGym's `WebArenaInstance.__init__` asserts all 7 env vars exist: `WA_SHOPPING`, `WA_SHOPPING_ADMIN`, `WA_REDDIT`, `WA_GITLAB`, `WA_WIKIPEDIA`, `WA_MAP`, `WA_HOMEPAGE`. You must export ALL of them even if the service isn't running — BrowserGym checks at init time, not at use time. Set unavailable services to the IP anyway; they'll fail gracefully at task level.
+
+### Pilot Results Location
+Results are written to the `output.dataDir` path in config (default: `./data/pilot/`). Contains JSON records, CSV exports, and a manifest file. Sync to S3 with `~/sync-to-s3.sh` if configured.
+
 ### crypto.subtle on HTTP
 WebArena runs HTTP (not HTTPS). `crypto.subtle` unavailable. DOM hashing uses djb2 instead.
 

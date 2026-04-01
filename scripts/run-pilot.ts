@@ -14,7 +14,10 @@ import { runTrackA } from '../src/index.js';
 async function main() {
   console.log('=== Pilot Experiment (Track A) ===\n');
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--remote-debugging-port=9222'],
+  });
 
   try {
     const result = await runTrackA({
