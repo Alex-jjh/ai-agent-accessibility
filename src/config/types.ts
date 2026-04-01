@@ -27,6 +27,8 @@ export interface ExperimentConfig {
   };
   webarena: {
     apps: Record<string, { url: string; resetEndpoint?: string }>;
+    /** Optional per-app task ID overrides. If set, these take precedence over defaults. */
+    tasksPerApp?: Record<string, string[]>;
   };
   output: {
     dataDir: string;

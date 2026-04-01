@@ -87,7 +87,8 @@ function buildSystemPrompt(goal: string, observationMode: 'text-only' | 'vision'
     '',
     'IMPORTANT:',
     '- Use regular double quotes " not escaped quotes \\" in your action strings',
-    '- Use bid values from the accessibility tree, e.g., click("123") not click("some text")',
+    '- Use BARE NUMERIC bid values WITHOUT brackets: click("123") NOT click("[123]")',
+    '- The accessibility tree shows [123] but you must use just "123" in actions',
     '- If the page is loading, use noop() and wait',
     '- If you cannot complete the task after trying, use send_msg_to_user("cannot complete")',
     '- If the task is complete, use send_msg_to_user("done")',
@@ -160,6 +161,10 @@ function cleanAction(raw: string): string {
   // Replace smart quotes
   action = action.replace(/[\u201C\u201D]/g, '"');
   action = action.replace(/[\u2018\u2019]/g, "'");
+
+  // Strip brackets from bid references: fill("[413]", ...) → fill("413", ...)
+  // LLMs copy [bid] notation from a11y tree but BrowserGym expects bare numeric IDs
+  action = action.replace(/\("?\[(\d+)\]"?/g, '("$1"');
 
   return action;
 }

@@ -2,34 +2,40 @@
 /**
  * Regression test — run specific WebArena tasks to verify bug fixes.
  *
- * Tests:
- * - reddit 102: previously successful, should still work
- * - reddit 100: previously failed with F_REA (agent gave up), might improve with better prompt
- * - reddit 101: previously failed with escape issues
- * - ecommerce 2: previously stuck on login loop (task design issue, expect fail)
- * - wikipedia 0: previously failed with noop loop
- * - wikipedia 1: previously failed with 30-step timeout
+ * Validates fixes from pilot root cause analysis:
+ * - Bracket stripping: ecommerce task 2 login loop (was [413] syntax bug)
+ * - Task routing: wikipedia tasks now use 400+ IDs (was misrouted to ecommerce)
+ * - System prompt: agents now instructed to use bare numeric bids
+ *
+ * Task mapping (must match WebArena global IDs):
+ *   ecommerce_admin: 0-2   (admin backend at :7780)
+ *   ecommerce:       3-99  (storefront at :7770)
+ *   reddit:          100+  (Postmill at :9999)
+ *   wikipedia:       400+  (Kiwix at :8888)
  *
  * Usage: npx tsx scripts/run-regression.ts
+ *        npx tsx scripts/run-regression.ts --config ./my-config.yaml
  */
 
-import { chromium } from 'playwright';
 import { loadConfig } from '../src/config/index.js';
 import { executeAgentTask } from '../src/runner/agents/executor.js';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
-// Targeted task list: app → task IDs
+const args = process.argv.slice(2);
+const configPath = args.find((_, i) => args[i - 1] === '--config') ?? './config-regression.yaml';
+
+// Targeted task list — IDs must be in the correct WebArena range for each app
 const TASKS: Record<string, string[]> = {
-  reddit: ['100', '101', '102'],           // Reddit tasks (Postmill)
-  ecommerce_admin: ['0', '1', '2'],        // Shopping admin tasks (Magento backend)
-  ecommerce: ['3', '4', '5'],              // Shopping frontend tasks
-  wikipedia: ['400', '401', '402'],         // Wikipedia tasks (Kiwix)
+  reddit:          ['100', '101', '102'],
+  ecommerce_admin: ['0', '1', '2'],
+  ecommerce:       ['3', '4', '5'],
+  wikipedia:       ['400', '401', '402'],
 };
 
 async function main() {
   console.log('=== Regression Test ===\n');
 
-  const config = loadConfig('./config-regression.yaml');
+  const config = loadConfig(configPath);
   const results: Array<{
     app: string;
     taskId: string;
@@ -54,7 +60,7 @@ async function main() {
         const trace = await executeAgentTask({
           taskId,
           targetUrl: appUrl,
-          taskGoal: taskId,
+          taskGoal: `webarena-task-${taskId}`,
           variant: 'base',
           agentConfig: config.runner.agentConfigs[0],
           attempt: 1,
@@ -101,9 +107,11 @@ async function main() {
   }
 
   // Summary
+  const total = results.length;
   const successes = results.filter((r) => r.success).length;
+  const pct = total > 0 ? ((successes / total) * 100).toFixed(0) : '0';
   console.log('=== Summary ===');
-  console.log(`Success: ${successes}/${results.length} (${((successes / results.length) * 100).toFixed(0)}%)`);
+  console.log(`Success: ${successes}/${total} (${pct}%)`);
   console.log('');
   for (const r of results) {
     const icon = r.success ? '✅' : '❌';

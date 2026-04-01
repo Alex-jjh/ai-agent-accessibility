@@ -252,9 +252,9 @@ def main() -> None:
         # BrowserGym default is 500ms which is way too short for WebArena
         try:
             if hasattr(env, 'unwrapped') and hasattr(env.unwrapped, 'page'):
-                env.unwrapped.page.set_default_timeout(10000)  # 10s for actions
+                env.unwrapped.page.set_default_timeout(3000)  # 3s for actions
             if hasattr(env, 'unwrapped') and hasattr(env.unwrapped, 'context'):
-                env.unwrapped.context.set_default_timeout(10000)
+                env.unwrapped.context.set_default_timeout(3000)
         except Exception:
             pass
 

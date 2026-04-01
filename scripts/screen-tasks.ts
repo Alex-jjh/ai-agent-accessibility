@@ -5,19 +5,23 @@
  * Runs each task once with base variant (no a11y modifications) to identify
  * tasks that are neither too easy nor too hard for the agent.
  *
- * WebArena task ID ranges:
- *   Shopping (ecommerce): 0-99
- *   Reddit: 100-199
- *   GitLab: 200-299
- *   CMS: 300-399
- *   Wikipedia: 400-811
+ * WebArena task ID ranges (GLOBAL — determined by BrowserGym, not by app URL):
+ *   Shopping admin:  0-2   (require admin login at :7780)
+ *   Shopping frontend: 3-99  (storefront at :7770)
+ *   Reddit:          100-199
+ *   GitLab:          200-299
+ *   CMS:             300-399
+ *   Wikipedia:        400-811
+ *
+ * IMPORTANT: Task IDs must match the app. Running reddit task IDs (100+)
+ * with --app ecommerce will route the agent to the wrong site.
  *
  * Usage:
- *   npx tsx scripts/screen-tasks.ts --app ecommerce --start 0 --end 20
+ *   npx tsx scripts/screen-tasks.ts --app ecommerce --start 3 --end 20
  *   npx tsx scripts/screen-tasks.ts --app reddit --start 100 --end 130
+ *   npx tsx scripts/screen-tasks.ts --app wikipedia --start 400 --end 420 --maxSteps 15
  */
 
-import { chromium } from 'playwright';
 import { loadConfig } from '../src/config/index.js';
 import { executeAgentTask } from '../src/runner/agents/executor.js';
 import { writeFileSync, mkdirSync } from 'node:fs';
@@ -26,7 +30,20 @@ const args = process.argv.slice(2);
 const appArg = args.find((_, i) => args[i - 1] === '--app') ?? 'reddit';
 const startArg = parseInt(args.find((_, i) => args[i - 1] === '--start') ?? '100');
 const endArg = parseInt(args.find((_, i) => args[i - 1] === '--end') ?? '130');
+const maxStepsArg = parseInt(args.find((_, i) => args[i - 1] === '--maxSteps') ?? '15');
 const configPath = args.find((_, i) => args[i - 1] === '--config') ?? './config-pilot.yaml';
+
+// Valid task ID ranges per app — prevents the routing bug from the pilot
+const TASK_RANGES: Record<string, { min: number; max: number }> = {
+  ecommerce_admin: { min: 0, max: 2 },
+  ecommerce:       { min: 3, max: 99 },
+  shopping_admin:  { min: 0, max: 2 },
+  shopping:        { min: 3, max: 99 },
+  reddit:          { min: 100, max: 199 },
+  gitlab:          { min: 200, max: 299 },
+  cms:             { min: 300, max: 399 },
+  wikipedia:       { min: 400, max: 811 },
+};
 
 interface ScreenResult {
   taskId: string;
@@ -39,13 +56,28 @@ interface ScreenResult {
 }
 
 async function main() {
-  console.log(`=== Task Screening: ${appArg} tasks ${startArg}-${endArg} ===\n`);
+  console.log(`=== Task Screening: ${appArg} tasks ${startArg}-${endArg} (maxSteps=${maxStepsArg}) ===\n`);
 
   const config = loadConfig(configPath);
   const appUrl = config.webarena.apps[appArg]?.url;
   if (!appUrl) {
     console.error(`App "${appArg}" not found in config. Available: ${Object.keys(config.webarena.apps).join(', ')}`);
     process.exit(1);
+  }
+
+  // Validate task ID range matches the app
+  const validRange = TASK_RANGES[appArg];
+  if (validRange) {
+    if (startArg < validRange.min || endArg > validRange.max) {
+      console.error(
+        `Task IDs ${startArg}-${endArg} are outside the valid range for "${appArg}" (${validRange.min}-${validRange.max}).\n` +
+        `WebArena task IDs are global — using the wrong range will route the agent to the wrong site.\n` +
+        `See: https://github.com/web-arena-x/webarena for task ID documentation.`
+      );
+      process.exit(1);
+    }
+  } else {
+    console.warn(`Warning: No known task ID range for app "${appArg}". Proceeding without validation.`);
   }
 
   const results: ScreenResult[] = [];
@@ -58,12 +90,13 @@ async function main() {
       const trace = await executeAgentTask({
         taskId: id,
         targetUrl: appUrl,
-        taskGoal: id,
+        // taskGoal is a placeholder — BrowserGym provides the real goal via env.reset()
+        taskGoal: `webarena-task-${id}`,
         variant: 'base',
         agentConfig: {
           observationMode: 'text-only',
           llmBackend: 'claude-sonnet',
-          maxSteps: 30,
+          maxSteps: maxStepsArg,
           retryCount: 2,
           retryBackoffMs: 1000,
           temperature: 0,
@@ -82,7 +115,7 @@ async function main() {
       results.push(result);
 
       const status = trace.success ? '✅' : '❌';
-      console.log(`  ${status} steps=${trace.steps.length} dur=${Math.round(trace.durationMs / 1000)}s${trace.failureType ? ` fail=${trace.failureType}` : ''}`);
+      console.log(`  ${status} steps=${trace.totalSteps} dur=${Math.round(trace.durationMs / 1000)}s${trace.failureType ? ` fail=${trace.failureType}` : ''}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       console.log(`  ⚠️ Error: ${msg.substring(0, 100)}`);
@@ -112,6 +145,12 @@ async function main() {
 
   if (successes.length > 0) {
     console.log(`\nSuccessful task IDs: ${successes.map((r) => r.taskId).join(', ')}`);
+  }
+
+  // Recommend tasks in the 30-70% sweet spot
+  const sweetSpot = results.filter((r) => r.success && r.steps >= 3 && r.steps <= 20);
+  if (sweetSpot.length > 0) {
+    console.log(`\nRecommended (success + reasonable step count): ${sweetSpot.map((r) => r.taskId).join(', ')}`);
   }
 }
 

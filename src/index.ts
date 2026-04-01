@@ -447,14 +447,25 @@ function buildTasksPerApp(config: ExperimentConfig): Record<string, string[]> {
   const apps = Object.keys(config.webarena.apps);
   const tasksPerApp: Record<string, string[]> = {};
 
-  // Map app names to appropriate task ID ranges
+  // Allow config-level override (e.g., from YAML tasksPerApp section)
+  const configOverrides = config.webarena.tasksPerApp;
+
+  // WebArena task ID ranges by app:
+  //   Shopping (ecommerce storefront): 3-99
+  //   Shopping admin: 0-2 (require admin login — NOT storefront tasks)
+  //   Reddit (Postmill): 100-199
+  //   GitLab: 200-299
+  //   CMS: 300-399
+  //   Wikipedia (Kiwix): 400-811
+  //
+  // IMPORTANT: Task IDs are global WebArena identifiers. Using the wrong
+  // range for an app will route the agent to the wrong website via BrowserGym.
   const defaultTaskIds: Record<string, string[]> = {
     // shopping_admin tasks (need admin backend)
     ecommerce_admin: ['0', '1', '2'],
     shopping_admin:  ['0', '1', '2'],
     // shopping frontend tasks — use tasks that work on the storefront
-    // These are cross-site tasks that involve shopping but start from the frontend
-    ecommerce: ['3', '4', '5'],  // Storefront-compatible tasks
+    ecommerce: ['3', '4', '5'],
     shopping:  ['3', '4', '5'],
     // Reddit (Postmill)
     reddit:    ['100', '101', '102'],
@@ -467,7 +478,21 @@ function buildTasksPerApp(config: ExperimentConfig): Record<string, string[]> {
   };
 
   for (const app of apps) {
-    tasksPerApp[app] = defaultTaskIds[app] ?? ['0', '1', '2'];
+    // Config override takes precedence over defaults
+    if (configOverrides?.[app]) {
+      tasksPerApp[app] = configOverrides[app];
+      continue;
+    }
+    const tasks = defaultTaskIds[app];
+    if (!tasks) {
+      throw new Error(
+        `No default task IDs for app "${app}". ` +
+        `Known apps: ${Object.keys(defaultTaskIds).join(', ')}. ` +
+        `Add task IDs for "${app}" to buildTasksPerApp() or use a known app name, ` +
+        `or specify webarena.tasksPerApp.${app} in your config.`
+      );
+    }
+    tasksPerApp[app] = tasks;
   }
   return tasksPerApp;
 }
