@@ -137,6 +137,26 @@ def main() -> None:
     for key, default in wa_defaults.items():
         os.environ.setdefault(key, default)
 
+    # Monkey-patch BrowserGym's ui_login to increase timeout and handle failures gracefully
+    # BrowserGym's default Playwright timeout is 10s which is too short for Magento on t3a.xlarge
+    try:
+        import browsergym.webarena.instance as wa_inst
+        _original_ui_login = wa_inst.WebArenaInstance.ui_login
+
+        def _patched_ui_login(self, site, page):
+            """Wrapper that increases timeout and catches login failures."""
+            # Set page-level timeout to 60s for this login attempt
+            page.context.set_default_timeout(60000)
+            try:
+                _original_ui_login(self, site, page)
+            except Exception as e:
+                # Log but don't crash — some sites (map) don't have login pages
+                print(f"[bridge] ui_login for {site} failed (non-fatal): {e}", file=sys.stderr)
+
+        wa_inst.WebArenaInstance.ui_login = _patched_ui_login
+    except Exception:
+        pass  # If patching fails, proceed with original behavior
+
     env = None
     try:
         env = gym.make(gym_task)
