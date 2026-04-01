@@ -61,22 +61,56 @@ def encode_screenshot(screenshot: np.ndarray | None) -> str | None:
         return None
 
 
+def flatten_axtree(axtree_object: dict | None) -> str:
+    """Convert BrowserGym's axtree_object dict to a text representation."""
+    if not axtree_object or "nodes" not in axtree_object:
+        return ""
+    try:
+        nodes = axtree_object["nodes"]
+        lines = []
+        for node in nodes:
+            role = node.get("role", "")
+            name = node.get("name", "")
+            bid = node.get("browsergym_id", "")
+            text = node.get("text", "")
+            indent = "  " * node.get("depth", 0)
+            parts = []
+            if role:
+                parts.append(role)
+            if name:
+                parts.append(f'"{name}"')
+            if bid:
+                parts.append(f'[bid={bid}]')
+            if text and text != name:
+                parts.append(f': {text}')
+            if parts:
+                lines.append(f"{indent}{' '.join(parts)}")
+        return "\n".join(lines)
+    except Exception:
+        return str(axtree_object)[:5000]
+
+
 def extract_observation(obs: dict, step: int) -> dict:
     """Convert BrowserGym observation dict to our JSON protocol format."""
-    # Handle open_pages_urls which may be a numpy array
-    urls = obs.get("open_pages_urls", None)
-    active_idx = obs.get("active_page_index", 0)
-    try:
-        if urls is not None and len(urls) > 0:
-            current_url = str(urls[int(active_idx)])
-        else:
+    # BrowserGym returns axtree_object (dict), not axtree_txt (string)
+    axtree_txt = obs.get("axtree_txt", "")
+    if not axtree_txt:
+        axtree_txt = flatten_axtree(obs.get("axtree_object"))
+
+    # URL: try direct 'url' key first, then open_pages_urls
+    current_url = obs.get("url", "")
+    if not current_url:
+        urls = obs.get("open_pages_urls", None)
+        active_idx = obs.get("active_page_index", 0)
+        try:
+            if urls is not None and len(urls) > 0:
+                current_url = str(urls[int(active_idx)])
+        except (IndexError, TypeError, ValueError):
             current_url = ""
-    except (IndexError, TypeError, ValueError):
-        current_url = ""
 
     return {
         "goal": obs.get("goal", ""),
-        "axtree_txt": obs.get("axtree_txt", ""),
+        "axtree_txt": axtree_txt,
         "screenshot_base64": encode_screenshot(obs.get("screenshot")),
         "url": current_url,
         "last_action_error": obs.get("last_action_error", ""),
