@@ -108,19 +108,17 @@ function parseWcagTag(tag: string): string {
 
 /**
  * Run Lighthouse accessibility audit on the given page.
- * Lighthouse needs a raw CDP port to connect. We try multiple strategies:
- * 1. Use an explicit port passed via options
- * 2. Extract from browser wsEndpoint (available when using launchServer)
- * 3. Create a temporary CDP session and query the browser version endpoint
- * If none work, Lighthouse is skipped gracefully (Req 1.4).
+ *
+ * Uses Lighthouse "snapshot" mode to audit the CURRENT page state (including
+ * variant DOM patches) without re-navigating. This is critical because the
+ * default navigation mode would load a fresh page, losing all variant patches.
+ *
+ * Falls back to navigation mode if snapshot fails.
  */
 async function runLighthouse(page: Page, url: string, cdpPort?: number): Promise<LighthouseResult> {
-  const lighthouse = (await import('lighthouse')).default;
-
   let port = cdpPort;
 
   if (!port) {
-    // Try extracting from browser wsEndpoint
     const browser = page.context().browser();
     if (browser) {
       const wsEndpoint = (browser as any).wsEndpoint?.() as string | undefined;
@@ -132,7 +130,6 @@ async function runLighthouse(page: Page, url: string, cdpPort?: number): Promise
   }
 
   if (!port) {
-    // Try getting debugger URL via CDP
     try {
       const cdpSession = await page.context().newCDPSession(page);
       const { webSocketDebuggerUrl } = await cdpSession.send('Browser.getVersion' as any) as any;
@@ -150,6 +147,30 @@ async function runLighthouse(page: Page, url: string, cdpPort?: number): Promise
     throw new Error('Could not determine browser CDP port for Lighthouse');
   }
 
+  // Use snapshot mode to audit the current DOM state (preserves variant patches)
+  try {
+    const lhSnapshot = (await import('lighthouse')).snapshot;
+    const result = await lhSnapshot({
+      page,
+      config: {
+        extends: 'lighthouse:default',
+        settings: {
+          onlyCategories: ['accessibility'],
+          output: 'json',
+          logLevel: 'error' as const,
+        },
+      },
+    });
+
+    if (result?.lhr) {
+      return parseLighthouseResult(result.lhr);
+    }
+  } catch (snapshotErr) {
+    console.error(`[Scanner] Lighthouse snapshot mode failed, falling back to navigation: ${snapshotErr}`);
+  }
+
+  // Fallback: navigation mode (will lose variant patches but still provides data)
+  const lighthouse = (await import('lighthouse')).default;
   const result = await lighthouse(
     url,
     {
@@ -164,14 +185,18 @@ async function runLighthouse(page: Page, url: string, cdpPort?: number): Promise
     return emptyLighthouseResult();
   }
 
-  const lhr = result.lhr;
+  return parseLighthouseResult(result.lhr);
+}
+
+/** Parse Lighthouse LHR into our result format */
+function parseLighthouseResult(lhr: any): LighthouseResult {
   const accessibilityScore = Math.round(
     (lhr.categories?.accessibility?.score ?? 0) * 100
   );
 
   const audits: LighthouseResult['audits'] = {};
   if (lhr.audits) {
-    for (const [auditId, audit] of Object.entries(lhr.audits)) {
+    for (const [auditId, audit] of Object.entries(lhr.audits as Record<string, any>)) {
       audits[auditId] = {
         pass: audit.score === 1,
         details: audit.details ?? undefined,

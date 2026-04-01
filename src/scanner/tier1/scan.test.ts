@@ -14,8 +14,10 @@ vi.mock('@axe-core/playwright', () => ({
 
 // --- Mock lighthouse ---
 const mockLighthouse = vi.fn();
+const mockLighthouseSnapshot = vi.fn();
 vi.mock('lighthouse', () => ({
   default: mockLighthouse,
+  snapshot: mockLighthouseSnapshot,
 }));
 
 import { scanTier1 } from './scan.js';
