@@ -1,18 +1,17 @@
-# Pilot Experiment Config — minimal Track A run
-# 1 app × 2 variants × 3 tasks × 1 LLM × 3 reps = 18 test cases
+# Pilot Experiment Config — Track A
+# 3 apps × 3 variants × 3 tasks × 2 LLMs × 3 reps = 162 test cases
+# (After task screening, replace task IDs with validated ones)
 
 webarena:
   apps:
     ecommerce:
       url: "http://10.0.1.49:7770"
-    # ecommerce_admin:
-    #   url: "http://10.0.1.49:7780"
     reddit:
       url: "http://10.0.1.49:9999"
-    # gitlab:
-    #   url: "http://10.0.1.49:8023"
     wikipedia:
       url: "http://10.0.1.49:8888"
+    # gitlab:
+    #   url: "http://10.0.1.49:8023"  # Enable after confirming BrowserGym compat
 
 scanner:
   wcagLevels: ["A", "AA"]
@@ -21,9 +20,10 @@ scanner:
   concurrency: 1
 
 variants:
-  levels: ["low", "high"]
+  levels: ["low", "base", "high"]
   scoreRanges:
     low:  { min: 0.0, max: 0.25 }
+    base: { min: 0.40, max: 0.70 }
     high: { min: 0.75, max: 1.0 }
 
 runner:
@@ -33,6 +33,12 @@ runner:
   agentConfigs:
     - observationMode: "text-only"
       llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    - observationMode: "text-only"
+      llmBackend: "claude-haiku"
       maxSteps: 30
       retryCount: 3
       retryBackoffMs: 1000

@@ -67,11 +67,15 @@ function buildScanner(): Scanner {
   return { scanTier1, scanTier2, computeCompositeScore };
 }
 
-/** Default composite score options (equal weights, composite mode) */
+/** Default composite score options.
+ * Lighthouse weight reduced to 0.5 because snapshot mode is incompatible with
+ * Playwright (falls back to navigation mode which re-loads the page, losing
+ * variant patches). axe-core runs in-page and correctly reflects variants.
+ */
 const DEFAULT_COMPOSITE_OPTIONS: CompositeScoreOptions = {
   weights: {
-    lighthouseScore: 1,
-    axeViolations: 1,
+    lighthouseScore: 0.5,  // Supplementary — navigation mode ignores variant patches
+    axeViolations: 2,      // Primary Tier 1 — runs in-page, reflects variants
     semanticHtmlRatio: 1,
     accessibleNameCoverage: 1,
     keyboardNavigability: 1,
