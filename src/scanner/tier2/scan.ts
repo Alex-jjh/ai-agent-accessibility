@@ -511,6 +511,13 @@ export async function scanTier2(
 ): Promise<Tier2Metrics> {
   const traverseShadowDOM = options?.traverseShadowDOM ?? true;
 
+  // Helper: run a metric computation with fallback to 0 on error.
+  // Some pages (e.g. Bing) have DOM proxies that cause stack overflow
+  // when querySelectorAll('*') triggers page-internal getters.
+  const safe = async <T>(fn: () => Promise<T>, fallback: T): Promise<T> => {
+    try { return await fn(); } catch { return fallback; }
+  };
+
   // Run independent metrics concurrently where possible
   const [
     semanticHtmlRatio,
@@ -519,18 +526,21 @@ export async function scanTier2(
     formLabelingCompleteness,
     landmarkCoverage,
   ] = await Promise.all([
-    computeSemanticHtmlRatio(page, traverseShadowDOM),
-    computeAccessibleNameCoverage(cdpSession),
-    computeAriaCorrectness(page, traverseShadowDOM),
-    computeFormLabelingCompleteness(page, traverseShadowDOM),
-    computeLandmarkCoverage(page, traverseShadowDOM),
+    safe(() => computeSemanticHtmlRatio(page, traverseShadowDOM), 0),
+    safe(() => computeAccessibleNameCoverage(cdpSession), 0),
+    safe(() => computeAriaCorrectness(page, traverseShadowDOM), 0),
+    safe(() => computeFormLabelingCompleteness(page, traverseShadowDOM), 0),
+    safe(() => computeLandmarkCoverage(page, traverseShadowDOM), 0),
   ]);
 
   // Keyboard navigability must run sequentially (modifies focus state)
-  const keyboardNavigability = await computeKeyboardNavigability(page);
+  const keyboardNavigability = await safe(() => computeKeyboardNavigability(page), 0);
 
   // Pseudo-compliance needs both page and CDP
-  const pseudoCompliance = await computePseudoCompliance(page, cdpSession);
+  const pseudoCompliance = await safe(
+    () => computePseudoCompliance(page, cdpSession),
+    { count: 0, ratio: 0 },
+  );
 
   return {
     semanticHtmlRatio: clamp01(semanticHtmlRatio),
