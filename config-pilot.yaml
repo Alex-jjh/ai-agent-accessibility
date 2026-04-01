@@ -4,15 +4,15 @@
 webarena:
   apps:
     ecommerce:
-      url: "http://10.0.1.89:7770"
+      url: "http://10.0.1.179:7770"
     ecommerce_admin:
-      url: "http://10.0.1.89:7780"
+      url: "http://10.0.1.179:7780"
     reddit:
-      url: "http://10.0.1.89:9999"
+      url: "http://10.0.1.179:9999"
     gitlab:
-      url: "http://10.0.1.89:8023"
+      url: "http://10.0.1.179:8023"
     wikipedia:
-      url: "http://10.0.1.89:8888"
+      url: "http://10.0.1.179:8888"
 
 scanner:
   wcagLevels: ["A", "AA"]
