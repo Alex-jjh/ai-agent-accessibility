@@ -160,7 +160,7 @@ async function checkAppConnectivity(
     const response = await fetch(appConfig.url, {
       method: 'GET',
       signal: controller.signal,
-      redirect: 'follow',
+      redirect: 'manual',  // Don't follow redirects — 3xx means the service is up
     });
 
     clearTimeout(timer);
