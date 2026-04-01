@@ -1,5 +1,6 @@
 node_modules
 test-tmp
+data
 
 # Python
 __pycache__/

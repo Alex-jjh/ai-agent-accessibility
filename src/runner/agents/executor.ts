@@ -114,9 +114,16 @@ function buildUserMessage(
  * Parse the LLM response to extract reasoning and action.
  */
 export function parseLlmResponse(content: string): { reasoning: string; action: string } {
-  // Try JSON parse first
+  // Strip markdown code blocks if present
+  let cleaned = content.trim();
+  const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (codeBlockMatch) {
+    cleaned = codeBlockMatch[1].trim();
+  }
+
+  // Try JSON parse
   try {
-    const parsed = JSON.parse(content);
+    const parsed = JSON.parse(cleaned);
     if (typeof parsed.action === 'string') {
       return {
         reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
@@ -127,9 +134,21 @@ export function parseLlmResponse(content: string): { reasoning: string; action: 
     // Fall through to regex extraction
   }
 
-  // Extract action from code block or inline
-  const actionMatch = content.match(/```(?:\w+)?\s*([\s\S]*?)```/) ??
-    content.match(/((?:click|fill|type|hover|press|scroll|goto|go_back|go_forward|new_tab|tab_close|tab_focus|send_msg_to_user|noop|focus)\s*\([\s\S]*?\))/);
+  // Try parsing the original content as JSON (in case code block stripping broke it)
+  try {
+    const parsed = JSON.parse(content.trim());
+    if (typeof parsed.action === 'string') {
+      return {
+        reasoning: typeof parsed.reasoning === 'string' ? parsed.reasoning : '',
+        action: parsed.action,
+      };
+    }
+  } catch {
+    // Fall through to regex extraction
+  }
+
+  // Extract action from inline function call patterns
+  const actionMatch = content.match(/((?:click|fill|type|hover|press|scroll|goto|go_back|go_forward|new_tab|tab_close|tab_focus|send_msg_to_user|noop|focus)\s*\([\s\S]*?\))/);
 
   const action = actionMatch?.[1]?.trim() ?? 'noop()';
   const reasoning = content.replace(actionMatch?.[0] ?? '', '').trim();
@@ -252,7 +271,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
       }
 
       const observationStr = agentConfig.observationMode === 'text-only'
-        ? obs.axtree_txt
+        ? (obs.axtree_txt || `[No accessibility tree available] URL: ${obs.url}`)
         : `[screenshot + axtree] ${obs.url}`;
 
       steps.push({

@@ -223,6 +223,9 @@ def main() -> None:
             action = action_msg.get("action", "noop()")
             step += 1
 
+            # Debug: log the action being sent to BrowserGym
+            print(f"[bridge] Step {step}: executing action: {action[:200]}", file=sys.stderr)
+
             # Execute action in BrowserGym
             obs, reward, terminated, truncated, info = env.step(action)
 
