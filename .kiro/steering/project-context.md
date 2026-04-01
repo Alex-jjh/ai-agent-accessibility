@@ -8,8 +8,9 @@ Six modules: Scanner, Variants, Runner, Classifier, Recorder, Analysis (Python).
 
 ## Current Status
 
-Tasks 1–3 complete (scaffolding, types, config loader, checkpoint).
-Next: Task 4+ (Scanner Tier 1, Tier 2, Composite Score, Serialization).
+Tasks 1–22 complete (all 6 modules implemented, 318 TS + 56 Python tests passing).
+Scanner verified on real websites (EC2 + local). WebArena AMI deployed in us-east-2.
+Next: Task 23 (Pilot Study) — connect LiteLLM to Bedrock and run pilot experiment.
 
 ## Architecture Rules
 
