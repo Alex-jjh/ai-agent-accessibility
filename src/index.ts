@@ -92,6 +92,7 @@ async function fullScan(
   cdpSession: CDPSession,
   url: string,
   config: ExperimentConfig,
+  lighthouseCdpPort?: number,
 ): Promise<ScanResult> {
   const stability = await waitForA11yTreeStable(page, {
     intervalMs: config.scanner.stabilityIntervalMs,
@@ -101,6 +102,7 @@ async function fullScan(
   const tier1Options: Tier1ScanOptions = {
     url,
     wcagLevels: config.scanner.wcagLevels,
+    lighthouseCdpPort,
   };
 
   const [tier1, tier2] = await Promise.all([
@@ -137,6 +139,8 @@ export interface TrackAOptions {
   logger?: (msg: string) => void;
   /** Playwright Browser instance (caller manages lifecycle) */
   browser: Browser;
+  /** CDP port for Lighthouse (e.g. 9222 from --remote-debugging-port) */
+  lighthouseCdpPort?: number;
 }
 
 /** Result of a Track A experiment run */
@@ -210,10 +214,11 @@ export async function runTrackA(options: TrackAOptions): Promise<TrackAResult> {
 
           // Apply variant
           const variantLevel = params.variant as VariantLevel;
-          await applyVariant(page, variantLevel, params.app);
+          const variantDiff = await applyVariant(page, variantLevel, params.app);
+          log(`[Pipeline] Variant ${variantLevel} applied: ${variantDiff.changes.length} changes, DOM hash ${variantDiff.domHashBefore === variantDiff.domHashAfter ? 'unchanged' : 'changed'}`);
 
           // Scan the page
-          const scanResults = await fullScan(page, cdpSession, appUrl, config);
+          const scanResults = await fullScan(page, cdpSession, appUrl, config, options.lighthouseCdpPort);
 
           // Run agent
           const trace = await executeAgentTask({

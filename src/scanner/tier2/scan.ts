@@ -73,15 +73,22 @@ function safeRatio(numerator: number, denominator: number): number {
 
 /**
  * Req 2.1: Semantic HTML ratio.
- * Count of semantic elements / total element count.
+ * Count of semantic elements / count of structural container elements.
+ * Uses structural containers (div, section, article, nav, header, footer, aside, main)
+ * as denominator instead of ALL elements, so the ratio is meaningful on real sites.
  * Traverses Shadow DOM when enabled (Req 2.8).
  */
 async function computeSemanticHtmlRatio(
   page: Page,
   traverseShadowDOM: boolean,
 ): Promise<number> {
-  const [semanticCount, totalCount] = await page.evaluate(
+  const [semanticCount, structuralCount] = await page.evaluate(
     ({ semanticTags, traverseShadow, maxDepth }) => {
+      const structuralTags = [
+        'div', 'span', 'section', 'article', 'nav', 'main', 'header', 'footer',
+        'aside', 'figure', 'figcaption', 'details', 'summary', 'dialog', 'address',
+      ];
+
       const collectElements = (root: Document | ShadowRoot, depth = 0): Element[] => {
         const elements = Array.from(root.querySelectorAll('*'));
         if (traverseShadow && depth < maxDepth) {
@@ -95,16 +102,18 @@ async function computeSemanticHtmlRatio(
       };
 
       const allElements = collectElements(document);
-      const total = allElements.length;
+      const structural = allElements.filter((el) =>
+        structuralTags.includes(el.tagName.toLowerCase()),
+      ).length;
       const semantic = allElements.filter((el) =>
         semanticTags.includes(el.tagName.toLowerCase()),
       ).length;
-      return [semantic, total];
+      return [semantic, structural];
     },
     { semanticTags: SEMANTIC_ELEMENTS, traverseShadow: traverseShadowDOM, maxDepth: MAX_SHADOW_DEPTH },
   );
 
-  return safeRatio(semanticCount, totalCount);
+  return safeRatio(semanticCount, structuralCount);
 }
 
 /**

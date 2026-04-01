@@ -112,10 +112,43 @@ def main() -> None:
         # Fallback: use as-is (may be a custom task name)
         gym_task = f"browsergym/webarena.{task_id}"
 
+    # Set Playwright default timeout to 60s (BrowserGym default is 10s which
+    # is too short for Magento admin on t3a.xlarge instances)
+    import os
+    os.environ["PLAYWRIGHT_TIMEOUT"] = "60000"
+
+    # Ensure all WA_* env vars are set (BrowserGym asserts on init)
+    wa_defaults = {
+        "WA_SHOPPING": "",
+        "WA_SHOPPING_ADMIN": "",
+        "WA_REDDIT": "",
+        "WA_GITLAB": "",
+        "WA_WIKIPEDIA": "",
+        "WA_MAP": "",
+        "WA_HOMEPAGE": "",
+    }
+    for key, default in wa_defaults.items():
+        os.environ.setdefault(key, default)
+
     env = None
     try:
         env = gym.make(gym_task)
+
+        # Patch Playwright default timeout before reset (ui_login uses 10s default)
+        try:
+            if hasattr(env, 'unwrapped') and hasattr(env.unwrapped, 'context'):
+                env.unwrapped.context.set_default_timeout(60000)
+        except Exception:
+            pass
+
         obs, info = env.reset()
+
+        # Increase page timeout after reset for subsequent actions
+        try:
+            if hasattr(env, 'unwrapped') and hasattr(env.unwrapped, 'page'):
+                env.unwrapped.page.set_default_timeout(60000)
+        except Exception:
+            pass
 
         # Send initial observation
         obs_msg = extract_observation(obs, step=0)

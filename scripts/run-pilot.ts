@@ -23,6 +23,7 @@ async function main() {
     const result = await runTrackA({
       configPath: './config-pilot.yaml',
       browser,
+      lighthouseCdpPort: 9222,
       logger: (msg) => console.log(msg),
     });
 
