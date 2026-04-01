@@ -9,8 +9,8 @@ webarena:
       url: "http://10.0.1.49:7780"
     reddit:
       url: "http://10.0.1.49:9999"
-    gitlab:
-      url: "http://10.0.1.49:8023"
+    # gitlab:
+    #   url: "http://10.0.1.49:8023"
     wikipedia:
       url: "http://10.0.1.49:8888"
 
