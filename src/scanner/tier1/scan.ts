@@ -151,7 +151,7 @@ async function runLighthouse(page: Page, url: string, cdpPort?: number): Promise
   try {
     const lhSnapshot = (await import('lighthouse')).snapshot;
     const result = await lhSnapshot({
-      page,
+      page: page as any,
       config: {
         extends: 'lighthouse:default',
         settings: {
@@ -160,7 +160,7 @@ async function runLighthouse(page: Page, url: string, cdpPort?: number): Promise
           logLevel: 'error' as const,
         },
       },
-    });
+    } as any);
 
     if (result?.lhr) {
       return parseLighthouseResult(result.lhr);
