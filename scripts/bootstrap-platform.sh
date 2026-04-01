@@ -31,9 +31,17 @@ if ! command -v node &>/dev/null; then
   [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
   nvm install 20
 fi
-# Ensure nvm is loaded
+# Ensure nvm is loaded (SSM sessions don't source .bashrc)
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+
+# Write nvm loader to .bashrc so future SSM sessions have node
+if ! grep -q 'NVM_DIR' ~/.bashrc 2>/dev/null; then
+  cat >> ~/.bashrc << 'EOF'
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+EOF
+fi
 echo "  Node: $(node --version)"
 
 # --- 3. Playwright + system deps ---
