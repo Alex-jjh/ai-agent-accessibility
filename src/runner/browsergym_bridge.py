@@ -62,32 +62,40 @@ def encode_screenshot(screenshot: np.ndarray | None) -> str | None:
 
 
 def flatten_axtree(axtree_object: dict | None) -> str:
-    """Convert BrowserGym's axtree_object dict to a text representation."""
-    if not axtree_object or "nodes" not in axtree_object:
+    """Convert BrowserGym's axtree_object to text using BrowserGym's own utility."""
+    if not axtree_object:
         return ""
     try:
-        nodes = axtree_object["nodes"]
+        # Use BrowserGym's built-in flattener if available
+        from browsergym.utils.obs import flatten_axtree_to_str
+        return flatten_axtree_to_str(axtree_object)
+    except ImportError:
+        pass
+    try:
+        from browsergym.core.obs import flatten_axtree_to_str
+        return flatten_axtree_to_str(axtree_object)
+    except ImportError:
+        pass
+    # Fallback: simple extraction from CDP nodes
+    try:
+        nodes = axtree_object.get("nodes", [])
         lines = []
         for node in nodes:
-            role = node.get("role", "")
-            name = node.get("name", "")
-            bid = node.get("browsergym_id", "")
-            text = node.get("text", "")
-            indent = "  " * node.get("depth", 0)
-            parts = []
-            if role:
-                parts.append(role)
-            if name:
-                parts.append(f'"{name}"')
-            if bid:
-                parts.append(f'[bid={bid}]')
-            if text and text != name:
-                parts.append(f': {text}')
-            if parts:
-                lines.append(f"{indent}{' '.join(parts)}")
-        return "\n".join(lines)
+            role_val = ""
+            name_val = ""
+            if isinstance(node.get("role"), dict):
+                role_val = node["role"].get("value", "")
+            if isinstance(node.get("name"), dict):
+                name_val = node["name"].get("value", "")
+            if role_val and role_val not in ("none", "generic", "InlineTextBox"):
+                bid = node.get("browsergym_id", node.get("nodeId", ""))
+                line = f'{role_val} "{name_val}"' if name_val else role_val
+                if bid:
+                    line += f" [bid={bid}]"
+                lines.append(line)
+        return "\n".join(lines[:200])  # Cap at 200 lines to avoid token explosion
     except Exception:
-        return str(axtree_object)[:5000]
+        return str(axtree_object)[:3000]
 
 
 def extract_observation(obs: dict, step: int) -> dict:
