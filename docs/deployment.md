@@ -155,6 +155,40 @@ export WA_HOMEPAGE="http://<WEBARENA_IP>:7770"
 
 ## Running Experiments
 
+### Pre-flight: Regression Test
+
+After any code changes, run regression first to verify fixes:
+
+```bash
+# ~20min, ~$3 LLM cost, tests 12 targeted cases
+npx tsx scripts/run-regression.ts
+
+# Check results
+cat data/regression/summary.json
+```
+
+What to verify:
+- ecommerce_admin tasks 0/1/2: login should succeed (bracket fix)
+- wikipedia tasks 400/401/402: agent should be on Kiwix, not Magento (routing fix)
+- reddit task 102: should still succeed (no regression)
+
+### Task Screening
+
+Find tasks with 30-70% base success rate (the "sweet spot" for detecting a11y effects):
+
+```bash
+# ~1h per app, ~$15 LLM cost each
+npx tsx scripts/screen-tasks.ts --app ecommerce --start 3 --end 30 --maxSteps 15
+npx tsx scripts/screen-tasks.ts --app reddit --start 100 --end 130 --maxSteps 15
+npx tsx scripts/screen-tasks.ts --app wikipedia --start 400 --end 430 --maxSteps 15
+
+# Results saved to data/screening/<app>_<start>-<end>.json
+```
+
+Update `config-pilot.yaml` `webarena.tasksPerApp` with screened task IDs before running pilot.
+
+### Pilot Experiment
+
 ```bash
 # Start LiteLLM
 ~/.local/bin/litellm --config litellm_config.yaml --port 4000 &
@@ -162,8 +196,10 @@ export WA_HOMEPAGE="http://<WEBARENA_IP>:7770"
 # Scanner verification
 node dist/verify-scanner.js
 
-# Pilot experiment
+# Pilot experiment (supports --resume if interrupted)
 npx tsx scripts/run-pilot.ts
+npx tsx scripts/run-pilot.ts --resume <runId>  # resume interrupted run
+npx tsx scripts/run-pilot.ts --config ./my-config.yaml  # custom config
 
 # Sync results to S3
 ~/sync-to-s3.sh
@@ -287,7 +323,21 @@ Sites with deep Web Components crash `querySelectorAll('*')`. All Tier 2 metrics
 esbuild injects `__name` helper into `page.evaluate()` callbacks. Use `npm run build && node dist/...` for Scanner. `npx tsx` works for pilot runner.
 
 ### WebArena Task IDs
-Numeric only: `browsergym/webarena.{0-811}`. Default mapping: shopping 0-2, reddit 100-102, gitlab 200-202, cms 300-302.
+Numeric only: `browsergym/webarena.{0-811}`. Task IDs are GLOBAL — they determine which
+app the agent is routed to regardless of the app label in the scheduler.
+
+| App | Task ID Range | Port |
+|-----|--------------|------|
+| ecommerce_admin (Magento backend) | 0–2 | :7780 |
+| ecommerce (Magento storefront) | 3–99 | :7770 |
+| reddit (Postmill) | 100–199 | :9999 |
+| gitlab | 200–299 | :8023 |
+| cms | 300–399 | :7780 |
+| wikipedia (Kiwix) | 400–811 | :8888 |
+
+**CRITICAL:** Using task IDs outside the correct range silently routes the agent to the
+wrong website. The pilot's 92% failure rate was largely caused by this. Config now supports
+explicit `webarena.tasksPerApp` override. Always validate with `screen-tasks.ts`.
 
 ## Bedrock Model IDs
 

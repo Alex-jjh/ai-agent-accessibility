@@ -11,7 +11,26 @@ Six modules: Scanner, Variants, Runner, Classifier, Recorder, Analysis (Python).
 Tasks 1–22 complete (all 6 modules implemented, 318 TS + 56 Python tests passing).
 Scanner verified on real websites (EC2 + local). LiteLLM → Bedrock verified.
 Infrastructure: private subnet + SSM (no public access, burner account compliant).
-Next: Task 23 (Pilot Study) — deploy to new burner account and run full pilot.
+Pilot 1 completed 2026-04-01 — 54 cases, 4 successes (7.4% raw / 66.7% effective).
+Root cause analysis identified 5 failure categories; 3 P0 code fixes applied and pushed.
+Next: Run regression to verify fixes, then task screening, then Pilot 2.
+See docs/pilot-analysis.md for full post-mortem.
+
+## WebArena Task ID Ranges (CRITICAL)
+
+Task IDs are GLOBAL in WebArena — they determine which app the agent is routed to,
+regardless of what app label the scheduler assigns. Using wrong IDs = silent misrouting.
+
+```
+ecommerce_admin (Magento backend :7780):  0–2
+ecommerce       (Magento storefront :7770): 3–99
+reddit          (Postmill :9999):         100–199
+gitlab          (:8023):                  200–299
+cms             (:7780):                  300–399
+wikipedia       (Kiwix :8888):            400–811
+```
+
+Config can override via `webarena.tasksPerApp` in YAML. Always validate with screen-tasks.ts.
 
 ## Deployment Rules (CRITICAL)
 
