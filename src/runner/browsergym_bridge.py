@@ -203,11 +203,13 @@ def main() -> None:
 
             if site == "shopping_admin":
                 # BrowserGym navigates to storefront URL but admin login is at /admin/
-                # Manually handle the admin login flow
+                # Manually handle the admin login flow in a new tab, preserving the original page
                 try:
                     url = self.urls[site]
                     username = self.credentials[site]["username"]
                     password = self.credentials[site]["password"]
+                    # Remember current page count
+                    pages_before = len(page.context.pages)
                     login_page = page.context.new_page()
                     login_page.goto(f"{url}/admin/", timeout=30000)
                     login_page.locator("#username").fill(username)
@@ -215,6 +217,9 @@ def main() -> None:
                     login_page.locator(".action-login").click()
                     login_page.wait_for_load_state("load", timeout=30000)
                     login_page.close()
+                    # Ensure original page is still the active one
+                    if len(page.context.pages) > 0:
+                        page.context.pages[0].bring_to_front()
                     print(f"[bridge] ui_login for shopping_admin succeeded via /admin/", file=sys.stderr)
                 except Exception as e:
                     print(f"[bridge] ui_login for shopping_admin failed (non-fatal): {e}", file=sys.stderr)
