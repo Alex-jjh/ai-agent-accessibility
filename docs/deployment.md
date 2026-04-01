@@ -1,159 +1,172 @@
 # Deployment Guide
 
+## Quick Start (New EC2)
+
+```bash
+# 1. Clone and bootstrap
+git clone https://github.com/Alex-jjh/ai-agent-accessibility.git ~/platform
+cd ~/platform
+bash scripts/bootstrap-platform.sh
+
+# 2. Set WebArena env vars
+export WA_SHOPPING="http://<WEBARENA_IP>:7770"
+export WA_SHOPPING_ADMIN="http://<WEBARENA_IP>:7780"
+export WA_REDDIT="http://<WEBARENA_IP>:9999"
+export WA_GITLAB="http://<WEBARENA_IP>:8023"
+export WA_WIKIPEDIA="http://<WEBARENA_IP>:8888"
+export WA_MAP="http://<WEBARENA_IP>:3000"
+export WA_HOMEPAGE=""
+
+# 3. Update config with WebArena IP
+WEBARENA_IP=<your_ip>
+sed -i "s/localhost:7770/$WEBARENA_IP:7770/g" config-pilot.yaml
+
+# 4. Start LiteLLM
+~/.local/bin/litellm --config litellm_config.yaml --port 4000 &
+
+# 5. Run
+npx tsx scripts/run-pilot.ts
+```
+
 ## Infrastructure Overview
 
 Two EC2 instances across two AWS regions:
 
-| Instance | Region | Type | Purpose | SSH User |
-|----------|--------|------|---------|----------|
-| Platform | us-east-1 | r6i.2xlarge (8 vCPU, 64GB) | Platform code, LiteLLM proxy, Playwright | ec2-user |
-| WebArena | us-east-2 | t3a.xlarge (4 vCPU, 16GB) | 4 WebArena Docker apps (pre-installed AMI) | ubuntu |
+| Instance | Region | Type | AMI | SSH User |
+|----------|--------|------|-----|----------|
+| Platform | us-east-1 | r6i.2xlarge | Amazon Linux 2023 | ec2-user |
+| WebArena | us-east-2 | t3a.xlarge | WebArena AMI `ami-08a862bf98e3bd7aa` | ubuntu |
 
-Supporting resources: VPC + subnet + IGW (us-east-1), S3 bucket (experiment data), IAM role (Bedrock + S3).
+Supporting: S3 bucket (experiment data), IAM role (Bedrock + S3).
 
-## Prerequisites
-
-- AWS burner account (get one at https://iad.merlon.amazon.dev/burner-accounts)
-- Terraform >= 1.5
-- SSH key pair (RSA format, EC2 doesn't accept ECDSA)
-- ADA CLI for AWS credential management
-
-## Step 1: Get AWS Credentials
-
-```bash
-# Authenticate with Midway
-mwinit -o
-
-# Get credentials (SDO org — use conduit)
-ada credentials update --account=<ACCOUNT_ID> --provider=conduit --role=IibsAdminAccess-DO-NOT-DELETE --once --profile=a11y-pilot
-
-# Set profile
-# PowerShell:
-$env:AWS_PROFILE = "a11y-pilot"
-# Bash:
-export AWS_PROFILE=a11y-pilot
-
-# Verify
-aws sts get-caller-identity
-```
-
-Note: Burner account credentials expire frequently. Re-run the `ada` command if you get 403 errors.
-
-## Step 2: Generate SSH Key
-
-```bash
-# PowerShell (press Enter twice for empty passphrase):
-ssh-keygen -t rsa -b 4096 -f C:\Users\<username>\.ssh\a11y-pilot
-
-# Linux/Mac:
-ssh-keygen -t rsa -b 4096 -f ~/.ssh/a11y-pilot -N ""
-```
-
-## Step 3: Deploy Infrastructure
+## Terraform Deployment
 
 ```bash
 cd infra
+cp terraform.tfvars.example terraform.tfvars
+# Edit: set ssh_public_key_path to your RSA key
+
 terraform init
-terraform apply -var="ssh_public_key_path=C:/Users/<username>/.ssh/a11y-pilot.pub"
+terraform apply -var="ssh_public_key_path=<path_to_rsa_pub_key>"
 ```
 
-This creates all resources in both regions. First apply may hit `PendingVerification` for new accounts — wait 5-15 minutes and retry.
+Note: EC2 key pairs require RSA format. ECDSA keys are rejected.
 
-Outputs:
-- `instance_public_ip` — Platform EC2 IP
-- `webarena_public_ip` — WebArena EC2 IP
-- `s3_bucket_name` — Data bucket
-- `webarena_urls` — All WebArena app URLs
+## Known Issues & Solutions
 
-## Step 4: Verify Platform Instance
+### Python Version
+BrowserGym requires Python 3.10+ (`match/case` syntax). Amazon Linux 2023 ships with 3.9.
 
+**Fix:** `sudo yum install -y python3.11 python3.11-pip && sudo ln -sf /usr/bin/python3.11 /usr/bin/python`
+
+### Playwright on Amazon Linux
+`npx playwright install --with-deps` fails because it tries `apt-get` (Debian only).
+
+**Fix:** Install system deps manually with yum:
 ```bash
-# SSH in (use private key, not .pub)
-ssh -i ~/.ssh/a11y-pilot ec2-user@<platform_ip>
-
-# Check bootstrap completed
-tail -5 /var/log/cloud-init-output.log
-# Should show: "=== User data setup complete ==="
-
-# Install Playwright browsers (Amazon Linux needs manual deps)
-sudo yum install -y nss atk at-spi2-atk cups-libs libdrm libXcomposite libXdamage libXrandr mesa-libgbm pango alsa-lib libxkbcommon
-source ~/.nvm/nvm.sh
-cd ~/platform
+sudo yum install -y nss atk at-spi2-atk cups-libs libdrm libXcomposite \
+  libXdamage libXrandr mesa-libgbm pango alsa-lib libxkbcommon
 npx playwright install chromium
-
-# Build and verify Scanner
-npm run build
-node dist/verify-scanner.js
 ```
 
-## Step 5: Verify WebArena
+### LiteLLM Missing Proxy Dependencies
+`pip install litellm` doesn't include proxy server deps (websockets, uvicorn).
 
-```bash
-# From local machine (use curl.exe on Windows to avoid PowerShell alias):
-curl.exe http://<webarena_ip>:9999 -o NUL -w "Reddit: %{http_code}\n"
-curl.exe http://<webarena_ip>:7770 -o NUL -w "Shopping: %{http_code}\n"
-curl.exe http://<webarena_ip>:8023 -o NUL -w "GitLab: %{http_code}\n"
+**Fix:** `pip install --user 'litellm[proxy]'`
 
-# Expected: Reddit 200, Shopping 302, GitLab 200 (may take 3-5 min to start)
+### LiteLLM Guardrail Errors on Python 3.9
+LiteLLM shows `TypeError: unsupported operand type(s) for |` errors on startup. These are Python 3.10+ syntax in optional guardrail modules.
+
+**Impact:** None — proxy works fine, guardrails are optional.
+
+### Bedrock IAM: inference-profile ARN
+Bedrock geo inference IDs (`us.anthropic.*`) use `inference-profile` ARN, not `foundation-model`. The IAM policy must include both:
+```
+arn:aws:bedrock:us-east-1::foundation-model/*
+arn:aws:bedrock:us-east-1:<account_id>:inference-profile/*
 ```
 
-If GitLab shows 502:
+### WebArena Docker Images
+The `ghcr.io/web-arena-x/webarena-*` images don't exist. Use the official WebArena AMI instead (`ami-08a862bf98e3bd7aa` in us-east-2).
+
+### WebArena Environment Variables
+BrowserGym requires these env vars to connect to WebArena:
 ```bash
-ssh -i ~/.ssh/a11y-pilot ubuntu@<webarena_ip>
-sudo docker exec gitlab gitlab-ctl status
-# If PostgreSQL issues:
+WA_SHOPPING, WA_SHOPPING_ADMIN, WA_REDDIT, WA_GITLAB, WA_WIKIPEDIA, WA_MAP, WA_HOMEPAGE
+```
+
+### Magento Base URL Configuration
+After deploying WebArena, Magento redirects to the AMI's original hostname. Must reconfigure:
+```bash
+ssh ubuntu@<WEBARENA_IP>
+sudo docker exec shopping /var/www/magento2/bin/magento setup:store-config:set --base-url="http://<WEBARENA_IP>:7770/"
+sudo docker exec shopping mysql -u magentouser -pMyPassword magentodb -e "UPDATE core_config_data SET value='http://<WEBARENA_IP>:7770/' WHERE path = 'web/secure/base_url';"
+sudo docker exec shopping /var/www/magento2/bin/magento cache:flush
+
+sudo docker exec shopping_admin /var/www/magento2/bin/magento setup:store-config:set --base-url="http://<WEBARENA_IP>:7780/"
+sudo docker exec shopping_admin mysql -u magentouser -pMyPassword magentodb -e "UPDATE core_config_data SET value='http://<WEBARENA_IP>:7780/' WHERE path = 'web/secure/base_url';"
+sudo docker exec shopping_admin /var/www/magento2/bin/magento cache:flush
+```
+
+### GitLab 502 on First Boot
+GitLab takes 3-5 minutes to initialize. If persistent 502:
+```bash
 sudo docker exec gitlab rm -f /var/opt/gitlab/postgresql/data/postmaster.pid
 sudo docker exec -u gitlab-psql gitlab /opt/gitlab/embedded/bin/pg_resetwal -f /var/opt/gitlab/postgresql/data
 sudo docker exec gitlab gitlab-ctl restart
 ```
 
-## Step 6: Configure Platform to Use WebArena
+### WebArena Connectivity Timeout
+Magento cold-start after cache flush takes >10s. Platform uses 30s timeout for verification.
 
-On the platform instance, update config files with WebArena IP:
+### crypto.subtle on HTTP
+`crypto.subtle.digest()` requires HTTPS. WebArena runs on HTTP. DOM hashing uses djb2 instead.
 
-```bash
-ssh -i ~/.ssh/a11y-pilot ec2-user@<platform_ip>
-cd ~/platform
+### tsx vs tsc for page.evaluate
+`tsx` (esbuild) injects `__name` helper into all function declarations, which breaks `page.evaluate()` in browser context. Use `npm run build && node dist/...` for Scanner verification. `npx tsx` works for pilot runner since it doesn't use `page.evaluate` directly.
 
-# Update configs
-WEBARENA_IP=<webarena_ip>
-sed -i "s/localhost:9999/$WEBARENA_IP:9999/g; s/localhost:8023/$WEBARENA_IP:8023/g; s/localhost:7770/$WEBARENA_IP:7770/g; s/localhost:7780/$WEBARENA_IP:7780/g" config.yaml config-pilot.yaml
-```
+### Lighthouse CDP Port
+Lighthouse needs `--remote-debugging-port=9222` passed to `chromium.launch()`. The verify-scanner script handles this. In the pilot pipeline, Lighthouse failures are logged but don't block (axe-core still works).
 
-## Step 7: Start LiteLLM and Run Pilot
+### Shadow DOM Stack Overflow
+Sites with deep Web Components (Bing, etc.) can overflow the call stack in `querySelectorAll('*')`. All Tier 2 metrics have `safe()` wrappers that return 0 on error. `MAX_SHADOW_DEPTH=10` limits recursion.
 
-```bash
-# On platform instance
-cd ~/platform
+## WebArena Task IDs
+Tasks are numeric: `browsergym/webarena.{0-811}`. The bridge resolves task IDs:
+- Pure number → `browsergym/webarena.{N}`
+- Already prefixed → used as-is
 
-# Start LiteLLM proxy (background)
-~/.local/bin/litellm --config litellm_config.yaml --port 4000 &
+Default task mapping in `buildTasksPerApp`:
+- Shopping: 0, 1, 2
+- Reddit: 100, 101, 102
+- GitLab: 200, 201, 202
+- CMS: 300, 301, 302
 
-# Run pilot experiment
-node dist/run-pilot.js
+## Bedrock Model IDs
+Verified against AWS docs (April 2026):
 
-# Sync results to S3
-~/sync-to-s3.sh
-```
+| Alias | Bedrock Geo Inference ID |
+|-------|-------------------------|
+| claude-opus | `us.anthropic.claude-opus-4-1-20250805-v1:0` |
+| claude-sonnet | `us.anthropic.claude-sonnet-4-20250514-v1:0` |
+| claude-haiku | `us.anthropic.claude-3-5-haiku-20241022-v1:0` |
+| nova-pro | `us.amazon.nova-pro-v1:0` |
+| llama4 | `us.meta.llama4-maverick-17b-instruct-v1:0` |
+
+## Cost Estimate
+
+| Resource | Hourly | Daily |
+|----------|--------|-------|
+| r6i.2xlarge (platform) | ~$0.50 | ~$12 |
+| t3a.xlarge (WebArena) | ~$0.15 | ~$3.60 |
+| Bedrock LLM (pilot) | — | ~$10 |
+| **Total** | | **~$25/day** |
+
+Burner accounts auto-delete after 7 days.
 
 ## Teardown
 
 ```bash
 cd infra
-terraform destroy -var="ssh_public_key_path=C:/Users/<username>/.ssh/a11y-pilot.pub"
+terraform destroy -var="ssh_public_key_path=<path>"
 ```
-
-Burner accounts auto-delete after 7 days regardless.
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| `PendingVerification` on EC2 create | New account validation, wait 5-15 min and retry `terraform apply` |
-| S3 403 errors | ADA credentials expired, re-run `ada credentials update` |
-| `apt-get: command not found` on Playwright install | Amazon Linux uses `yum`, install deps manually (see Step 4) |
-| ECDSA key rejected by EC2 | Generate RSA key: `ssh-keygen -t rsa -b 4096` |
-| WebArena Docker `manifest unknown` | ghcr.io images don't exist; use the AMI-based deployment instead |
-| Bing/complex sites crash Tier 2 | Expected — graceful degradation returns 0 for affected metrics |
-| `__name is not defined` in page.evaluate | Use `npm run build && node dist/...` instead of `npx tsx` |
-| Lighthouse `wsEndpoint` error | Pass `--remote-debugging-port=9222` to chromium.launch() |
