@@ -1,0 +1,43 @@
+# Regression Test Config — verify bug fixes with targeted cases
+# 10 cases: mix of previously successful, failed-by-escaping, and failed-by-timeout
+# Expected improvement: escape fixes should help ecommerce/wikipedia cases
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.49:7770"
+    reddit:
+      url: "http://10.0.1.49:9999"
+    wikipedia:
+      url: "http://10.0.1.49:8888"
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["base"]
+  scoreRanges:
+    base: { min: 0.40, max: 0.70 }
+
+runner:
+  repetitions: 1
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/regression"
+  exportFormats: ["json", "csv"]
