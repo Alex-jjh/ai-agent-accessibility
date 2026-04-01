@@ -152,6 +152,15 @@ resource "aws_security_group" "instance" {
     cidr_blocks = [aws_vpc.main.cidr_block]
   }
 
+  # Allow WebArena app ports within VPC
+  ingress {
+    description = "WebArena app ports from within VPC"
+    from_port   = 7770
+    to_port     = 9999
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
+  }
+
   # All outbound within VPC
   egress {
     description = "All outbound"
@@ -285,25 +294,10 @@ resource "aws_s3_bucket" "data" {
   tags = { Name = "${var.project_name}-data" }
 }
 
-resource "aws_s3_bucket_versioning" "data" {
-  bucket = aws_s3_bucket.data.id
-  versioning_configuration { status = "Enabled" }
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "data" {
-  bucket = aws_s3_bucket.data.id
-  rule {
-    apply_server_side_encryption_by_default { sse_algorithm = "AES256" }
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "data" {
-  bucket                  = aws_s3_bucket.data.id
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
+# NOTE: S3 bucket versioning, encryption, and public access block are
+# configured manually or via AWS defaults. Burner account SCPs block
+# the GetBucketVersioning/GetBucketEncryption/GetPublicAccessBlock APIs
+# which causes Terraform to fail on refresh.
 
 # ---------- EC2 Instance (Private, SSM only) ----------
 

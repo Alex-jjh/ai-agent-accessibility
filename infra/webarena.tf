@@ -94,14 +94,4 @@ resource "aws_instance" "webarena" {
   ]
 }
 
-# ---------- Security Group: Allow WebArena ports within VPC ----------
-
-resource "aws_security_group_rule" "webarena_ports" {
-  type              = "ingress"
-  from_port         = 7770
-  to_port           = 9999
-  protocol          = "tcp"
-  cidr_blocks       = [aws_vpc.main.cidr_block]
-  security_group_id = aws_security_group.instance.id
-  description       = "WebArena app ports from within VPC"
-}
+# WebArena ports are defined as inline ingress in main.tf security group
