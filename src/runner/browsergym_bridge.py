@@ -63,15 +63,22 @@ def encode_screenshot(screenshot: np.ndarray | None) -> str | None:
 
 def extract_observation(obs: dict, step: int) -> dict:
     """Convert BrowserGym observation dict to our JSON protocol format."""
+    # Handle open_pages_urls which may be a numpy array
+    urls = obs.get("open_pages_urls", None)
+    active_idx = obs.get("active_page_index", 0)
+    try:
+        if urls is not None and len(urls) > 0:
+            current_url = str(urls[int(active_idx)])
+        else:
+            current_url = ""
+    except (IndexError, TypeError, ValueError):
+        current_url = ""
+
     return {
         "goal": obs.get("goal", ""),
         "axtree_txt": obs.get("axtree_txt", ""),
         "screenshot_base64": encode_screenshot(obs.get("screenshot")),
-        "url": (obs.get("open_pages_urls") or [""])[
-            obs.get("active_page_index", 0)
-        ]
-        if obs.get("open_pages_urls")
-        else "",
+        "url": current_url,
         "last_action_error": obs.get("last_action_error", ""),
         "terminated": False,
         "truncated": False,
