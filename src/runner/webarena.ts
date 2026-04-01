@@ -150,7 +150,7 @@ export function buildWebArenaConfig(
 async function checkAppConnectivity(
   app: string,
   appConfig: WebArenaAppConfig,
-  timeoutMs = 10_000,
+  timeoutMs = 30_000,
 ): Promise<AppConnectivityStatus> {
   const start = Date.now();
   try {
@@ -193,7 +193,7 @@ async function checkAppConnectivity(
  */
 export async function verifyWebArenaServices(
   config: WebArenaConfig,
-  timeoutMs = 10_000,
+  timeoutMs = 30_000,
 ): Promise<ServiceVerificationResult> {
   const entries = Object.entries(config);
   const statusPromises = entries.map(([app, appConfig]) =>
