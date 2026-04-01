@@ -254,13 +254,28 @@ Never mix inline `ingress {}` blocks in `aws_security_group` with standalone `aw
 If you `terraform state rm` or lose state, IAM roles remain in AWS (they're global). Next `terraform apply` fails with `EntityAlreadyExists`. Fix: `terraform import aws_iam_role.<name> <role-name>`.
 
 ### Lighthouse CDP Port: "Could not determine browser CDP port"
-Lighthouse needs a raw CDP debugging port. `chromium.launch()` doesn't expose one by default. `run-pilot.ts` now passes `--remote-debugging-port=9222` in launch args. If you still see this error, ensure no other Chromium process is using port 9222.
+Lighthouse needs a raw CDP debugging port. `run-pilot.ts` launches Chromium with `--remote-debugging-port=9222` and passes `lighthouseCdpPort: 9222` through `TrackAOptions` → `fullScan` → `scanTier1`. If you still see this error, ensure no other Chromium process is using port 9222.
 
 ### BrowserGym Requires ALL 7 WA_* Env Vars
-BrowserGym's `WebArenaInstance.__init__` asserts all 7 env vars exist: `WA_SHOPPING`, `WA_SHOPPING_ADMIN`, `WA_REDDIT`, `WA_GITLAB`, `WA_WIKIPEDIA`, `WA_MAP`, `WA_HOMEPAGE`. You must export ALL of them even if the service isn't running — BrowserGym checks at init time, not at use time. Set unavailable services to the IP anyway; they'll fail gracefully at task level.
+BrowserGym's `WebArenaInstance.__init__` asserts all 7 env vars exist: `WA_SHOPPING`, `WA_SHOPPING_ADMIN`, `WA_REDDIT`, `WA_GITLAB`, `WA_WIKIPEDIA`, `WA_MAP`, `WA_HOMEPAGE`. You must export ALL of them. The bridge now auto-populates missing vars from `targetUrl`, but the `webarena` package (separate from `browsergym`) also asserts non-empty values at import time. Always set them explicitly before running pilot.
+
+### BrowserGym shopping_admin Login: "get_by_label Username" Timeout
+BrowserGym's `ui_login` for `shopping_admin` navigates to the storefront URL (`/`) but the Magento admin login page is at `/admin/`. The `get_by_label("Username")` locator never finds a match on the storefront. The bridge now monkey-patches `ui_login` to navigate to `/admin/` and use CSS selectors (`#username`, `#login`) matching the actual Magento admin HTML. This also requires the Magento admin base URL to be configured correctly (see "Magento 302 Redirect" above).
+
+### BrowserGym WA_MAP Service: Not Available in WebArena AMI
+The WebArena AMI doesn't include a "map" service (OpenStreetMap). BrowserGym's `ui_login` tries to navigate to `WA_MAP` URL. The bridge skips `ui_login` for `map` entirely. Set `WA_MAP` to any reachable URL (e.g., shopping) to satisfy the env var assertion.
+
+### BrowserGym numpy Array in Observations
+BrowserGym returns `open_pages_urls` as a numpy array, not a Python list. Standard Python indexing (`urls[idx]`) fails with `TypeError: only integer scalar arrays can be converted to a scalar index`. The bridge now converts the index with `int()` and wraps in try/except.
+
+### semanticHtmlRatio Always 0
+The original metric divided semantic element count by ALL DOM elements. On real sites with 5000+ elements and ~20 semantic tags, the ratio was 0.004 (effectively 0). Fixed to use structural container elements (div, span, section, etc.) as denominator, giving meaningful ratios.
+
+### Variant Audit Trail
+`applyVariant()` now logs the number of DOM changes and whether the DOM hash changed. Example: `[Pipeline] Variant high applied: 57 changes, DOM hash changed`. This confirms variants are being applied before scanning.
 
 ### Pilot Results Location
-Results are written to the `output.dataDir` path in config (default: `./data/pilot/`). Contains JSON records, CSV exports, and a manifest file. Sync to S3 with `~/sync-to-s3.sh` if configured.
+Results are written to the `output.dataDir` path in config (default: `./data/pilot/`). Each run gets a UUID directory under `data/pilot/<run-id>/cases/`. CSV exports in `data/pilot/exports/` are overwritten by the latest run. Sync to S3 with `bash scripts/sync-to-s3.sh`.
 
 ### crypto.subtle on HTTP
 WebArena runs HTTP (not HTTPS). `crypto.subtle` unavailable. DOM hashing uses djb2 instead.
