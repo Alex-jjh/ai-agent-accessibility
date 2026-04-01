@@ -19,9 +19,10 @@ import { executeAgentTask } from '../src/runner/agents/executor.js';
 
 // Targeted task list: app → task IDs
 const TASKS: Record<string, string[]> = {
-  reddit: ['100', '101', '102'],
-  ecommerce: ['0', '2'],
-  wikipedia: ['0', '1'],
+  reddit: ['100', '101', '102'],           // Reddit tasks (Postmill)
+  ecommerce_admin: ['0', '1', '2'],        // Shopping admin tasks (Magento backend)
+  ecommerce: ['3', '4', '5'],              // Shopping frontend tasks
+  wikipedia: ['400', '401', '402'],         // Wikipedia tasks (Kiwix)
 };
 
 async function main() {

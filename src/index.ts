@@ -430,21 +430,40 @@ export async function runTrackB(options: TrackBOptions): Promise<TrackBResult> {
 
 /**
  * Build a tasksPerApp map from config.
- * If the config doesn't specify tasks, generates placeholder task IDs.
+ * WebArena task IDs are globally unique and each task is tied to a specific site.
+ * BrowserGym handles the site routing internally during env.reset().
+ *
+ * Task ID ranges (from WebArena benchmark):
+ *   0-99:   shopping_admin (Magento admin backend, port 7780)
+ *   100-199: reddit (Postmill, port 9999)
+ *   200-299: gitlab (GitLab, port 8023)
+ *   300-399: shopping_admin (CMS tasks, also port 7780)
+ *   400-811: map/wikipedia/cross-site tasks
+ *
+ * Note: Tasks 0-99 and 300-399 require shopping_admin, NOT shopping frontend.
+ * If config only has 'ecommerce' (frontend), those tasks will fail.
  */
 function buildTasksPerApp(config: ExperimentConfig): Record<string, string[]> {
   const apps = Object.keys(config.webarena.apps);
   const tasksPerApp: Record<string, string[]> = {};
 
-  // WebArena tasks are registered as numeric IDs: browsergym/webarena.{N}
-  // Map app names to known task ID ranges from the WebArena benchmark.
-  // Shopping: tasks 0-99, Reddit: 100-199, GitLab: 200-299, CMS: 300-399
+  // Map app names to appropriate task ID ranges
   const defaultTaskIds: Record<string, string[]> = {
-    ecommerce: ['0', '1', '2'],
-    shopping:  ['0', '1', '2'],
+    // shopping_admin tasks (need admin backend)
+    ecommerce_admin: ['0', '1', '2'],
+    shopping_admin:  ['0', '1', '2'],
+    // shopping frontend tasks — use tasks that work on the storefront
+    // These are cross-site tasks that involve shopping but start from the frontend
+    ecommerce: ['3', '4', '5'],  // Storefront-compatible tasks
+    shopping:  ['3', '4', '5'],
+    // Reddit (Postmill)
     reddit:    ['100', '101', '102'],
+    // GitLab
     gitlab:    ['200', '201', '202'],
+    // CMS (also shopping_admin)
     cms:       ['300', '301', '302'],
+    // Wikipedia (Kiwix)
+    wikipedia: ['400', '401', '402'],
   };
 
   for (const app of apps) {

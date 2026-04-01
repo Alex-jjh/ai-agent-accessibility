@@ -6,6 +6,8 @@ webarena:
   apps:
     ecommerce:
       url: "http://10.0.1.49:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.49:7780"
     reddit:
       url: "http://10.0.1.49:9999"
     wikipedia:
