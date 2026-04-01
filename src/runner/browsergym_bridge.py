@@ -151,17 +151,34 @@ def main() -> None:
         _original_ui_login = wa_inst.WebArenaInstance.ui_login
 
         def _patched_ui_login(self, site, page):
-            """Wrapper that increases timeout for real logins and skips problematic sites."""
-            # Skip sites that don't have working login pages
-            # shopping_admin: BrowserGym navigates to storefront URL, not /admin/ — Username label not found
-            # map: service doesn't exist in WebArena AMI
-            skip_sites = {"shopping_admin", "map"}
-            if site in skip_sites:
-                print(f"[bridge] Skipping ui_login for {site} (known non-functional)", file=sys.stderr)
+            """Fix BrowserGym's ui_login for WebArena AMI compatibility."""
+            # map service doesn't exist in WebArena AMI — skip entirely
+            if site == "map":
+                print(f"[bridge] Skipping ui_login for map (service not available)", file=sys.stderr)
                 return
 
-            # Set timeout to 30s for real login attempts
             page.context.set_default_timeout(30000)
+
+            if site == "shopping_admin":
+                # BrowserGym navigates to storefront URL but admin login is at /admin/
+                # Manually handle the admin login flow
+                try:
+                    url = self.urls[site]
+                    username = self.credentials[site]["username"]
+                    password = self.credentials[site]["password"]
+                    login_page = page.context.new_page()
+                    login_page.goto(f"{url}/admin/", timeout=30000)
+                    login_page.locator("#username").fill(username)
+                    login_page.locator("#login").fill(password)
+                    login_page.locator(".action-login").click()
+                    login_page.wait_for_load_state("load", timeout=30000)
+                    login_page.close()
+                    print(f"[bridge] ui_login for shopping_admin succeeded via /admin/", file=sys.stderr)
+                except Exception as e:
+                    print(f"[bridge] ui_login for shopping_admin failed (non-fatal): {e}", file=sys.stderr)
+                return
+
+            # All other sites: use original login with increased timeout
             try:
                 _original_ui_login(self, site, page)
             except Exception as e:
