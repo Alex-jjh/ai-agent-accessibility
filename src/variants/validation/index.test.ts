@@ -66,7 +66,7 @@ function createMockScanner(compositeScore: number): Scanner {
 
 /** Create a minimal mock Playwright Page. */
 function createMockPage(url = 'http://localhost:3000') {
-  const mockCdpSession = {} as any;
+  const mockCdpSession = { detach: vi.fn().mockResolvedValue(undefined) } as any;
   return {
     url: () => url,
     context: () => ({

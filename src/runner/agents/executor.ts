@@ -263,6 +263,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
   const startTime = Date.now();
   const steps: ActionTraceStep[] = [];
   let totalTokens = 0;
+  let envTruncated = false;
 
   const bridge = bridgeSpawner(bridgeScriptPath, { taskId, targetUrl, taskGoal });
 
@@ -344,7 +345,10 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
       });
 
       // Check termination conditions
-      if (obs.terminated || obs.truncated) break;
+      if (obs.terminated || obs.truncated) {
+        if (obs.truncated) envTruncated = true;
+        break;
+      }
       if (action.includes('send_msg_to_user')) break;
       if (stepResult === 'error' && !resultDetail?.includes('retry')) break;
     }
@@ -353,8 +357,13 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
   }
 
   const durationMs = Date.now() - startTime;
-  const hitStepLimit = steps.length >= agentConfig.maxSteps &&
-    !steps[steps.length - 1]?.action.includes('send_msg_to_user');
+  // Detect timeout: either hit the agent step limit, or BrowserGym truncated the episode.
+  // We track whether BrowserGym signaled truncation (obs.truncated) separately from
+  // the agent's own step limit, since both should map to 'timeout' outcome.
+  const lastStep = steps[steps.length - 1];
+  const agentHitLimit = steps.length >= agentConfig.maxSteps &&
+    !lastStep?.action.includes('send_msg_to_user');
+  const hitStepLimit = agentHitLimit || envTruncated;
   const outcome = determineOutcome(steps, hitStepLimit);
 
   return {

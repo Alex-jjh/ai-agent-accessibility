@@ -84,10 +84,10 @@ async function computeSemanticHtmlRatio(
 ): Promise<number> {
   const [semanticCount, structuralCount] = await page.evaluate(
     ({ semanticTags, traverseShadow, maxDepth }) => {
-      const structuralTags = [
-        'div', 'span', 'section', 'article', 'nav', 'main', 'header', 'footer',
-        'aside', 'figure', 'figcaption', 'details', 'summary', 'dialog', 'address',
-      ];
+      // structuralTags: non-semantic container elements only (div, span).
+      // Semantic elements (nav, main, etc.) are counted separately in semanticTags.
+      // The ratio measures: semantic elements / (semantic + non-semantic containers).
+      const nonSemanticContainers = ['div', 'span'];
 
       const collectElements = (root: Document | ShadowRoot, depth = 0): Element[] => {
         const elements = Array.from(root.querySelectorAll('*'));
@@ -102,13 +102,13 @@ async function computeSemanticHtmlRatio(
       };
 
       const allElements = collectElements(document);
-      const structural = allElements.filter((el) =>
-        structuralTags.includes(el.tagName.toLowerCase()),
+      const nonSemantic = allElements.filter((el) =>
+        nonSemanticContainers.includes(el.tagName.toLowerCase()),
       ).length;
       const semantic = allElements.filter((el) =>
         semanticTags.includes(el.tagName.toLowerCase()),
       ).length;
-      return [semantic, structural];
+      return [semantic, semantic + nonSemantic];
     },
     { semanticTags: SEMANTIC_ELEMENTS, traverseShadow: traverseShadowDOM, maxDepth: MAX_SHADOW_DEPTH },
   );
@@ -177,7 +177,7 @@ async function computeKeyboardNavigability(page: Page): Promise<number> {
   // Record the starting element
   const startInfo = await page.evaluate(() => {
     const el = document.activeElement;
-    return { tag: el?.tagName ?? '', id: el?.id ?? '' };
+    return { tag: el?.tagName?.toLowerCase() ?? '', id: el?.id ?? '' };
   });
 
   for (let tabCount = 0; tabCount < MAX_TAB_PRESSES; tabCount++) {
@@ -217,8 +217,11 @@ async function computeKeyboardNavigability(page: Page): Promise<number> {
     lastTag = current.tag;
     lastId = current.id;
 
-    // Cycle complete: focus returned to starting element
-    if (tabCount > 0 && current.tag === startInfo.tag && current.id === startInfo.id && startInfo.id !== '') {
+    // Cycle complete: focus returned to starting element.
+    // Use the same composite key format for comparison so this works
+    // even when the starting element has no id attribute.
+    const startKey = `${startInfo.tag.toLowerCase()}#${startInfo.id}`;
+    if (tabCount > 0 && currentFingerprint === startKey) {
       break;
     }
   }

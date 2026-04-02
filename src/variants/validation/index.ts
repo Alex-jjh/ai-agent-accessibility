@@ -89,24 +89,28 @@ export async function validateVariant(
 
   // 2. Run Tier 2 scan (requires a CDP session from the page's browser context)
   const cdpSession = await (page.context() as any).newCDPSession(page);
-  const tier2 = await scanner.scanTier2(page, cdpSession);
+  try {
+    const tier2 = await scanner.scanTier2(page, cdpSession);
 
-  // 3. Compute composite score in 'composite' mode with default weights
-  const compositeOptions: CompositeScoreOptions = {
-    weights: DEFAULT_COMPOSITE_WEIGHTS,
-    mode: 'composite',
-  };
-  const compositeScore = scanner.computeCompositeScore(tier1, tier2, compositeOptions);
+    // 3. Compute composite score in 'composite' mode with default weights
+    const compositeOptions: CompositeScoreOptions = {
+      weights: DEFAULT_COMPOSITE_WEIGHTS,
+      mode: 'composite',
+    };
+    const compositeScore = scanner.computeCompositeScore(tier1, tier2, compositeOptions);
 
-  // 4. Check if score falls within expected range for this variant level
-  const expectedRange = VARIANT_SCORE_RANGES[level];
-  const score = compositeScore.compositeScore;
-  const inExpectedRange = score >= expectedRange.min && score <= expectedRange.max;
+    // 4. Check if score falls within expected range for this variant level
+    const expectedRange = VARIANT_SCORE_RANGES[level];
+    const score = compositeScore.compositeScore;
+    const inExpectedRange = score >= expectedRange.min && score <= expectedRange.max;
 
-  return {
-    variantLevel: level,
-    compositeScore,
-    inExpectedRange,
-    expectedRange,
-  };
+    return {
+      variantLevel: level,
+      compositeScore,
+      inExpectedRange,
+      expectedRange,
+    };
+  } finally {
+    await cdpSession.detach();
+  }
 }

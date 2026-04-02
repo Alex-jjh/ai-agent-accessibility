@@ -135,21 +135,7 @@ class SecondaryAnalysis:
         )
         model.fit(X, y)
 
-        # Predictions on training data for basic metrics
-        y_pred = model.predict(X)
-        y_proba = model.predict_proba(X)
-
-        accuracy = float(accuracy_score(y, y_pred))
-        precision = float(precision_score(y, y_pred, zero_division=0))
-        recall = float(recall_score(y, y_pred, zero_division=0))
-        f1 = float(f1_score(y, y_pred, zero_division=0))
-
-        # ROC AUC — requires both classes present
-        roc_auc: Optional[float] = None
-        if len(np.unique(y)) > 1 and y_proba.shape[1] == 2:
-            roc_auc = float(roc_auc_score(y, y_proba[:, 1]))
-
-        # Cross-validation
+        # Cross-validation (computed BEFORE training-set metrics for clarity)
         actual_folds = min(cv_folds, len(X))
         if actual_folds >= 2 and len(np.unique(y)) > 1:
             cv_scores_arr = cross_val_score(
@@ -165,7 +151,56 @@ class SecondaryAnalysis:
             )
             cv_scores = [float(s) for s in cv_scores_arr]
         else:
-            cv_scores = [accuracy]
+            cv_scores = [0.0]
+
+        # Use cross-validated predictions for metrics to avoid overfitting bias.
+        # Fall back to training-set predictions when CV is not possible.
+        if actual_folds >= 2 and len(np.unique(y)) > 1:
+            from sklearn.model_selection import cross_val_predict
+
+            y_pred_cv = cross_val_predict(
+                RandomForestClassifier(
+                    n_estimators=n_estimators,
+                    random_state=random_state,
+                    n_jobs=-1,
+                ),
+                X,
+                y,
+                cv=actual_folds,
+            )
+            accuracy = float(accuracy_score(y, y_pred_cv))
+            precision = float(precision_score(y, y_pred_cv, zero_division=0))
+            recall = float(recall_score(y, y_pred_cv, zero_division=0))
+            f1 = float(f1_score(y, y_pred_cv, zero_division=0))
+
+            # ROC AUC from CV probability estimates
+            roc_auc: Optional[float] = None
+            try:
+                y_proba_cv = cross_val_predict(
+                    RandomForestClassifier(
+                        n_estimators=n_estimators,
+                        random_state=random_state,
+                        n_jobs=-1,
+                    ),
+                    X,
+                    y,
+                    cv=actual_folds,
+                    method="predict_proba",
+                )
+                roc_auc = float(roc_auc_score(y, y_proba_cv[:, 1]))
+            except Exception:
+                roc_auc = None
+        else:
+            # Fallback: training-set metrics (flagged in results)
+            y_pred = model.predict(X)
+            y_proba = model.predict_proba(X)
+            accuracy = float(accuracy_score(y, y_pred))
+            precision = float(precision_score(y, y_pred, zero_division=0))
+            recall = float(recall_score(y, y_pred, zero_division=0))
+            f1 = float(f1_score(y, y_pred, zero_division=0))
+            roc_auc = None
+            if len(np.unique(y)) > 1 and y_proba.shape[1] == 2:
+                roc_auc = float(roc_auc_score(y, y_proba[:, 1]))
 
         # Feature importances from the model
         importances = model.feature_importances_

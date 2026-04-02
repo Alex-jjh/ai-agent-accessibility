@@ -265,8 +265,8 @@ export async function runTrackA(options: TrackAOptions): Promise<TrackAResult> {
           };
           records.push(record);
 
-          // Persist to store
-          await store.storeRecord(caseId, record, classifications.get(caseId));
+          // Persist to store (first arg is runId, not caseId)
+          await store.storeRecord(run.runId, record, classifications.get(caseId));
 
           return { trace, taskOutcome: outcome, scanResults };
         } finally {
