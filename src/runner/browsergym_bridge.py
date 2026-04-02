@@ -214,7 +214,7 @@ def main() -> None:
 
     wa_defaults = {
         "WA_SHOPPING": f"{base_host}:7770",
-        "WA_SHOPPING_ADMIN": f"{base_host}:7780",
+        "WA_SHOPPING_ADMIN": f"{base_host}:7780/admin",
         "WA_REDDIT": f"{base_host}:9999",
         "WA_GITLAB": f"{base_host}:8023",
         "WA_WIKIPEDIA": f"{base_host}:8888",
