@@ -186,3 +186,50 @@ for or against the accessibility gradient hypothesis.
 
 Pilot 2 (post-fix) will be the first valid test of the variant → agent success
 causal relationship.
+
+---
+
+# Round 4 — Code Review Audit (2 fixes)
+
+Full codebase audit. 2 P2 bugs fixed. 22 tests passing.
+
+## Bug 10 [P2]: Vision mode history carries base64 screenshots → token explosion
+
+**File:** `src/runner/agents/executor.ts`
+
+**Root cause:** `messageHistory.push({ role: 'user', content: userContent })` pushes
+the raw `userContent` into history. In vision mode, `buildUserMessage` returns an
+`object[]` containing `{ type: 'image_url', image_url: { url: 'data:image/png;base64,...' } }`.
+Every historical step in the sliding window carries a full base64 screenshot (~100KB+).
+With `maxHistorySteps=6`, that's 6 screenshots × ~100KB = ~600KB of base64 in every
+LLM request, rapidly consuming the context window.
+
+**Impact:** Vision mode token usage far exceeds expectations. Likely triggers context
+overflow (F_COF) on longer episodes, or causes LLM API errors from oversized requests.
+
+**Fix:** When pushing to `messageHistory`, vision mode content is stripped to text-only:
+filter out `image_url` entries, keep only `text` entries joined as a string. The current
+step still sends the full screenshot — only history entries lose the image data.
+
+## Bug 11 [P2]: detectHAL regex doesn't match BrowserGym action format → hallucination detection disabled
+
+**File:** `src/classifier/taxonomy/classify.ts`, `detectHAL`
+
+**Root cause:** The hallucination detector extracted the action target using
+`step.action.match(/element='([^']+)'/)`. BrowserGym actions use the format
+`click("bid")`, `fill("bid", "text")`, `hover("bid")`, etc. The regex never matches,
+so `actionTarget` is always empty, and the detector never fires.
+
+**Impact:** F_HAL (hallucination) classification is effectively disabled. Agents acting
+on non-existent elements are misclassified as F_ENF or F_REA instead.
+
+**Fix:** Changed regex to `/(?:click|fill|hover|focus|press|type)\s*\(\s*"(\d+)"/`
+which matches BrowserGym's actual action syntax and extracts the numeric bid. The bid
+is then checked against the observation's a11y tree text.
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| `src/runner/agents/executor.ts` | Strip base64 screenshots from vision history entries |
+| `src/classifier/taxonomy/classify.ts` | Fix detectHAL regex to match BrowserGym action format |

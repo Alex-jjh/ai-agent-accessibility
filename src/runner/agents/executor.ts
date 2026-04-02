@@ -314,8 +314,18 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
         reasoning = parsed.reasoning;
         action = parsed.action;
 
-        // Accumulate history for multi-turn context
-        messageHistory.push({ role: 'user', content: userContent });
+        // Accumulate history for multi-turn context.
+        // For vision mode, strip base64 screenshots from history to avoid
+        // token explosion — only the current step gets the screenshot.
+        let historyContent: string | object[] = userContent;
+        if (Array.isArray(userContent)) {
+          // Vision mode: keep only text entries, drop image_url
+          historyContent = (userContent as Array<{ type: string; text?: string }>)
+            .filter((part) => part.type === 'text')
+            .map((part) => part.text ?? '')
+            .join('\n');
+        }
+        messageHistory.push({ role: 'user', content: historyContent });
         messageHistory.push({ role: 'assistant', content: llmResponse.content });
       } catch (err) {
         stepResult = 'error';

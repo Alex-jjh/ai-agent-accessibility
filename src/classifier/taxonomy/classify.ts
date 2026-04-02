@@ -170,10 +170,12 @@ function detectHAL(steps: ActionTraceStep[]): DetectionResult | null {
       step.resultDetail &&
       /not found|does not exist|no such element|element missing/i.test(step.resultDetail)
     ) {
-      // Check if the action references something not in the observation
-      const actionTarget = step.action.match(/element='([^']+)'/)?.[1] ?? '';
+      // Check if the action references a bid not present in the observation.
+      // BrowserGym actions use: click("bid"), fill("bid", "text"), hover("bid"), etc.
+      const bidMatch = step.action.match(/(?:click|fill|hover|focus|press|type)\s*\(\s*"(\d+)"/);
+      const actionTarget = bidMatch?.[1] ?? '';
       if (actionTarget && !step.observation.includes(actionTarget)) {
-        evidence.push(`step ${step.stepNum}: action on "${actionTarget}" not in observation`);
+        evidence.push(`step ${step.stepNum}: action on bid "${actionTarget}" not in observation`);
       }
     }
   }
