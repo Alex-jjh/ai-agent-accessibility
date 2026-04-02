@@ -5,21 +5,23 @@
  * Runs each task once with base variant (no a11y modifications) to identify
  * tasks that are neither too easy nor too hard for the agent.
  *
- * WebArena task ID ranges (GLOBAL — determined by BrowserGym, not by app URL):
- *   Shopping admin:  0-2   (require admin login at :7780)
- *   Shopping frontend: 3-99  (storefront at :7770)
- *   Reddit:          100-199
- *   GitLab:          200-299
- *   CMS:             300-399
- *   Wikipedia:        400-811
+ * IMPORTANT: WebArena task IDs are INTERLEAVED across sites, NOT contiguous ranges.
+ * Each task_id maps to exactly one site in webarena/test.raw.json.
+ * Example first IDs per site:
+ *   shopping_admin: 0,1,2,3,4,5,6,11,12,13  (182 tasks total)
+ *   shopping:       21,22,23,24,25,26,47,48  (192 tasks total)
+ *   reddit:         27,28,29,30,31,66,67,68  (114 tasks total)
+ *   gitlab:         44,45,46,102,103,104,105 (196 tasks total)
+ *   wikipedia:      265,266,267,268          (16 tasks, ALL require map service — excluded)
+ *   map:            7,8,9,10,16              (128 tasks, NOT deployed — excluded)
  *
- * IMPORTANT: Task IDs must match the app. Running reddit task IDs (100+)
- * with --app ecommerce will route the agent to the wrong site.
+ * Using wrong IDs will silently route the agent to the wrong site.
+ * Always verify task IDs against test.raw.json before screening.
  *
  * Usage:
- *   npx tsx scripts/screen-tasks.ts --app ecommerce --start 3 --end 20
- *   npx tsx scripts/screen-tasks.ts --app reddit --start 100 --end 130
- *   npx tsx scripts/screen-tasks.ts --app wikipedia --start 400 --end 420 --maxSteps 15
+ *   npx tsx scripts/screen-tasks.ts --app ecommerce_admin --start 0 --end 13
+ *   npx tsx scripts/screen-tasks.ts --app ecommerce --start 21 --end 35
+ *   npx tsx scripts/screen-tasks.ts --app reddit --start 27 --end 40 --maxSteps 15
  */
 
 import { loadConfig } from '../src/config/index.js';
@@ -27,9 +29,9 @@ import { executeAgentTask } from '../src/runner/agents/executor.js';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
 const args = process.argv.slice(2);
-const appArg = args.find((_, i) => args[i - 1] === '--app') ?? 'reddit';
-const startArg = parseInt(args.find((_, i) => args[i - 1] === '--start') ?? '100');
-const endArg = parseInt(args.find((_, i) => args[i - 1] === '--end') ?? '130');
+const appArg = args.find((_, i) => args[i - 1] === '--app') ?? 'ecommerce_admin';
+const startArg = parseInt(args.find((_, i) => args[i - 1] === '--start') ?? '0');
+const endArg = parseInt(args.find((_, i) => args[i - 1] === '--end') ?? '13');
 const maxStepsArg = parseInt(args.find((_, i) => args[i - 1] === '--maxSteps') ?? '15');
 const configPath = args.find((_, i) => args[i - 1] === '--config') ?? './config-pilot.yaml';
 
