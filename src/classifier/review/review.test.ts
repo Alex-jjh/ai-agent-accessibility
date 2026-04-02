@@ -31,6 +31,7 @@ function makeTrace(taskId: string, attempt: number): ActionTrace {
     },
     attempt,
     success: false,
+    outcome: 'failure',
     steps: [],
     totalSteps: 0,
     totalTokens: 100,

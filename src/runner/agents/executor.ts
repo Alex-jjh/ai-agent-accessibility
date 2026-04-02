@@ -165,8 +165,9 @@ function cleanAction(raw: string): string {
   action = action.replace(/[\u2018\u2019]/g, "'");
 
   // Strip brackets from bid references: fill("[413]", ...) → fill("413", ...)
-  // LLMs copy [bid] notation from a11y tree but BrowserGym expects bare numeric IDs
-  action = action.replace(/\("?\[(\d+)\]"?/g, '("$1"');
+  // LLMs copy [bid] notation from a11y tree but BrowserGym expects bare numeric IDs.
+  // Handle both double and single quote variants: click("[413]"), click('[413]'), click([413])
+  action = action.replace(/\(["']?\[(\d+)\]["']?/g, '("$1"');
 
   return action;
 }
@@ -209,7 +210,7 @@ export function parseLlmResponse(content: string): { reasoning: string; action: 
   }
 
   // Extract action from inline function call patterns
-  const actionMatch = content.match(/((?:click|fill|type|hover|press|scroll|goto|go_back|go_forward|new_tab|tab_close|tab_focus|send_msg_to_user|noop|focus)\s*\([\s\S]*?\))/);
+  const actionMatch = content.match(/((?:click|fill|type|hover|press|scroll|goto|go_back|go_forward|new_tab|tab_close|tab_focus|select_option|send_msg_to_user|noop|focus)\s*\([\s\S]*?\))/);
 
   const action = actionMatch?.[1]?.trim() ?? 'noop()';
   const reasoning = content.replace(actionMatch?.[0] ?? '', '').trim();
@@ -218,25 +219,39 @@ export function parseLlmResponse(content: string): { reasoning: string; action: 
 }
 
 /**
- * Determine task outcome from the action trace.
+ * Determine task outcome from the action trace and environment signals.
+ *
+ * Priority order:
+ * 1. BrowserGym reward > 0 → success (ground truth from environment)
+ * 2. Step limit / truncation → timeout
+ * 3. Agent self-report via send_msg_to_user (with "cannot complete" checked
+ *    BEFORE "done" to avoid false positives like "cannot complete, done trying")
+ * 4. Default → failure
  */
 function determineOutcome(
   steps: ActionTraceStep[],
   hitStepLimit: boolean,
+  lastReward: number,
 ): 'success' | 'partial_success' | 'failure' | 'timeout' {
+  // BrowserGym reward is the ground truth — if the environment says the task
+  // was completed successfully, trust it over the agent's self-report.
+  if (lastReward > 0) return 'success';
+
   if (hitStepLimit) return 'timeout';
 
   const lastStep = steps[steps.length - 1];
   if (!lastStep) return 'failure';
 
-  // Check if agent signaled completion
+  // Check if agent signaled completion.
+  // IMPORTANT: check "cannot complete" BEFORE "done" — an LLM might output
+  // "I cannot complete this task, done trying" which contains both strings.
   if (lastStep.action.includes('send_msg_to_user')) {
-    if (lastStep.action.includes('done')) return 'success';
     if (lastStep.action.includes('cannot complete')) return 'failure';
+    if (lastStep.action.includes('done')) return 'success';
     return 'partial_success';
   }
 
-  // If terminated by environment reward
+  // Terminated by environment without positive reward
   return 'failure';
 }
 
@@ -266,6 +281,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
   const steps: ActionTraceStep[] = [];
   let totalTokens = 0;
   let envTruncated = false;
+  let lastReward = 0;
 
   const bridge = bridgeSpawner(bridgeScriptPath, { taskId, targetUrl, taskGoal, variantLevel: variant });
 
@@ -368,6 +384,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
       // Check termination conditions
       if (obs.terminated || obs.truncated) {
         if (obs.truncated) envTruncated = true;
+        lastReward = obs.reward;
         break;
       }
       if (action.includes('send_msg_to_user')) break;
@@ -385,7 +402,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
   const agentHitLimit = steps.length >= agentConfig.maxSteps &&
     !lastStep?.action.includes('send_msg_to_user');
   const hitStepLimit = agentHitLimit || envTruncated;
-  const outcome = determineOutcome(steps, hitStepLimit);
+  const outcome = determineOutcome(steps, hitStepLimit, lastReward);
 
   return {
     taskId,
@@ -393,6 +410,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
     agentConfig,
     attempt,
     success: outcome === 'success',
+    outcome,
     steps,
     totalSteps: steps.length,
     totalTokens,

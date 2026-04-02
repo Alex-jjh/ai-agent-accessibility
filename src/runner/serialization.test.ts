@@ -46,6 +46,7 @@ const arbActionTrace: fc.Arbitrary<ActionTrace> = fc.record({
   agentConfig: arbAgentConfig,
   attempt: fc.integer({ min: 1, max: 10 }),
   success: fc.boolean(),
+  outcome: fc.constantFrom('success', 'partial_success', 'failure', 'timeout') as fc.Arbitrary<ActionTrace['outcome']>,
   steps: fc.array(arbActionTraceStep, { minLength: 0, maxLength: 5 }),
   totalSteps: fc.integer({ min: 0, max: 100 }),
   totalTokens: fc.integer({ min: 0, max: 500000 }),

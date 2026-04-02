@@ -39,6 +39,8 @@ export interface ActionTrace {
   agentConfig: AgentConfig;
   attempt: number;
   success: boolean;
+  /** Full outcome from determineOutcome — preserves timeout/partial_success distinction */
+  outcome: 'success' | 'partial_success' | 'failure' | 'timeout';
   steps: ActionTraceStep[];
   totalSteps: number;
   totalTokens: number;

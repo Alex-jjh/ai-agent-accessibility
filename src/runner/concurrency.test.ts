@@ -77,6 +77,7 @@ function makeMockResult(taskId: string): TestCaseResult {
     agentConfig: testConfig,
     attempt: 1,
     success: true,
+    outcome: 'success',
     steps: [],
     totalSteps: 0,
     totalTokens: 100,

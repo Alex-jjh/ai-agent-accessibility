@@ -54,6 +54,14 @@ export function deserializeActionTrace(json: string): ActionTrace {
   validateNumber(obj, 'totalTokens');
   validateNumber(obj, 'durationMs');
 
+  // Validate outcome field (added for BUG-04+05 fix)
+  if ('outcome' in obj) {
+    const validOutcomes = ['success', 'partial_success', 'failure', 'timeout'];
+    if (!validOutcomes.includes(obj.outcome as string)) {
+      throw new ActionTraceParseError('outcome', `Expected one of ${validOutcomes.join(', ')}, got "${obj.outcome}"`);
+    }
+  }
+
   // Validate steps array
   if (!Array.isArray(obj.steps)) {
     throw new ActionTraceParseError('steps', `Expected array, got ${typeof obj.steps}`);

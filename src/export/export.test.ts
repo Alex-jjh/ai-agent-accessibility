@@ -83,6 +83,7 @@ function makeTrace(taskId = 'task-1', success = false): ActionTrace {
     agentConfig,
     attempt: 1,
     success,
+    outcome: success ? 'success' : 'failure',
     steps: [
       { stepNum: 1, timestamp: '2026-01-15T10:01:00Z', observation: 'a11y tree text', reasoning: 'Click submit', action: "click(element='Submit')", result: 'success' },
       { stepNum: 2, timestamp: '2026-01-15T10:01:05Z', observation: 'a11y tree text', reasoning: 'Check result', action: "click(element='Confirm')", result: success ? 'success' : 'error', resultDetail: success ? undefined : 'Element not found' },

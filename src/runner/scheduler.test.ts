@@ -44,6 +44,7 @@ function makeMockTrace(caseId: string, params: TestCaseParams): ActionTrace {
     agentConfig: params.agentConfig,
     attempt: params.attempt,
     success: true,
+    outcome: 'success',
     steps: [],
     totalSteps: 0,
     totalTokens: 100,

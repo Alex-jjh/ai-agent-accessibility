@@ -229,22 +229,27 @@ export async function runTrackA(options: TrackAOptions): Promise<TrackAResult> {
             attempt: params.attempt,
           });
 
-          // Determine task outcome
+          // Determine task outcome — use the full outcome from the trace,
+          // preserving timeout/partial_success distinction (BUG-05 fix)
           const outcome: TaskOutcome = {
             taskId: params.taskId,
-            outcome: trace.success ? 'success' : 'failure',
+            outcome: trace.outcome,
             traces: [trace],
             medianSteps: trace.totalSteps,
             medianDurationMs: trace.durationMs,
             scanResults,
           };
 
-          // Classify failure if applicable
-          if (!trace.success) {
+          // Classify failure if applicable.
+          // Skip classification for timeouts — they are not reasoning errors (BUG-04 fix).
+          if (!trace.success && trace.outcome !== 'timeout') {
             const classification = classifyFailure(trace);
             classifications.set(caseId, classification);
             trace.failureType = classification.primary;
             trace.failureConfidence = classification.confidence;
+          } else if (trace.outcome === 'timeout') {
+            trace.failureType = 'timeout';
+            trace.failureConfidence = 1.0;
           }
 
           const record: ExperimentRecord = {

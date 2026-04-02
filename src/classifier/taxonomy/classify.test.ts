@@ -21,6 +21,7 @@ function makeTrace(
     },
     attempt: 1,
     success: false,
+    outcome: 'failure' as const,
     steps: steps.map((s, i) => ({
       stepNum: i + 1,
       timestamp: new Date().toISOString(),
@@ -148,8 +149,8 @@ describe('F_HAL detection', () => {
   it('detects hallucination when action target not in observation', () => {
     const trace = makeTrace([
       {
-        action: "click(element='Delete Account')",
-        observation: 'buttons: [Save, Cancel, Help]',
+        action: 'click("999")',
+        observation: '[1] button "Save"\n[2] button "Cancel"\n[3] button "Help"',
         result: 'failure',
         resultDetail: 'element not found',
       },

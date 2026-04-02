@@ -83,6 +83,7 @@ function makeTrace(taskId: string, success: boolean): ActionTrace {
     agentConfig,
     attempt: 1,
     success,
+    outcome: success ? 'success' : 'failure',
     steps: success
       ? [{ stepNum: 1, timestamp: '2026-03-31T10:00:01Z', observation: 'page loaded', reasoning: 'click submit', action: "click(element='Submit')", result: 'success' }]
       : [
