@@ -273,6 +273,69 @@ def main() -> None:
     except Exception:
         pass  # If patching fails, proceed with original behavior
 
+    # Monkey-patch BrowserGym's action functions to increase the hardcoded 500ms
+    # timeout to 3000ms. BrowserGym hardcodes timeout=500 in every action call
+    # (click, fill, hover, etc.) in browsergym/core/action/functions.py.
+    # Our set_default_timeout() calls have no effect because the explicit
+    # timeout=500 parameter overrides the default. Magento on t3a.xlarge
+    # needs more than 500ms for many DOM interactions.
+    try:
+        import browsergym.core.action.functions as _action_fns
+        import inspect
+
+        _ACTION_TIMEOUT_MS = 3000  # 3s instead of 500ms
+
+        # Patch each function that has timeout=500 in its signature
+        for name in dir(_action_fns):
+            fn = getattr(_action_fns, name)
+            if not callable(fn) or name.startswith('_'):
+                continue
+            try:
+                sig = inspect.signature(fn)
+                # Check if function has a 'timeout' parameter defaulting to 500
+                for pname, param in sig.parameters.items():
+                    if pname == 'timeout' and param.default == 500:
+                        # Can't easily change default, so we wrap instead
+                        break
+            except (ValueError, TypeError):
+                continue
+
+        # Direct approach: replace the hardcoded 500 values in the source
+        # by monkey-patching the specific action functions we care about
+        _orig_click = _action_fns.click
+        _orig_fill = _action_fns.fill
+        _orig_hover = _action_fns.hover
+        _orig_press = _action_fns.press
+        _orig_focus = _action_fns.focus
+        _orig_clear = _action_fns.clear
+        _orig_dblclick = _action_fns.dblclick
+        _orig_select_option = _action_fns.select_option
+        _orig_check = _action_fns.check
+        _orig_uncheck = _action_fns.uncheck
+        _orig_drag_and_drop = _action_fns.drag_and_drop
+
+        def _make_timeout_wrapper(orig_fn):
+            """Wrap an action function to replace timeout=500 with our value."""
+            sig = inspect.signature(orig_fn)
+            def wrapper(*args, **kwargs):
+                # If caller didn't explicitly set timeout, or set it to 500 (the default),
+                # override with our higher value
+                if 'timeout' not in kwargs or kwargs['timeout'] == 500:
+                    kwargs['timeout'] = _ACTION_TIMEOUT_MS
+                return orig_fn(*args, **kwargs)
+            wrapper.__name__ = orig_fn.__name__
+            wrapper.__doc__ = orig_fn.__doc__
+            return wrapper
+
+        for fn_name in ['click', 'fill', 'hover', 'press', 'focus', 'clear',
+                        'dblclick', 'select_option', 'check', 'uncheck', 'drag_and_drop']:
+            if hasattr(_action_fns, fn_name):
+                setattr(_action_fns, fn_name, _make_timeout_wrapper(getattr(_action_fns, fn_name)))
+
+        print(f"[bridge] Patched BrowserGym action timeout: 500ms -> {_ACTION_TIMEOUT_MS}ms", file=sys.stderr)
+    except Exception as e:
+        print(f"[bridge] WARNING: Failed to patch action timeout: {e}", file=sys.stderr)
+
     env = None
     try:
         env = gym.make(gym_task)
@@ -287,7 +350,7 @@ def main() -> None:
         obs, info = env.reset()
 
         # Increase page timeout after reset for subsequent actions
-        # BrowserGym default is 500ms which is way too short for WebArena
+        # (supplementary to the action function monkey-patch above)
         try:
             if hasattr(env, 'unwrapped') and hasattr(env.unwrapped, 'page'):
                 env.unwrapped.page.set_default_timeout(3000)  # 3s for actions
