@@ -134,6 +134,13 @@ async function main() {
       };
       results.push(result);
 
+      // Save full trace for analysis
+      const traceDir = './data/screening/traces';
+      mkdirSync(traceDir, { recursive: true });
+      writeFileSync(`${traceDir}/${appArg}_${id}.json`, JSON.stringify({
+        app: appArg, taskId: id, trace, config: { maxSteps: maxStepsArg },
+      }, null, 2));
+
       const status = trace.success ? '✅' : '❌';
       console.log(`  ${status} steps=${trace.totalSteps} dur=${Math.round(trace.durationMs / 1000)}s${trace.failureType ? ` fail=${trace.failureType}` : ''}`);
     } catch (err) {
