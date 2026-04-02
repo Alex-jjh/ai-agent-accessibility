@@ -12,6 +12,12 @@ webarena:
       url: "http://10.0.1.49:9999"
     wikipedia:
       url: "http://10.0.1.49:8888"
+  # Task IDs from webarena/test.raw.json — interleaved, NOT contiguous ranges.
+  tasksPerApp:
+    ecommerce_admin: ["0", "1", "2"]
+    ecommerce: ["21", "22", "23"]
+    reddit: ["27", "28", "29"]
+    wikipedia: ["265", "266", "267"]
 
 scanner:
   wcagLevels: ["A", "AA"]

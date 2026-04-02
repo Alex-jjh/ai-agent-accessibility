@@ -14,14 +14,15 @@ webarena:
       url: "http://10.0.1.49:8888"
     # gitlab:
     #   url: "http://10.0.1.49:8023"  # Enable after confirming BrowserGym compat
-  # Explicit task ID mapping — prevents routing bugs.
-  # WebArena task IDs are GLOBAL: ecommerce=3-99, reddit=100-199, wikipedia=400-811.
-  # Tasks 0-2 require ecommerce_admin (NOT storefront). Do NOT use them with 'ecommerce'.
+  # Explicit task ID mapping — from webarena/test.raw.json ground truth.
+  # WebArena task IDs are NOT contiguous ranges — they are interleaved across sites.
+  # Each task ID maps to exactly one site in test.raw.json regardless of app label.
+  # Map service (task 7-10, 100-101, etc.) is NOT deployed — exclude those IDs.
   tasksPerApp:
-    ecommerce: ["3", "4", "5"]
     ecommerce_admin: ["0", "1", "2"]
-    reddit: ["100", "101", "102"]
-    wikipedia: ["400", "401", "402"]
+    ecommerce: ["21", "22", "23"]
+    reddit: ["27", "28", "29"]
+    wikipedia: ["265", "266", "267"]
 
 scanner:
   wcagLevels: ["A", "AA"]

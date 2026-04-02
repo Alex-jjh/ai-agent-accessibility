@@ -16,21 +16,22 @@ Root cause analysis identified 5 failure categories; 3 P0 code fixes applied and
 Next: Run regression to verify fixes, then task screening, then Pilot 2.
 See docs/pilot-analysis.md for full post-mortem.
 
-## WebArena Task ID Ranges (CRITICAL)
+## WebArena Task ID Mapping (CRITICAL)
 
-Task IDs are GLOBAL in WebArena — they determine which app the agent is routed to,
-regardless of what app label the scheduler assigns. Using wrong IDs = silent misrouting.
+Task IDs are interleaved across sites in webarena/test.raw.json — NOT contiguous ranges.
+Each task_id maps to exactly one site. Using wrong IDs = silent misrouting.
 
 ```
-ecommerce_admin (Magento backend :7780):  0–2
-ecommerce       (Magento storefront :7770): 3–99
-reddit          (Postmill :9999):         100–199
-gitlab          (:8023):                  200–299
-cms             (:7780):                  300–399
-wikipedia       (Kiwix :8888):            400–811
+shopping_admin (Magento backend :7780):  182 tasks, first: 0,1,2,3,4,5,6,11,12,13
+shopping       (Magento storefront :7770): 192 tasks, first: 21,22,23,24,25,26,47,48
+reddit         (Postmill :9999):         114 tasks, first: 27,28,29,30,31,66,67,68
+gitlab         (:8023):                  196 tasks, first: 44,45,46,102,103,104,105
+wikipedia      (Kiwix :8888):             16 tasks, first: 265,266,267,268,424,425
+map            (:3000):                  128 tasks — NOT DEPLOYED, excluded
 ```
 
-Config can override via `webarena.tasksPerApp` in YAML. Always validate with screen-tasks.ts.
+NEVER assume contiguous ranges (e.g. "reddit=100-199" is WRONG).
+Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
 
 ## Deployment Rules (CRITICAL)
 

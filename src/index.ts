@@ -452,31 +452,32 @@ function buildTasksPerApp(config: ExperimentConfig): Record<string, string[]> {
   // Allow config-level override (e.g., from YAML tasksPerApp section)
   const configOverrides = config.webarena.tasksPerApp;
 
-  // WebArena task ID ranges by app:
-  //   Shopping (ecommerce storefront): 3-99
-  //   Shopping admin: 0-2 (require admin login — NOT storefront tasks)
-  //   Reddit (Postmill): 100-199
-  //   GitLab: 200-299
-  //   CMS: 300-399
-  //   Wikipedia (Kiwix): 400-811
+  // WebArena task ID ranges by app (from webarena/test.raw.json):
+  // Task IDs are interleaved across sites — NOT contiguous ranges.
+  // Each task_id maps to exactly one site in test.raw.json.
   //
-  // IMPORTANT: Task IDs are global WebArena identifiers. Using the wrong
-  // range for an app will route the agent to the wrong website via BrowserGym.
+  //   shopping_admin: 182 tasks, first IDs: 0,1,2,3,4,5,6,11,12,13
+  //   shopping:       192 tasks, first IDs: 21,22,23,24,25,26,47,48,49,50
+  //   reddit:         114 tasks, first IDs: 27,28,29,30,31,66,67,68,69,399
+  //   gitlab:         196 tasks, first IDs: 44,45,46,102,103,104,105,106,132,133
+  //   wikipedia:       16 tasks, first IDs: 265,266,267,268,424,425,426,427,428,429
+  //   map:            128 tasks — NOT deployed, excluded
+  //
+  // IMPORTANT: Do NOT use "contiguous range" assumptions (e.g. reddit=100-199).
+  // Always verify against test.raw.json or use explicit tasksPerApp in config.
   const defaultTaskIds: Record<string, string[]> = {
-    // shopping_admin tasks (need admin backend)
+    // shopping_admin (Magento admin backend :7780)
     ecommerce_admin: ['0', '1', '2'],
     shopping_admin:  ['0', '1', '2'],
-    // shopping frontend tasks — use tasks that work on the storefront
-    ecommerce: ['3', '4', '5'],
-    shopping:  ['3', '4', '5'],
-    // Reddit (Postmill)
-    reddit:    ['100', '101', '102'],
-    // GitLab
-    gitlab:    ['200', '201', '202'],
-    // CMS (also shopping_admin)
-    cms:       ['300', '301', '302'],
-    // Wikipedia (Kiwix)
-    wikipedia: ['400', '401', '402'],
+    // shopping (Magento storefront :7770)
+    ecommerce: ['21', '22', '23'],
+    shopping:  ['21', '22', '23'],
+    // Reddit (Postmill :9999)
+    reddit:    ['27', '28', '29'],
+    // GitLab (:8023)
+    gitlab:    ['44', '45', '46'],
+    // Wikipedia (Kiwix :8888)
+    wikipedia: ['265', '266', '267'],
   };
 
   for (const app of apps) {

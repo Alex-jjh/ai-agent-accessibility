@@ -24,12 +24,13 @@ import { writeFileSync, mkdirSync } from 'node:fs';
 const args = process.argv.slice(2);
 const configPath = args.find((_, i) => args[i - 1] === '--config') ?? './config-regression.yaml';
 
-// Targeted task list — IDs must be in the correct WebArena range for each app
+// Targeted task list — IDs from webarena/test.raw.json (interleaved, NOT contiguous ranges)
+// App names must match config-regression.yaml keys
 const TASKS: Record<string, string[]> = {
-  reddit:          ['100', '101', '102'],
   ecommerce_admin: ['0', '1', '2'],
-  ecommerce:       ['3', '4', '5'],
-  wikipedia:       ['400', '401', '402'],
+  ecommerce:       ['21', '22', '23'],
+  reddit:          ['27', '28', '29'],
+  wikipedia:       ['265', '266', '267'],
 };
 
 async function main() {

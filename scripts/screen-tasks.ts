@@ -33,16 +33,17 @@ const endArg = parseInt(args.find((_, i) => args[i - 1] === '--end') ?? '130');
 const maxStepsArg = parseInt(args.find((_, i) => args[i - 1] === '--maxSteps') ?? '15');
 const configPath = args.find((_, i) => args[i - 1] === '--config') ?? './config-pilot.yaml';
 
-// Valid task ID ranges per app — prevents the routing bug from the pilot
+// Valid task ID ranges per app — from webarena/test.raw.json
+// NOTE: These are approximate outer bounds. Task IDs are interleaved, not contiguous.
+// The actual valid IDs within each range are sparse. Use --app with correct IDs.
 const TASK_RANGES: Record<string, { min: number; max: number }> = {
-  ecommerce_admin: { min: 0, max: 2 },
-  ecommerce:       { min: 3, max: 99 },
-  shopping_admin:  { min: 0, max: 2 },
-  shopping:        { min: 3, max: 99 },
-  reddit:          { min: 100, max: 199 },
-  gitlab:          { min: 200, max: 299 },
-  cms:             { min: 300, max: 399 },
-  wikipedia:       { min: 400, max: 811 },
+  ecommerce_admin: { min: 0, max: 790 },
+  ecommerce:       { min: 21, max: 798 },
+  shopping_admin:  { min: 0, max: 790 },
+  shopping:        { min: 21, max: 798 },
+  reddit:          { min: 27, max: 791 },
+  gitlab:          { min: 44, max: 811 },
+  wikipedia:       { min: 97, max: 741 },
 };
 
 interface ScreenResult {
