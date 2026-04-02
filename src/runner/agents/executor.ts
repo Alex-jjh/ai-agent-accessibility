@@ -93,7 +93,12 @@ function buildSystemPrompt(goal: string, observationMode: 'text-only' | 'vision'
     '- The accessibility tree shows [123] but you must use just "123" in actions',
     '- If the page is loading, use noop() and wait',
     '- If you cannot complete the task after trying, use send_msg_to_user("cannot complete")',
-    '- If the task is complete, use send_msg_to_user("done")',
+    '- When the task asks for information, respond with ONLY the direct answer:',
+    '  send_msg_to_user("Luma")  — just the answer, no explanation',
+    '  send_msg_to_user("$25.99")',
+    '  send_msg_to_user("3")',
+    '  Do NOT include long explanations. Do NOT use quotes inside the answer text.',
+    '- If the task is an action (not a question), use send_msg_to_user("done") when complete',
     '',
     'Respond with a JSON object: {"reasoning": "your thinking", "action": "the action to execute"}',
   ].join('\n');
@@ -168,6 +173,22 @@ function cleanAction(raw: string): string {
   // LLMs copy [bid] notation from a11y tree but BrowserGym expects bare numeric IDs.
   // Handle both double and single quote variants: click("[413]"), click('[413]'), click([413])
   action = action.replace(/\(["']?\[(\d+)\]["']?/g, '("$1"');
+
+  // Sanitize send_msg_to_user: BrowserGym exec()'s the action string as Python code.
+  // Internal double quotes in the message text break the Python string literal,
+  // causing "ValueError: Received an empty action". Replace internal quotes with
+  // single quotes so the outer double quotes stay intact.
+  const sendMsgMatch = action.match(/^send_msg_to_user\("([\s\S]*)"\)$/);
+  if (sendMsgMatch) {
+    let msg = sendMsgMatch[1];
+    // Replace internal double quotes with single quotes
+    msg = msg.replace(/"/g, "'");
+    // Remove newlines that break Python exec()
+    msg = msg.replace(/[\r\n]+/g, ' ');
+    // Truncate to avoid token-explosion in BrowserGym's action parser
+    if (msg.length > 500) msg = msg.substring(0, 500);
+    action = `send_msg_to_user("${msg}")`;
+  }
 
   return action;
 }

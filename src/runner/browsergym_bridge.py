@@ -224,6 +224,11 @@ def main() -> None:
     for key, default in wa_defaults.items():
         os.environ.setdefault(key, default)
 
+    # BrowserGym evaluators for some tasks use OpenAI API for LLM-based evaluation.
+    # Point them at the LiteLLM proxy so they work without a real OpenAI key.
+    os.environ.setdefault("OPENAI_API_KEY", "sk-litellm")
+    os.environ.setdefault("OPENAI_BASE_URL", "http://localhost:4000")
+
     # Monkey-patch BrowserGym's ui_login to increase timeout and handle failures gracefully
     # BrowserGym's default Playwright timeout is 10s which is too short for Magento on t3a.xlarge
     try:
