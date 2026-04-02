@@ -41,7 +41,8 @@ function buildRevertScript(change: DomChange): string {
 
   switch (change.changeType) {
     case 'replace':
-      // Find the modified element and restore the original HTML
+      // Find the modified element and restore the original HTML.
+      // The selector may be a data-variant-revert marker (from apply) or a tag-based selector.
       return `
         (() => {
           const el = document.querySelector(${sel});

@@ -29,29 +29,39 @@ interface DetectionResult {
 // Individual failure-type detectors
 // ---------------------------------------------------------------------------
 
-/** F_ENF: ≥3 consecutive failed selectors targeting similar elements */
+/** F_ENF: Find the longest run of ≥3 consecutive failed selectors */
 function detectENF(steps: ActionTraceStep[]): DetectionResult | null {
+  let bestConsecutive = 0;
+  let bestActions: string[] = [];
   let consecutiveFails = 0;
-  const failedActions: string[] = [];
+  let failedActions: string[] = [];
 
   for (const step of steps) {
     if (step.result === 'failure') {
       consecutiveFails++;
       failedActions.push(`step ${step.stepNum}: ${step.action}`);
     } else {
-      if (consecutiveFails >= 3) break;
+      if (consecutiveFails > bestConsecutive) {
+        bestConsecutive = consecutiveFails;
+        bestActions = [...failedActions];
+      }
       consecutiveFails = 0;
-      failedActions.length = 0;
+      failedActions = [];
     }
   }
+  // Check the final run
+  if (consecutiveFails > bestConsecutive) {
+    bestConsecutive = consecutiveFails;
+    bestActions = [...failedActions];
+  }
 
-  if (consecutiveFails >= 3) {
-    const confidence = Math.min(0.6 + consecutiveFails * 0.1, 1.0);
+  if (bestConsecutive >= 3) {
+    const confidence = Math.min(0.6 + bestConsecutive * 0.1, 1.0);
     return {
       type: 'F_ENF',
       domain: 'accessibility',
       confidence,
-      evidence: failedActions.slice(0, 5),
+      evidence: bestActions.slice(0, 5),
     };
   }
   return null;

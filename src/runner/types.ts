@@ -17,6 +17,8 @@ export interface AgentConfig {
   retryCount: number;
   retryBackoffMs: number;
   temperature: number;
+  /** Number of previous step messages to include in LLM context (default 6) */
+  maxHistorySteps?: number;
 }
 
 /** A single step in an agent's action trace */

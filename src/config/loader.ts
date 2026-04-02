@@ -121,7 +121,15 @@ function vOutput(o: unknown, e: string[]) {
 function merge<T extends Record<string, unknown>>(provided: unknown, defaults: T): T {
   if (!isObj(provided)) return { ...defaults };
   const r = { ...defaults } as Record<string, unknown>;
-  for (const [k, v] of Object.entries(provided)) { if (v !== undefined) r[k] = v; }
+  for (const [k, v] of Object.entries(provided)) {
+    if (v === undefined) continue;
+    // Deep merge nested plain objects (e.g. scoreRanges) instead of replacing them
+    if (isObj(v) && isObj(r[k])) {
+      r[k] = merge(v, r[k] as Record<string, unknown>);
+    } else {
+      r[k] = v;
+    }
+  }
   return r as T;
 }
 

@@ -627,8 +627,12 @@ class PrimaryAnalysis:
         p_target = odds_target / (1 + odds_target)
         delta = abs(p_target - p_bar)
 
-        # Sample size per group
-        n_per_group = n // 2 if n > 1 else 1
+        # Sample size per group — use actual number of variant levels, not 2
+        if "a11y_variant_level" in data.columns:
+            num_groups = max(data["a11y_variant_level"].nunique(), 2)
+        else:
+            num_groups = 2
+        n_per_group = n // num_groups if n > 1 else 1
 
         # Standard error under H0
         se_h0 = np.sqrt(2 * p_bar * (1 - p_bar) / max(n_per_group, 1))
@@ -653,7 +657,7 @@ class PrimaryAnalysis:
                  + z_beta * np.sqrt(p_bar * (1 - p_bar) + p_target * (1 - p_target)))
                 / delta
             ) ** 2
-            required_n = int(np.ceil(required_per_group * 2))
+            required_n = int(np.ceil(required_per_group * num_groups))
         else:
             required_n = n  # Can't compute — keep current
 

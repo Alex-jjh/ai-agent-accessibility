@@ -123,7 +123,7 @@ describe('createReplaySession', () => {
     });
 
     expect(mockRouteFromHAR).toHaveBeenCalledWith('/path/to/recording.har', {
-      notFound: 'abort',
+      notFound: 'fallback',
     });
     expect(session.page).toBeDefined();
   });

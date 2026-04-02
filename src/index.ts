@@ -15,37 +15,32 @@ import { randomUUID } from 'node:crypto';
 import type { Browser, BrowserContext, CDPSession, Page } from 'playwright';
 
 // Config
-import { loadConfig, validateConfig } from './config/index.js';
+import { loadConfig } from './config/index.js';
 import type { ExperimentConfig } from './config/types.js';
 
 // Scanner
 import { scanTier1, scanTier2, waitForA11yTreeStable, computeCompositeScore } from './scanner/index.js';
-import { scanUrlsConcurrently } from './scanner/concurrent.js';
 import type { ScanResult, CompositeScoreOptions, Tier1ScanOptions } from './scanner/types.js';
 
 // Variants
-import { applyVariant, revertVariant, validateVariant } from './variants/index.js';
+import { applyVariant } from './variants/index.js';
 import type { VariantLevel } from './variants/types.js';
-import type { Scanner } from './variants/validation/index.js';
 
 // Runner
 import {
   executeExperiment,
-  generateTestCases,
-  parseTestCaseId,
 } from './runner/scheduler.js';
 import {
   verifyWebArenaServices,
-  resetWebArenaApp,
   buildWebArenaConfig,
 } from './runner/webarena.js';
 import { executeAgentTask } from './runner/agents/executor.js';
 import type { ExperimentRecord, TestCaseParams, TestCaseResult } from './runner/scheduler.js';
-import type { ExperimentRun, ActionTrace, TaskOutcome } from './runner/types.js';
+import type { ExperimentRun, TaskOutcome } from './runner/types.js';
 
 // Classifier
-import { classifyFailure, filterByReportingMode } from './classifier/index.js';
-import type { FailureClassification, ReportingMode } from './classifier/types.js';
+import { classifyFailure } from './classifier/index.js';
+import type { FailureClassification } from './classifier/types.js';
 
 // Recorder
 import { captureHar } from './recorder/capture/capture.js';
@@ -61,11 +56,6 @@ import type { ClassifiedRecord } from './export/csv.js';
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
-
-/** Build a Scanner interface from the concrete scanner functions */
-function buildScanner(): Scanner {
-  return { scanTier1, scanTier2, computeCompositeScore };
-}
 
 /** Default composite score options.
  * Lighthouse weight reduced to 0.5 because snapshot mode is incompatible with
@@ -188,8 +178,12 @@ export async function runTrackA(options: TrackAOptions): Promise<TrackAResult> {
   const store = new ExperimentStore({ baseDir: config.output.dataDir });
   const records: ExperimentRecord[] = [];
   const classifications = new Map<string, FailureClassification>();
-  const scanner = buildScanner();
   const browser = options.browser;
+
+  // Mutable holder so the runTestCase callback can access runId.
+  // `run` itself is only assigned after executeExperiment returns (TDZ),
+  // but the callback fires during execution, so we need this indirection.
+  let currentRunId = '';
 
   const run = await executeExperiment(
     {
@@ -201,6 +195,7 @@ export async function runTrackA(options: TrackAOptions): Promise<TrackAResult> {
     },
     {
       dataDir: config.output.dataDir,
+      onRunCreated: (runId: string) => { currentRunId = runId; },
       runTestCase: async (caseId: string, params: TestCaseParams): Promise<TestCaseResult> => {
         log(`[Pipeline] Running test case: ${caseId}`);
 
@@ -265,8 +260,8 @@ export async function runTrackA(options: TrackAOptions): Promise<TrackAResult> {
           };
           records.push(record);
 
-          // Persist to store (first arg is runId, not caseId)
-          await store.storeRecord(run.runId, record, classifications.get(caseId));
+          // Persist to store — use currentRunId (populated by onRunCreated)
+          await store.storeRecord(currentRunId, record, classifications.get(caseId));
 
           return { trace, taskOutcome: outcome, scanResults };
         } finally {
@@ -363,6 +358,7 @@ export async function runTrackB(options: TrackBOptions): Promise<TrackBResult> {
       waitAfterLoadMs: config.recorder.waitAfterLoadMs,
       concurrency: config.recorder.concurrency,
       outputDir: `${config.output.dataDir}/track-b/har`,
+      browser: options.browser,
     };
     const captureResults = await captureHar(captureOpts);
     harPaths = captureResults
@@ -434,14 +430,15 @@ export async function runTrackB(options: TrackBOptions): Promise<TrackBResult> {
  * BrowserGym handles the site routing internally during env.reset().
  *
  * Task ID ranges (from WebArena benchmark):
- *   0-99:   shopping_admin (Magento admin backend, port 7780)
+ *   0-2:     ecommerce_admin (Magento admin backend, port 7780)
+ *   3-99:    ecommerce (Magento storefront, port 7770)
  *   100-199: reddit (Postmill, port 9999)
  *   200-299: gitlab (GitLab, port 8023)
- *   300-399: shopping_admin (CMS tasks, also port 7780)
- *   400-811: map/wikipedia/cross-site tasks
+ *   300-399: cms (also Magento admin, port 7780)
+ *   400-811: wikipedia (Kiwix, port 8888)
  *
- * Note: Tasks 0-99 and 300-399 require shopping_admin, NOT shopping frontend.
- * If config only has 'ecommerce' (frontend), those tasks will fail.
+ * Note: Tasks 0-2 require ecommerce_admin (NOT storefront).
+ * Tasks 300-399 require cms (shares port 7780 with ecommerce_admin).
  */
 function buildTasksPerApp(config: ExperimentConfig): Record<string, string[]> {
   const apps = Object.keys(config.webarena.apps);

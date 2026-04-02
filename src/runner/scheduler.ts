@@ -34,6 +34,9 @@ export interface ExecuteExperimentOptions {
   dataDir: string;
   /** Callback invoked for each test case — performs the actual agent run + scan */
   runTestCase: (caseId: string, params: TestCaseParams) => Promise<TestCaseResult>;
+  /** Optional callback fired after the run object is created but before execution starts.
+   *  Useful for obtaining the runId in the caller's scope. */
+  onRunCreated?: (runId: string) => void;
 }
 
 /** Parameters describing a single test case to execute */
@@ -216,6 +219,9 @@ export async function executeExperiment(
   }
 
   await persistRunState(options.dataDir, run);
+
+  // Notify caller of the runId before execution starts
+  options.onRunCreated?.(run.runId);
 
   for (const caseId of run.executionOrder) {
     // Skip already-completed cases (resume support, Req 8.5)

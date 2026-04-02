@@ -121,9 +121,12 @@ export async function createReplaySession(
     }
   });
 
-  // Req 12.1, 12.2: Serve recorded responses from HAR
+  // Req 12.1, 12.2: Serve recorded responses from HAR.
+  // Always use 'fallback' so unmatched requests fall through to our custom handler
+  // which logs them and returns 404. Using 'abort' would skip our handler entirely,
+  // making coverage tracking impossible.
   await page.routeFromHAR(options.harFilePath, {
-    notFound: options.unmatchedRequestBehavior === 'passthrough' ? 'fallback' : 'abort',
+    notFound: 'fallback',
   });
 
   // Req 12.3: Fallback route for unmatched requests — return 404 and log

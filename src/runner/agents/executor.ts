@@ -275,16 +275,21 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
     }
 
     const systemPrompt = buildSystemPrompt(obs.goal || taskGoal, agentConfig.observationMode);
+    const maxHistory = agentConfig.maxHistorySteps ?? 6;
+    // Accumulate conversation history for multi-turn context
+    const messageHistory: Array<{ role: string; content: string | object[] }> = [];
 
     for (let stepNum = 1; stepNum <= agentConfig.maxSteps; stepNum++) {
       const stepTimestamp = new Date().toISOString();
       const userContent = buildUserMessage(obs, agentConfig.observationMode, steps);
 
-      // Call LLM
+      // Build messages: system + recent history + current observation
+      const historyWindow = messageHistory.slice(-maxHistory * 2); // each turn = user + assistant
       const llmRequest: LlmRequest = {
         model: agentConfig.llmBackend,
         messages: [
           { role: 'system', content: systemPrompt },
+          ...historyWindow,
           { role: 'user', content: userContent },
         ],
         temperature: agentConfig.temperature,
@@ -306,6 +311,10 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
         const parsed = parseLlmResponse(llmResponse.content);
         reasoning = parsed.reasoning;
         action = parsed.action;
+
+        // Accumulate history for multi-turn context
+        messageHistory.push({ role: 'user', content: userContent });
+        messageHistory.push({ role: 'assistant', content: llmResponse.content });
       } catch (err) {
         stepResult = 'error';
         resultDetail = err instanceof Error ? err.message : String(err);

@@ -58,9 +58,12 @@ async function applyLow(page: Page): Promise<DomChange[]> {
           }
         }
         const selector = tag + (el.id ? `#${el.id}` : el.className ? `.${el.className.split(' ')[0]}` : '');
+        // Stamp a revert marker so revertVariant can find the replacement element
+        const revertId = `__variant_${tag}_${changes.length}`;
+        div.setAttribute('data-variant-revert', revertId);
         el.replaceWith(div);
         changes.push({
-          selector,
+          selector: `[data-variant-revert="${revertId}"]`,
           changeType: 'replace',
           original: originalHtml.substring(0, 500),
           modified: div.outerHTML.substring(0, 500),
@@ -195,9 +198,12 @@ async function applyMediumLow(page: Page): Promise<DomChange[]> {
           }
         }
         const selector = 'button' + (btn.id ? `#${btn.id}` : btn.className ? `.${String(btn.className).split(' ')[0]}` : '');
+        // Stamp a revert marker so revertVariant can find the replacement element
+        const revertId = `__variant_btn_${changes.length}`;
+        div.setAttribute('data-variant-revert', revertId);
         btn.replaceWith(div);
         changes.push({
-          selector,
+          selector: `[data-variant-revert="${revertId}"]`,
           changeType: 'replace',
           original: originalHtml.substring(0, 500),
           modified: div.outerHTML.substring(0, 500),

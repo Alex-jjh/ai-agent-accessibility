@@ -8,6 +8,8 @@ export interface HarCaptureOptions {
   waitAfterLoadMs: number;
   concurrency: number;
   outputDir: string;
+  /** Optional browser instance from caller. If not provided, captureHar launches its own. */
+  browser?: import('playwright').Browser;
 }
 
 /** Metadata stored alongside a HAR recording */

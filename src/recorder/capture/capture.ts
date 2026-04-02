@@ -107,7 +107,9 @@ export async function captureHar(options: HarCaptureOptions): Promise<HarCapture
   // Ensure output directory exists
   await fs.mkdir(outputDir, { recursive: true });
 
-  const browser = await chromium.launch({ headless: true });
+  // Use caller-provided browser if available, otherwise launch our own
+  const ownBrowser = !options.browser;
+  const browser = options.browser ?? await chromium.launch({ headless: true });
   const results: HarCaptureResult[] = [];
 
   // Process URLs in batches of `concurrency`
@@ -140,6 +142,9 @@ export async function captureHar(options: HarCaptureOptions): Promise<HarCapture
     }
   }
 
-  await browser.close();
+  // Only close the browser if we launched it ourselves
+  if (ownBrowser) {
+    await browser.close();
+  }
   return results;
 }
