@@ -387,7 +387,12 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
         lastReward = obs.reward;
         break;
       }
-      if (action.includes('send_msg_to_user')) break;
+      if (action.includes('send_msg_to_user')) {
+        // Capture final reward before breaking — BrowserGym may signal
+        // success on the same step the agent sends its completion message.
+        lastReward = obs.reward;
+        break;
+      }
       if (stepResult === 'error' && !resultDetail?.includes('retry')) break;
     }
   } finally {
