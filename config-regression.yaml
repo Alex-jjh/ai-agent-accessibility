@@ -10,14 +10,13 @@ webarena:
       url: "http://10.0.1.49:7780"
     reddit:
       url: "http://10.0.1.49:9999"
-    wikipedia:
-      url: "http://10.0.1.49:8888"
+    # wikipedia excluded: all tasks require map service (port 3000) which is not deployed
   # Task IDs from webarena/test.raw.json — interleaved, NOT contiguous ranges.
+  # Wikipedia excluded: all 16 tasks require map service (not deployed).
   tasksPerApp:
     ecommerce_admin: ["0", "1", "2"]
     ecommerce: ["21", "22", "23"]
     reddit: ["27", "28", "29"]
-    wikipedia: ["265", "266", "267"]
 
 scanner:
   wcagLevels: ["A", "AA"]

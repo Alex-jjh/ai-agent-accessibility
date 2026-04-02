@@ -30,7 +30,6 @@ const TASKS: Record<string, string[]> = {
   ecommerce_admin: ['0', '1', '2'],
   ecommerce:       ['21', '22', '23'],
   reddit:          ['27', '28', '29'],
-  wikipedia:       ['265', '266', '267'],
 };
 
 async function main() {
