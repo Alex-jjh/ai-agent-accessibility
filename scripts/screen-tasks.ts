@@ -24,7 +24,7 @@ const startArg = parseInt(args.find((_, i) => args[i - 1] === '--start') ?? '0')
 const endArg = parseInt(args.find((_, i) => args[i - 1] === '--end') ?? '20');
 const maxStepsArg = parseInt(args.find((_, i) => args[i - 1] === '--maxSteps') ?? '30');
 const configPath = args.find((_, i) => args[i - 1] === '--config') ?? './config-pilot.yaml';
-const mappingPath = args.find((_, i) => args[i - 1] === '--mapping') ?? './data/task-site-mapping.json';
+const mappingPath = args.find((_, i) => args[i - 1] === '--mapping') ?? './task-site-mapping.json';
 
 // App name aliases: our config uses ecommerce/ecommerce_admin,
 // but test.raw.json uses shopping/shopping_admin

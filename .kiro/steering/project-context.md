@@ -45,6 +45,17 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
 - Connect via: `aws ssm start-session --target <instance-id>`
 - See docs/deployment.md for full guide including all known issues
 
+## EC2 Reproducibility Rules (CRITICAL)
+
+- NEVER make manual edits on EC2 that aren't tracked in the repo
+- All config, scripts, and code changes MUST go through git (edit locally → push → pull on EC2)
+- EC2 instances are ephemeral — may be redeployed on different machines at any time
+- The only exception is one-time env setup (BrowserGym timeout sed patch, pip installs)
+  which MUST be documented in scripts/ec2-setup.sh so they can be re-applied
+- Data files (experiment results, screening data) are synced via S3, not stored only on EC2
+- `task-site-mapping.json` (repo root) is committed — do NOT regenerate on EC2 unless
+  the webarena package version changes
+
 ## Architecture Rules
 
 - TypeScript (ES2022, strict mode) for modules 1–5; Python for module 6
