@@ -85,6 +85,15 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
 - Config: only `webarena.apps` is required; all other fields have documented defaults
 - Failure taxonomy: 11 types across 4 domains (accessibility, model, environmental, task)
 
+## Key Reference Files (repo root)
+
+- `test.raw.json` — WebArena's 812 task definitions (from `webarena` Python package).
+  Contains task_id, sites, start_url, intent, eval config, and ground truth for each task.
+  Eval types: `string_match` (substring), `url_match`, `program_html` (DOM check),
+  `llm_eval` (GPT-4 judge — requires OPENAI_API_KEY via LiteLLM proxy).
+- `task-site-mapping.json` — Derived lookup: task_id → site name. Used by screen-tasks
+  to filter tasks by app. Regenerate only if webarena package version changes.
+
 ## File Structure
 
 ```
