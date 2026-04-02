@@ -13,8 +13,11 @@ Scanner verified on real websites (EC2 + local). LiteLLM → Bedrock verified.
 Infrastructure: private subnet + SSM (no public access, burner account compliant).
 Pilot 1 completed 2026-04-01 — 54 cases, 4 successes (7.4% raw / 66.7% effective).
 Root cause analysis identified 5 failure categories; 3 P0 code fixes applied and pushed.
-Next: Run regression to verify fixes, then task screening, then Pilot 2.
-See docs/pilot-analysis.md for full post-mortem.
+Round 5 regression (2026-04-02): task ID mapping corrected from test.raw.json,
+BrowserGym 500ms→3000ms timeout fixed, wikipedia excluded (map dependency),
+agent prompt tuned for concise answers, send_msg_to_user sanitized.
+See docs/bugfix-2026-04-02-round5.md for full post-mortem.
+Next: Verify regression v4 results, then task screening, then Pilot 2.
 
 ## WebArena Task ID Mapping (CRITICAL)
 
