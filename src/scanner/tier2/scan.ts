@@ -168,10 +168,11 @@ async function computeKeyboardNavigability(page: Page): Promise<number> {
 
   // Use page.keyboard.press('Tab') — the real browser focus management —
   // instead of dispatchEvent which doesn't actually move focus.
-  const focusedTagNames = new Set<string>();
+  // Bug 4 fix: use a counter instead of a Set to avoid deduplicating
+  // elements with identical tag/id/class (e.g. multiple bare <input>).
+  let focusedCount = 0;
   let consecutiveSame = 0;
-  let lastTag = '';
-  let lastId = '';
+  let lastFingerprint = '';
   const startTime = Date.now();
 
   // Record the starting element
@@ -186,17 +187,21 @@ async function computeKeyboardNavigability(page: Page): Promise<number> {
 
     await page.keyboard.press('Tab');
 
-    // Check where focus landed
-    const current = await page.evaluate(() => {
+    // Check where focus landed — use a unique index stamped on the element
+    // so we can distinguish between multiple elements with the same tag/id/class.
+    const current = await page.evaluate((idx) => {
       const el = document.activeElement;
       if (!el || el === document.body) return null;
+      // Stamp a unique data attribute if not already present
+      if (!el.hasAttribute('data-kb-nav-idx')) {
+        el.setAttribute('data-kb-nav-idx', String(idx));
+      }
       return {
         tag: el.tagName.toLowerCase(),
         id: el.id ?? '',
-        // Build a unique-ish key for this element
-        key: `${el.tagName}#${el.id}.${el.className}`,
+        fingerprint: el.getAttribute('data-kb-nav-idx') ?? String(idx),
       };
-    });
+    }, tabCount);
 
     if (!current) {
       // Focus went to body — cycle complete
@@ -204,29 +209,30 @@ async function computeKeyboardNavigability(page: Page): Promise<number> {
       continue;
     }
 
-    focusedTagNames.add(current.key);
+    // Count this as a new focused element if it's different from the last
+    if (current.fingerprint !== lastFingerprint) {
+      focusedCount++;
+    }
 
     // Trap detection: same element N times in a row
-    const currentFingerprint = `${current.tag}#${current.id}`;
-    if (currentFingerprint === `${lastTag}#${lastId}`) {
+    const currentFingerprint = current.fingerprint;
+    if (currentFingerprint === lastFingerprint) {
       consecutiveSame++;
       if (consecutiveSame >= TRAP_THRESHOLD) break; // keyboard trap
     } else {
       consecutiveSame = 0;
     }
-    lastTag = current.tag;
-    lastId = current.id;
+    lastFingerprint = currentFingerprint;
 
     // Cycle complete: focus returned to starting element.
-    // Use the same composite key format for comparison so this works
-    // even when the starting element has no id attribute.
     const startKey = `${startInfo.tag.toLowerCase()}#${startInfo.id}`;
-    if (tabCount > 0 && currentFingerprint === startKey) {
+    const currentKey = `${current.tag}#${current.id}`;
+    if (tabCount > 0 && currentKey === startKey) {
       break;
     }
   }
 
-  return safeRatio(focusedTagNames.size, totalFocusable);
+  return safeRatio(focusedCount, totalFocusable);
 }
 
 

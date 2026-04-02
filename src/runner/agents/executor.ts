@@ -50,6 +50,8 @@ export interface BridgeTaskConfig {
   taskId: string;
   targetUrl: string;
   taskGoal: string;
+  /** Variant level to apply in the BrowserGym environment after env.reset() */
+  variantLevel: string;
 }
 
 /** Abstraction over the bridge subprocess for testability */
@@ -265,7 +267,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
   let totalTokens = 0;
   let envTruncated = false;
 
-  const bridge = bridgeSpawner(bridgeScriptPath, { taskId, targetUrl, taskGoal });
+  const bridge = bridgeSpawner(bridgeScriptPath, { taskId, targetUrl, taskGoal, variantLevel: variant });
 
   try {
     // Get initial observation from env.reset()

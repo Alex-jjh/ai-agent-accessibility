@@ -29,6 +29,7 @@ Action JSON schema (stdin):
 import base64
 import io
 import json
+import pathlib
 import sys
 import traceback
 
@@ -141,6 +142,43 @@ def recv() -> dict | None:
     if not line:
         return None
     return json.loads(line.strip())
+
+
+# ---------------------------------------------------------------------------
+# Variant injection — shared JS files from src/variants/patches/inject/
+# ---------------------------------------------------------------------------
+
+INJECT_DIR = pathlib.Path(__file__).parent / ".." / "variants" / "patches" / "inject"
+
+VARIANT_SCRIPTS = {
+    "low": "apply-low.js",
+    "medium-low": "apply-medium-low.js",
+    "high": "apply-high.js",
+}
+
+
+def apply_variant(page, variant_level: str) -> list:
+    """Apply variant DOM patches on the BrowserGym Playwright page.
+
+    Reads the same JS files used by the TypeScript variant engine,
+    ensuring the agent sees the same DOM state as the scanner.
+    """
+    if variant_level == "base":
+        return []  # No-op for base variant
+
+    script_file = VARIANT_SCRIPTS.get(variant_level)
+    if not script_file:
+        print(f"[bridge] Unknown variant level: {variant_level}", file=sys.stderr)
+        return []
+
+    js_path = INJECT_DIR / script_file
+    if not js_path.exists():
+        print(f"[bridge] Variant script not found: {js_path}", file=sys.stderr)
+        return []
+
+    js_code = js_path.read_text(encoding="utf-8")
+    changes = page.evaluate(js_code)
+    return changes or []
 
 
 def main() -> None:
@@ -257,6 +295,32 @@ def main() -> None:
                 env.unwrapped.context.set_default_timeout(3000)
         except Exception:
             pass
+
+        # Apply variant DOM patches after env.reset() so the agent sees
+        # the same accessibility state as the scanner. (Bug 6 fix)
+        variant_level = config.get("variantLevel", "base")
+        if variant_level != "base":
+            try:
+                bg_page = env.unwrapped.page
+                changes = apply_variant(bg_page, variant_level)
+                print(f"[bridge] Applied variant '{variant_level}': {len(changes)} DOM changes", file=sys.stderr)
+                # Wait for DOM to settle after patches
+                bg_page.wait_for_timeout(500)
+                # Re-capture observation so agent sees the patched a11y tree.
+                # Try BrowserGym's internal _get_obs first, fall back to noop step.
+                try:
+                    if hasattr(env.unwrapped, '_get_obs'):
+                        fresh_obs = env.unwrapped._get_obs()
+                        if fresh_obs:
+                            obs = {**obs, **fresh_obs}
+                    else:
+                        # Fallback: execute noop to trigger fresh observation cycle
+                        obs, _, _, _, _ = env.step("noop()")
+                except Exception as re_obs_err:
+                    print(f"[bridge] Observation re-capture after variant failed (non-fatal): {re_obs_err}", file=sys.stderr)
+            except Exception as variant_err:
+                print(f"[bridge] WARNING: variant injection failed: {variant_err}", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
 
         # Send initial observation
         obs_msg = extract_observation(obs, step=0)

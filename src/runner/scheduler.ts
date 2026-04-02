@@ -245,6 +245,8 @@ export async function executeExperiment(
       };
 
       await persistRecord(options.dataDir, run.runId, record);
+      // Mark complete BEFORE persisting state so crash recovery doesn't
+      // re-execute a case whose record is already on disk. (Bug 3 fix)
       run.completedCases.add(caseId);
       await persistRunState(options.dataDir, run);
     } catch (err) {

@@ -171,6 +171,13 @@ function buildRevertScript(change: DomChange): string {
  * After reversal, computes a SHA-256 hash of the DOM and compares it
  * with `diff.domHashBefore` to verify success (Req 6.3).
  *
+ * KNOWN LIMITATION: The `low` variant wraps elements in closed Shadow DOM.
+ * Closed shadow roots are invisible to `document.querySelector`, so
+ * `revertVariant` cannot restore those elements. For `low` variant,
+ * `success` will always be `false`. This is acceptable because the
+ * experiment pipeline creates a fresh page per test case — revert is
+ * only needed for validation/debugging, not production flow.
+ *
  * @param page - Playwright Page instance
  * @param diff - The VariantDiff produced by applyVariant
  * @returns Object with success flag and the DOM hash after reversal

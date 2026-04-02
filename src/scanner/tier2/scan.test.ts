@@ -229,17 +229,17 @@ describe('scanTier2', () => {
   describe('keyboard navigability (Req 2.3)', () => {
     it('computes ratio of focused elements via page.keyboard.press Tab', async () => {
       // New implementation: evaluate(totalFocusable), evaluate(startInfo),
-      // then loop: keyboard.press('Tab') + evaluate(current)
+      // then loop: keyboard.press('Tab') + evaluate(current) with fingerprint
       const page = createMockPage({
         evaluateResults: [
           [0, 0], { valid: 0, total: 0 }, { labeled: 0, total: 0 },
           { landmarkTextLength: 0, totalTextLength: 0 },
           // keyboardNav sequence:
           4,                              // totalFocusable = 4
-          { tag: 'BODY', id: '' },        // startInfo
-          { tag: 'button', id: 'b1', key: 'BUTTON#b1.' },
-          { tag: 'input', id: 'i1', key: 'INPUT#i1.' },
-          { tag: 'a', id: 'a1', key: 'A#a1.' },
+          { tag: 'body', id: '' },        // startInfo
+          { tag: 'button', id: 'b1', fingerprint: '0' },
+          { tag: 'input', id: 'i1', fingerprint: '1' },
+          { tag: 'a', id: 'a1', fingerprint: '2' },
           null,                           // focus went to body → cycle done
         ],
       });
