@@ -267,17 +267,8 @@ def main() -> None:
 
             if site == "shopping":
                 # Magento storefront login — login directly on the MAIN page (not a new tab).
-                #
-                # Root cause of the old bug: Magento's PHPSESSID is server-side.
-                # When we logged in via new_page(), the NEW tab got an authenticated
-                # session, but the main page's PHPSESSID (set before login) pointed to
-                # an unauthenticated server session. Even after reload, the main page
-                # sent its original unauthenticated PHPSESSID → still "Sign In".
-                #
-                # Fix: login on the same page object that BrowserGym passes in.
-                # After ui_login returns, task.py calls page.goto(start_url) which
-                # navigates this same page (with its now-authenticated PHPSESSID) to
-                # the task URL. No cross-tab cookie issues.
+                # Uses page.evaluate to submit the form directly, avoiding popup blocker
+                # issues with Magento's JS-based form submission in headless Chromium.
                 try:
                     url = self.urls[site]
                     username = self.credentials[site]["username"]
@@ -286,15 +277,24 @@ def main() -> None:
                     page.wait_for_load_state("load", timeout=30000)
                     page.get_by_label("Email", exact=True).fill(username)
                     page.get_by_label("Password", exact=True).fill(password)
-                    page.get_by_role("button", name="Sign In").click()
+                    # Use evaluate to submit the form directly instead of clicking the button.
+                    # Magento's Sign In button triggers JS that headless Chromium may block
+                    # as a popup (about:blank#blocked).
+                    page.evaluate("document.getElementById('send2').click()")
                     page.wait_for_load_state("load", timeout=30000)
-                    # Verify login succeeded by checking for "My Account" or redirect
+                    # Wait for Magento's JS redirect after login
+                    page.wait_for_timeout(3000)
                     title = page.title()
-                    print(f"[bridge] ui_login for shopping: post-login title='{title}'", file=sys.stderr)
-                    if "customer/account" in page.url.lower() or "my account" in title.lower():
+                    print(f"[bridge] ui_login for shopping: post-login title='{title}', URL={page.url}", file=sys.stderr)
+                    if "sign" not in page.url.lower() and "login" not in page.url.lower():
                         print(f"[bridge] ui_login for shopping succeeded (same-page)", file=sys.stderr)
                     else:
-                        print(f"[bridge] ui_login for shopping: unexpected post-login URL={page.url}", file=sys.stderr)
+                        print(f"[bridge] ui_login for shopping: may not have redirected, trying form submit", file=sys.stderr)
+                        # Fallback: submit the form element directly
+                        page.evaluate("document.querySelector('#login-form, form.form-login').submit()")
+                        page.wait_for_load_state("load", timeout=30000)
+                        page.wait_for_timeout(3000)
+                        print(f"[bridge] ui_login for shopping: fallback URL={page.url}", file=sys.stderr)
                 except Exception as e:
                     print(f"[bridge] ui_login for shopping failed (non-fatal): {e}", file=sys.stderr)
                 return
