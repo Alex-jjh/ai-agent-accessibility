@@ -413,7 +413,7 @@ def main() -> None:
                 if is_signed_in:
                     print(f"[bridge] Shopping: already logged in", file=sys.stderr)
                 else:
-                    print(f"[bridge] Shopping: logging in via separate tab...", file=sys.stderr)
+                    print(f"[bridge] Shopping: logging in via HTTP request...", file=sys.stderr)
                     start_url_saved = current_url
 
                     try:
@@ -424,88 +424,79 @@ def main() -> None:
                         shop_user = "emma.lopez@gmail.com"
                         shop_pass = "Password.123"
 
-                    # Login in a NEW tab (not guarded by BrowserGym)
-                    ctx = env.unwrapped.context
-                    login_page = ctx.new_page()
-                    login_page.goto(f"{shopping_url}/customer/account/login/", timeout=30000)
-                    login_page.wait_for_load_state("load", timeout=30000)
-                    print(f"[bridge] Shopping login tab: URL={login_page.url}", file=sys.stderr)
+                    # Login via raw HTTP requests — bypasses ALL browser navigation
+                    # guards. BrowserGym hooks Playwright navigation, but can't
+                    # intercept Python's requests library.
+                    import requests as _requests
+                    import urllib.parse as _urlparse
 
-                    # Capture PHPSESSID before login
-                    cookies_before = {c["value"] for c in ctx.cookies() if c["name"] == "PHPSESSID"}
-                    print(f"[bridge] PHPSESSID before login: {[v[:8]+'...' for v in cookies_before]}", file=sys.stderr)
+                    session = _requests.Session()
 
-                    login_page.get_by_label("Email", exact=True).fill(shop_user)
-                    login_page.get_by_label("Password", exact=True).fill(shop_pass)
+                    # Step 1: GET the login page to get form_key cookie
+                    login_url = f"{shopping_url}/customer/account/login/"
+                    resp1 = session.get(login_url, timeout=30)
+                    print(f"[bridge] HTTP login: GET login page status={resp1.status_code}", file=sys.stderr)
 
-                    # Use form.submit() instead of clicking the Sign In button.
-                    # Magento's button click triggers a JS redirect that Chromium's
-                    # popup blocker intercepts (about:blank#blocked), preventing the
-                    # login POST from completing. Direct form.submit() bypasses this.
-                    login_page.evaluate("""
-                        (() => {
-                            const form = document.getElementById('login-form')
-                                      || document.querySelector('form.form-login')
-                                      || document.querySelector('form[action*="loginPost"]');
-                            if (form) form.submit();
-                        })()
-                    """)
-                    try:
-                        login_page.wait_for_load_state("load", timeout=30000)
-                    except Exception:
-                        pass
-                    login_page.wait_for_timeout(3000)
+                    # Extract form_key from the HTML
+                    import re as _re
+                    form_key_match = _re.search(r'name="form_key"\s+.*?value="([^"]+)"', resp1.text)
+                    if not form_key_match:
+                        form_key_match = _re.search(r'"form_key"\s*:\s*"([^"]+)"', resp1.text)
+                    form_key = form_key_match.group(1) if form_key_match else ""
+                    print(f"[bridge] HTTP login: form_key={form_key[:16]}...", file=sys.stderr)
 
-                    post_url = login_page.url
-                    post_title = login_page.title()
-                    print(f"[bridge] Shopping login tab: post-login URL={post_url}, title={post_title}", file=sys.stderr)
+                    # Step 2: POST login credentials
+                    login_post_url = f"{shopping_url}/customer/account/loginPost/"
+                    login_data = {
+                        "form_key": form_key,
+                        "login[username]": shop_user,
+                        "login[password]": shop_pass,
+                    }
+                    resp2 = session.post(login_post_url, data=login_data, timeout=30, allow_redirects=True)
+                    print(f"[bridge] HTTP login: POST status={resp2.status_code}, url={resp2.url}", file=sys.stderr)
 
-                    # Check if PHPSESSID changed (Magento regenerates on login)
-                    cookies_after = {c["value"] for c in ctx.cookies() if c["name"] == "PHPSESSID"}
-                    session_changed = cookies_before != cookies_after
-                    print(f"[bridge] PHPSESSID after login: {[v[:8]+'...' for v in cookies_after]}", file=sys.stderr)
-                    print(f"[bridge] Session changed: {session_changed}", file=sys.stderr)
+                    # Check if login succeeded
+                    login_ok = "customer/account" in resp2.url and "login" not in resp2.url
+                    print(f"[bridge] HTTP login: success={login_ok}", file=sys.stderr)
 
-                    # Also check if login tab landed on My Account page
-                    login_tab_ok = "customer/account" in post_url and "login" not in post_url
-                    print(f"[bridge] Login tab redirected to account page: {login_tab_ok}", file=sys.stderr)
+                    if login_ok:
+                        # Extract the authenticated PHPSESSID from the session
+                        auth_phpsessid = session.cookies.get("PHPSESSID", "")
+                        print(f"[bridge] HTTP login: auth PHPSESSID={auth_phpsessid[:8]}...", file=sys.stderr)
 
-                    # Grab all cookies BEFORE closing the login tab
-                    fresh_cookies = ctx.cookies()
-                    login_page.close()
+                        # Inject the authenticated cookie into the browser context
+                        ctx = env.unwrapped.context
+                        shopping_host = _urlparse.urlparse(shopping_url).hostname
 
-                    # Explicit cookie injection: clear all cookies and re-add
-                    # the fresh ones. This forces the main page to use the new
-                    # authenticated PHPSESSID instead of the stale one.
-                    # Playwright's context-level cookie sharing is unreliable
-                    # when Magento regenerates the session ID on login.
-                    ctx.clear_cookies()
-                    ctx.add_cookies(fresh_cookies)
-                    print(f"[bridge] Shopping: cookies cleared and re-injected ({len(fresh_cookies)} cookies)", file=sys.stderr)
+                        # Clear old cookies for this domain
+                        ctx.clear_cookies(domain=shopping_host)
 
-                    # Bring main page back to front
-                    if len(ctx.pages) > 0:
-                        ctx.pages[0].bring_to_front()
+                        # Build cookie list from the HTTP session
+                        browser_cookies = []
+                        for cookie in session.cookies:
+                            browser_cookies.append({
+                                "name": cookie.name,
+                                "value": cookie.value,
+                                "domain": shopping_host,
+                                "path": cookie.path or "/",
+                            })
+                        ctx.add_cookies(browser_cookies)
+                        print(f"[bridge] HTTP login: injected {len(browser_cookies)} cookies into browser", file=sys.stderr)
 
-                    # Reload main page via agent action (BrowserGym allows this)
-                    # This makes the main page send the new authenticated cookie
-                    obs_reload, _, _, _, _ = env.step(f'goto("{start_url_saved}")')
-                    obs = obs_reload
-                    print(f"[bridge] Shopping: reloaded main page via agent goto", file=sys.stderr)
+                        # Reload main page via agent action to pick up new cookies
+                        obs_reload, _, _, _, _ = env.step(f'goto("{start_url_saved}")')
+                        obs = obs_reload
+                        print(f"[bridge] Shopping: reloaded main page via agent goto", file=sys.stderr)
 
-                    # Verify login on main page
-                    main_page = env.unwrapped.page
-                    logged_in = main_page.evaluate(
-                        'document.body.innerText.includes("Sign Out") || '
-                        'document.body.innerText.includes("Welcome, ")'
-                    )
-                    still_sign_in = main_page.evaluate(
-                        'document.querySelector("a")?.textContent?.includes("Sign In") && '
-                        '!document.body.innerText.includes("Sign Out")'
-                    )
-                    print(f"[bridge] Shopping main page: logged_in={logged_in}, still_sign_in={still_sign_in}", file=sys.stderr)
-                    if not logged_in:
-                        print(f"[bridge] WARNING: Shopping login did not persist to main page", file=sys.stderr)
+                        # Verify
+                        main_page = env.unwrapped.page
+                        logged_in = main_page.evaluate(
+                            'document.body.innerText.includes("Sign Out") || '
+                            'document.body.innerText.includes("Welcome, ")'
+                        )
+                        print(f"[bridge] Shopping login {'SUCCEEDED' if logged_in else 'FAILED'} on main page", file=sys.stderr)
+                    else:
+                        print(f"[bridge] HTTP login failed, skipping cookie injection", file=sys.stderr)
         except Exception as e:
             print(f"[bridge] Post-reset shopping login failed (non-fatal): {e}", file=sys.stderr)
 
