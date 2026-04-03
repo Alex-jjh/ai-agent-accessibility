@@ -266,8 +266,8 @@ def main() -> None:
                 return
 
             if site == "shopping":
-                # Magento storefront login — BrowserGym's original ui_login often fails
-                # due to slow page loads or CSRF token issues. Manual login is more reliable.
+                # Magento storefront login — use precise selectors within the login form
+                # because Magento has duplicate id="pass" elements (login + mini-login)
                 try:
                     url = self.urls[site]
                     username = self.credentials[site]["username"]
@@ -275,11 +275,11 @@ def main() -> None:
                     login_page = page.context.new_page()
                     login_page.goto(f"{url}/customer/account/login/", timeout=30000)
                     login_page.wait_for_load_state("load", timeout=30000)
-                    login_page.locator("#email").fill(username)
-                    login_page.locator("#pass").fill(password)
-                    login_page.locator("#send2").click()
+                    # Use the official BrowserGym approach: get_by_label with exact match
+                    login_page.get_by_label("Email", exact=True).fill(username)
+                    login_page.get_by_label("Password", exact=True).fill(password)
+                    login_page.get_by_role("button", name="Sign In").click()
                     login_page.wait_for_load_state("load", timeout=30000)
-                    # Verify login succeeded by checking for "My Account" or redirect
                     login_page.close()
                     if len(page.context.pages) > 0:
                         page.context.pages[0].bring_to_front()
