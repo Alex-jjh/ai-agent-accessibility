@@ -221,9 +221,21 @@ works because `new_page()` has no navigation restrictions), but after login succ
 When `task.py` then calls `page.goto(start_url)`, the main page sends the new
 authenticated PHPSESSID because the stale one was cleared and replaced.
 
-The `shopping_admin` login still uses `new_page()` without cookie transplant because
-Magento admin has a separate session namespace and works correctly with the original
-tab approach.
+**Attempt 3 — post-reset login (killswitch):** EC2 testing showed that even
+`new_page().goto()` returns `about:blank#blocked` during `ui_login` — the entire
+browser context has navigation restrictions at that phase. So:
+
+1. `ui_login` for shopping: skip entirely (just return)
+2. After `env.reset()` completes, the page is at the task's `start_url` and fully
+   navigable
+3. Check if page shows "Sign In" (not logged in)
+4. If so: navigate to `/customer/account/login/`, fill credentials, submit
+5. Navigate back to the original `start_url`
+6. Continue with normal observation capture
+
+This is the most robust approach because login happens on the same page that will
+be used for the entire task — same PHPSESSID, no cross-tab issues, no navigation
+restrictions.
 
 ### Verification Plan
 

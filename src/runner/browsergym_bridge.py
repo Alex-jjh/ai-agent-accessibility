@@ -266,61 +266,13 @@ def main() -> None:
                 return
 
             if site == "shopping":
-                # Magento storefront login — new tab + cookie transplant.
-                #
-                # Why not same-page? BrowserGym's page is at about:blank with
-                # navigation restrictions when ui_login is called. page.goto()
-                # returns about:blank#blocked.
-                #
-                # Why not just new-tab like original BrowserGym? Magento
-                # regenerates PHPSESSID on login. The main page's old session
-                # cookie points to an invalidated server session. Even after
-                # reload, the stale cookie is sent.
-                #
-                # Fix: login in new tab, then clear stale cookies for the
-                # shopping domain and re-add the fresh ones from context.
-                # When task.py later calls page.goto(start_url), the main page
-                # picks up the new authenticated PHPSESSID.
-                try:
-                    import urllib.parse as _urlparse
-                    url = self.urls[site]
-                    username = self.credentials[site]["username"]
-                    password = self.credentials[site]["password"]
-
-                    login_page = page.context.new_page()
-                    login_page.goto(f"{url}/customer/account/login/", timeout=30000)
-                    login_page.wait_for_load_state("load", timeout=30000)
-                    login_page.get_by_label("Email", exact=True).fill(username)
-                    login_page.get_by_label("Password", exact=True).fill(password)
-                    login_page.get_by_role("button", name="Sign In").click()
-                    login_page.wait_for_load_state("load", timeout=30000)
-                    login_page.wait_for_timeout(2000)
-
-                    post_title = login_page.title()
-                    post_url = login_page.url
-                    print(f"[bridge] ui_login shopping: post-login title='{post_title}', url={post_url}", file=sys.stderr)
-
-                    # Grab all cookies from context (includes the fresh PHPSESSID)
-                    all_cookies = page.context.cookies()
-                    shopping_host = _urlparse.urlparse(url).hostname
-
-                    # Debug: show session cookie state
-                    for c in all_cookies:
-                        if c["name"] == "PHPSESSID":
-                            print(f"[bridge]   PHPSESSID domain={c.get('domain')} val={c['value'][:8]}...", file=sys.stderr)
-
-                    # Clear cookies for shopping domain, then re-add all.
-                    # This forces the main page to use the new authenticated
-                    # PHPSESSID on its next navigation instead of the stale one.
-                    page.context.clear_cookies(domain=shopping_host)
-                    page.context.add_cookies(all_cookies)
-                    print(f"[bridge] ui_login shopping: cookie transplant done ({len(all_cookies)} cookies)", file=sys.stderr)
-
-                    login_page.close()
-                    if len(page.context.pages) > 0:
-                        page.context.pages[0].bring_to_front()
-                except Exception as e:
-                    print(f"[bridge] ui_login for shopping failed (non-fatal): {e}", file=sys.stderr)
+                # SKIP shopping login during ui_login phase.
+                # BrowserGym's page is at about:blank with navigation restrictions
+                # here — both page.goto() and new_page().goto() return
+                # about:blank#blocked. We handle shopping login AFTER env.reset()
+                # when the page is fully navigable. See "Post-reset shopping login"
+                # section below.
+                print(f"[bridge] ui_login for shopping: DEFERRED to post-reset phase", file=sys.stderr)
                 return
 
             # All other sites: use original login with increased timeout
@@ -430,6 +382,81 @@ def main() -> None:
             print(f"[bridge] After reload: title={bg_page.title()}", file=sys.stderr)
         except Exception as e:
             print(f"[bridge] After reset: could not get page info: {e}", file=sys.stderr)
+
+        # ---------------------------------------------------------------
+        # Post-reset shopping login (the "killswitch" approach)
+        # ---------------------------------------------------------------
+        # BrowserGym's ui_login phase can't navigate (about:blank#blocked),
+        # so we deferred shopping login to here. After env.reset(), the page
+        # is at the task's start_url and fully navigable. We:
+        #   1. Navigate to /customer/account/login/
+        #   2. Fill credentials & submit
+        #   3. Navigate back to the original start_url
+        # This keeps the PHPSESSID on the SAME page — no cross-tab issues.
+        try:
+            bg_page = env.unwrapped.page
+            current_url = bg_page.url
+            # Detect if this is a shopping storefront task by checking the URL
+            # against the WA_SHOPPING env var (port 7770 typically)
+            shopping_url = os.environ.get("WA_SHOPPING", "")
+            needs_shopping_login = (
+                shopping_url
+                and shopping_url.rstrip("/") in current_url
+                # Don't login for admin tasks (port 7780)
+                and "/admin" not in current_url
+            )
+
+            if needs_shopping_login:
+                # Check if already logged in (from a previous attempt or pre-baked state)
+                is_signed_in = bg_page.evaluate(
+                    '!document.body.innerText.includes("Sign In") || '
+                    'document.body.innerText.includes("Sign Out")'
+                )
+                if is_signed_in:
+                    print(f"[bridge] Shopping: already logged in, skipping post-reset login", file=sys.stderr)
+                else:
+                    print(f"[bridge] Shopping: not logged in, performing post-reset login...", file=sys.stderr)
+                    start_url_before_login = current_url
+
+                    # Get credentials from BrowserGym's webarena instance
+                    try:
+                        from webarena.browser_env.env_config import ACCOUNTS
+                        shop_user = ACCOUNTS["shopping"]["username"]
+                        shop_pass = ACCOUNTS["shopping"]["password"]
+                    except Exception:
+                        # Fallback: standard WebArena credentials
+                        shop_user = "emma.lopez@gmail.com"
+                        shop_pass = "Password.123"
+
+                    # Navigate to login page
+                    bg_page.goto(f"{shopping_url}/customer/account/login/", timeout=30000)
+                    bg_page.wait_for_load_state("load", timeout=30000)
+
+                    # Fill and submit
+                    bg_page.get_by_label("Email", exact=True).fill(shop_user)
+                    bg_page.get_by_label("Password", exact=True).fill(shop_pass)
+                    bg_page.get_by_role("button", name="Sign In").click()
+                    bg_page.wait_for_load_state("load", timeout=30000)
+                    bg_page.wait_for_timeout(2000)
+
+                    post_login_url = bg_page.url
+                    print(f"[bridge] Shopping post-login: URL={post_login_url}, title={bg_page.title()}", file=sys.stderr)
+
+                    # Verify login succeeded
+                    logged_in = bg_page.evaluate(
+                        'document.body.innerText.includes("Sign Out") || '
+                        'document.body.innerText.includes("My Account") || '
+                        'document.body.innerText.includes("Welcome")'
+                    )
+                    print(f"[bridge] Shopping login {'succeeded' if logged_in else 'FAILED'}", file=sys.stderr)
+
+                    # Navigate back to the original start_url
+                    bg_page.goto(start_url_before_login, timeout=30000)
+                    bg_page.wait_for_load_state("load", timeout=30000)
+                    bg_page.wait_for_timeout(1000)
+                    print(f"[bridge] Shopping: returned to start_url={bg_page.url}", file=sys.stderr)
+        except Exception as e:
+            print(f"[bridge] Post-reset shopping login failed (non-fatal): {e}", file=sys.stderr)
 
         # Re-capture observation after waiting for DOM to settle.
         # Use env.step("noop()") to force a full observation cycle through
