@@ -16,8 +16,23 @@ Root cause analysis identified 5 failure categories; 3 P0 code fixes applied and
 Round 5 regression (2026-04-02): task ID mapping corrected from test.raw.json,
 BrowserGym 500ms→3000ms timeout fixed, wikipedia excluded (map dependency),
 agent prompt tuned for concise answers, send_msg_to_user sanitized.
-See docs/bugfix-2026-04-02-round5.md for full post-mortem.
-Next: Verify regression v4 results, then task screening, then Pilot 2.
+
+Screening completed (2026-04-03):
+- ecommerce_admin: 2/12 success (16.7%) — tasks 4, 14. Admin routing fixed (/admin path).
+- ecommerce storefront: 3/10 success (30%) — tasks 23, 24, 26 (review search type).
+- reddit: 4/9 success (44%) — tasks 27, 29, 30, 67 (forum navigation type).
+- Regression v5: 3/9 (33%) — platform stable, zero crashes/timeouts/ValueError.
+
+Open issues:
+- Shopping storefront login: ui_login succeeds in new tab but cookies don't persist
+  to main page. Agent sees "Sign In" instead of logged-in state. Tasks 47-50 affected.
+  Root cause: Magento SameSite cookie or session binding. Needs deeper investigation.
+- Initial observation empty: BrowserGym returns axtree_object (dict) but not axtree_txt.
+  Bridge now flattens axtree_object explicitly. Step 1 still empty due to timing;
+  subsequent steps have full content.
+
+Next: Fix shopping login, then prepare Pilot 2 config with screened tasks.
+See docs/platform-engineering-log.md and docs/screening-analysis.md for details.
 
 ## WebArena Task ID Mapping (CRITICAL)
 

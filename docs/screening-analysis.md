@@ -101,3 +101,72 @@ The failure cause is task design, not accessibility.
 3. Select 3-5 tasks per app with ~30-50% base success rate
 4. Update config-pilot.yaml with screened task IDs
 5. Run Pilot 2 with variants (low/base/high) × screened tasks × 3 reps
+
+
+---
+
+## Update: 2026-04-03 — Shopping Login Investigation
+
+### Problem
+
+Shopping storefront tasks requiring login (47-50) all fail because the agent
+is not authenticated. BrowserGym's `ui_login` reports success, but the main
+page still shows `link 'Sign In'` instead of a logged-in state.
+
+### Investigation Timeline
+
+1. **Initial diagnosis:** Step 1 observation is `RootWebArea '', focused` (empty).
+   Suspected page load timeout.
+
+2. **Timeout patches applied:** BrowserGym task timeout 10s→60s, core goto 10s→60s.
+   Page now loads (`title=One Stop Market`) but a11y tree still empty.
+
+3. **axtree_txt vs axtree_object:** BrowserGym returns `axtree_object` (CDP dict
+   with 1506 nodes) but `axtree_txt` is empty. `flatten_axtree_to_str` from
+   `browsergym.utils.obs` works correctly (12085 chars). Fixed bridge to explicitly
+   flatten after noop re-capture.
+
+4. **Login cookie persistence:** `ui_login` opens new tab, fills credentials, clicks
+   Sign In, closes tab. Cookies should persist in browser context. But main page
+   (loaded before login) still shows `Sign In`. Added `page.reload()` after login —
+   still shows `Sign In`.
+
+5. **Direct curl test:** Login via curl with form_key + POST works correctly.
+   `<title>My Account</title>` confirms authentication succeeds.
+
+6. **Observation pattern analysis:**
+   - Step 1: empty (23 chars) — initial obs before DOM renders
+   - Step 2: 12085 chars, has `Sign In` AND `Welcome to One Stop Market` — NOT logged in
+   - Step 7: `/customer/account/` → Magento error page
+   - Step 8: `/sales/order/history/` → Magento error page
+
+### Root Cause (Confirmed)
+
+The agent is **not logged in**. Despite `ui_login` reporting success:
+- All observations show `link 'Sign In'` (not `Sign Out`)
+- Welcome text is generic `Welcome to One Stop Market` (not `Welcome, Emma`)
+- Direct URL access to `/customer/account/` returns Magento error
+
+Possible causes:
+1. Magento's `SameSite=Strict` cookies don't transfer from login tab to main page
+2. Magento session is bound to a form_key that differs between tabs
+3. BrowserGym's `ui_login` click on "Sign In" button may not actually submit
+   (Magento uses JS form submission, headless Chromium may not execute it)
+
+### Impact
+
+Only affects `require_login: true` shopping storefront tasks (47-50).
+Review search tasks (21-26) and reddit tasks work fine without login.
+
+### Workaround for Pilot 2
+
+Use tasks that don't require login:
+- ecommerce: tasks 21-26 (review search, no login needed)
+- reddit: tasks 27-30, 67 (forum navigation, login handled by BrowserGym for reddit)
+- ecommerce_admin: tasks 4, 14 (admin login works correctly)
+
+### Next Steps
+
+1. Investigate Magento cookie behavior in headless Chromium
+2. Consider using BrowserGym's `storage_state` approach (pre-saved cookies)
+3. Or use WebArena-Verified's `X-M2-Admin-Auto-Login` header approach
