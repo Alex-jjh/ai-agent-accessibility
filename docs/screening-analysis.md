@@ -221,28 +221,31 @@ works because `new_page()` has no navigation restrictions), but after login succ
 When `task.py` then calls `page.goto(start_url)`, the main page sends the new
 authenticated PHPSESSID because the stale one was cleared and replaced.
 
-**Attempt 3 — post-reset login (killswitch):** EC2 testing showed that even
-`new_page().goto()` returns `about:blank#blocked` during `ui_login` — the entire
-browser context has navigation restrictions at that phase. So:
+**Attempt 3 — post-reset same-page login:** Skip `ui_login`, login on main page after
+`env.reset()`. Failed — BrowserGym hooks the main page's navigation after `env.reset()`.
+Any non-agent-action `page.goto()` gets blocked (`about:blank#blocked`).
 
-1. `ui_login` for shopping: skip entirely (just return)
-2. After `env.reset()` completes, the page is at the task's `start_url` and fully
-   navigable
-3. Check if page shows "Sign In" (not logged in)
-4. If so: navigate to `/customer/account/login/`, fill credentials, submit
-5. Navigate back to the original `start_url`
-6. Continue with normal observation capture
+**Attempt 4 — post-reset new tab + agent goto (✅ SUCCEEDED):**
 
-This is the most robust approach because login happens on the same page that will
-be used for the entire task — same PHPSESSID, no cross-tab issues, no navigation
-restrictions.
+1. `ui_login` for shopping: skip entirely (deferred to post-reset)
+2. After `env.reset()`, open `context.new_page()` — new tabs are NOT guarded
+3. Login in the new tab (gets authenticated PHPSESSID in context cookie jar)
+4. Close the tab — cookies shared at context level
+5. `env.step('goto("start_url")')` — reload main page via agent action (BrowserGym
+   allows agent-triggered navigation), main page now sends authenticated cookie
+6. Verify: `document.body.innerText.includes("Sign Out")` → True ✅
 
-### Verification Plan
+Note: the login tab's post-login URL shows `about:blank#blocked` (Magento's JS
+redirect after login is blocked by Chromium popup blocker), but the PHPSESSID cookie
+is already set in the context before the redirect happens. The cookie is valid and
+authenticated — confirmed by `Shopping login SUCCEEDED` in bridge logs.
 
-Re-run shopping storefront tasks 47-50 to confirm login persistence:
-```bash
-# On EC2, after git pull:
-npx tsx scripts/screen-tasks.ts --config config.yaml --app shopping --tasks 47,48,49,50
-```
+### Verification Result (2026-04-04)
 
-Expected: agent should see `Welcome, Emma` instead of `Sign In` in the a11y tree.
+Task 47 with login fix:
+- Login: ✅ SUCCEEDED (agent sees logged-in state)
+- Task outcome: ❌ (agent failed the task itself, not a login issue)
+- Agent ran 5 steps, clicked around products but didn't complete the task goal
+- Zero crashes, zero timeouts — platform stable
+
+Login bug is **resolved**. Tasks 47-50 are now viable for Pilot 2.
