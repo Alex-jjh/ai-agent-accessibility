@@ -470,7 +470,18 @@ def main() -> None:
                     login_tab_ok = "customer/account" in post_url and "login" not in post_url
                     print(f"[bridge] Login tab redirected to account page: {login_tab_ok}", file=sys.stderr)
 
+                    # Grab all cookies BEFORE closing the login tab
+                    fresh_cookies = ctx.cookies()
                     login_page.close()
+
+                    # Explicit cookie injection: clear all cookies and re-add
+                    # the fresh ones. This forces the main page to use the new
+                    # authenticated PHPSESSID instead of the stale one.
+                    # Playwright's context-level cookie sharing is unreliable
+                    # when Magento regenerates the session ID on login.
+                    ctx.clear_cookies()
+                    ctx.add_cookies(fresh_cookies)
+                    print(f"[bridge] Shopping: cookies cleared and re-injected ({len(fresh_cookies)} cookies)", file=sys.stderr)
 
                     # Bring main page back to front
                     if len(ctx.pages) > 0:
