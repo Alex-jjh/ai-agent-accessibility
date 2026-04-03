@@ -204,20 +204,26 @@ before the login tab updated it.
 
 ### Fix Applied
 
-Changed `ui_login` for shopping to **login directly on the main page** instead of opening
-a new tab. This way:
+**Attempt 1 (same-page login):** Changed `ui_login` to login directly on the main page
+instead of a new tab. Failed — BrowserGym's page is at `about:blank` with navigation
+restrictions when `ui_login` is called. `page.goto()` returns `about:blank#blocked`.
+Note: BrowserGym's `task.py` calls `page.goto(start_url)` *after* `ui_login` returns,
+and that navigation succeeds — so the restriction is only during the `ui_login` phase.
 
-1. Main page navigates to `/customer/account/login/`
-2. Fills credentials, clicks Sign In
-3. Magento regenerates session → main page gets the new authenticated `PHPSESSID`
-4. BrowserGym's `task.py` then calls `page.goto(start_url)` on this same page
-5. All subsequent requests carry the authenticated session
+**Attempt 2 (new tab + cookie transplant):** Keep the new-tab login approach (which
+works because `new_page()` has no navigation restrictions), but after login succeeds:
 
-This matches how a real user would log in — same page, same session, no cross-tab issues.
+1. Extract all cookies from the browser context (includes fresh authenticated PHPSESSID)
+2. `context.clear_cookies(domain=shopping_host)` — remove stale session cookies
+3. `context.add_cookies(all_cookies)` — re-inject the fresh authenticated cookies
+4. Close login tab, return to main page
 
-The `shopping_admin` login still uses `new_page()` because Magento admin has a separate
-session namespace and the admin login flow works correctly with the tab approach (admin
-sessions don't regenerate IDs the same way).
+When `task.py` then calls `page.goto(start_url)`, the main page sends the new
+authenticated PHPSESSID because the stale one was cleared and replaced.
+
+The `shopping_admin` login still uses `new_page()` without cookie transplant because
+Magento admin has a separate session namespace and works correctly with the original
+tab approach.
 
 ### Verification Plan
 

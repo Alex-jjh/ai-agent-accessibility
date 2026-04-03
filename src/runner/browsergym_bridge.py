@@ -266,35 +266,59 @@ def main() -> None:
                 return
 
             if site == "shopping":
-                # Magento storefront login — login directly on the MAIN page (not a new tab).
-                # Uses page.evaluate to submit the form directly, avoiding popup blocker
-                # issues with Magento's JS-based form submission in headless Chromium.
+                # Magento storefront login — new tab + cookie transplant.
+                #
+                # Why not same-page? BrowserGym's page is at about:blank with
+                # navigation restrictions when ui_login is called. page.goto()
+                # returns about:blank#blocked.
+                #
+                # Why not just new-tab like original BrowserGym? Magento
+                # regenerates PHPSESSID on login. The main page's old session
+                # cookie points to an invalidated server session. Even after
+                # reload, the stale cookie is sent.
+                #
+                # Fix: login in new tab, then clear stale cookies for the
+                # shopping domain and re-add the fresh ones from context.
+                # When task.py later calls page.goto(start_url), the main page
+                # picks up the new authenticated PHPSESSID.
                 try:
+                    import urllib.parse as _urlparse
                     url = self.urls[site]
                     username = self.credentials[site]["username"]
                     password = self.credentials[site]["password"]
-                    page.goto(f"{url}/customer/account/login/", timeout=30000)
-                    page.wait_for_load_state("load", timeout=30000)
-                    page.get_by_label("Email", exact=True).fill(username)
-                    page.get_by_label("Password", exact=True).fill(password)
-                    # Use evaluate to submit the form directly instead of clicking the button.
-                    # Magento's Sign In button triggers JS that headless Chromium may block
-                    # as a popup (about:blank#blocked).
-                    page.evaluate("document.getElementById('send2').click()")
-                    page.wait_for_load_state("load", timeout=30000)
-                    # Wait for Magento's JS redirect after login
-                    page.wait_for_timeout(3000)
-                    title = page.title()
-                    print(f"[bridge] ui_login for shopping: post-login title='{title}', URL={page.url}", file=sys.stderr)
-                    if "sign" not in page.url.lower() and "login" not in page.url.lower():
-                        print(f"[bridge] ui_login for shopping succeeded (same-page)", file=sys.stderr)
-                    else:
-                        print(f"[bridge] ui_login for shopping: may not have redirected, trying form submit", file=sys.stderr)
-                        # Fallback: submit the form element directly
-                        page.evaluate("document.querySelector('#login-form, form.form-login').submit()")
-                        page.wait_for_load_state("load", timeout=30000)
-                        page.wait_for_timeout(3000)
-                        print(f"[bridge] ui_login for shopping: fallback URL={page.url}", file=sys.stderr)
+
+                    login_page = page.context.new_page()
+                    login_page.goto(f"{url}/customer/account/login/", timeout=30000)
+                    login_page.wait_for_load_state("load", timeout=30000)
+                    login_page.get_by_label("Email", exact=True).fill(username)
+                    login_page.get_by_label("Password", exact=True).fill(password)
+                    login_page.get_by_role("button", name="Sign In").click()
+                    login_page.wait_for_load_state("load", timeout=30000)
+                    login_page.wait_for_timeout(2000)
+
+                    post_title = login_page.title()
+                    post_url = login_page.url
+                    print(f"[bridge] ui_login shopping: post-login title='{post_title}', url={post_url}", file=sys.stderr)
+
+                    # Grab all cookies from context (includes the fresh PHPSESSID)
+                    all_cookies = page.context.cookies()
+                    shopping_host = _urlparse.urlparse(url).hostname
+
+                    # Debug: show session cookie state
+                    for c in all_cookies:
+                        if c["name"] == "PHPSESSID":
+                            print(f"[bridge]   PHPSESSID domain={c.get('domain')} val={c['value'][:8]}...", file=sys.stderr)
+
+                    # Clear cookies for shopping domain, then re-add all.
+                    # This forces the main page to use the new authenticated
+                    # PHPSESSID on its next navigation instead of the stale one.
+                    page.context.clear_cookies(domain=shopping_host)
+                    page.context.add_cookies(all_cookies)
+                    print(f"[bridge] ui_login shopping: cookie transplant done ({len(all_cookies)} cookies)", file=sys.stderr)
+
+                    login_page.close()
+                    if len(page.context.pages) > 0:
+                        page.context.pages[0].bring_to_front()
                 except Exception as e:
                     print(f"[bridge] ui_login for shopping failed (non-fatal): {e}", file=sys.stderr)
                 return
