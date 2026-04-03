@@ -266,31 +266,37 @@ def main() -> None:
                 return
 
             if site == "shopping":
-                # Magento storefront login — use precise selectors within the login form
-                # because Magento has duplicate id="pass" elements (login + mini-login)
+                # Magento storefront login — login directly on the MAIN page (not a new tab).
+                #
+                # Root cause of the old bug: Magento's PHPSESSID is server-side.
+                # When we logged in via new_page(), the NEW tab got an authenticated
+                # session, but the main page's PHPSESSID (set before login) pointed to
+                # an unauthenticated server session. Even after reload, the main page
+                # sent its original unauthenticated PHPSESSID → still "Sign In".
+                #
+                # Fix: login on the same page object that BrowserGym passes in.
+                # After ui_login returns, task.py calls page.goto(start_url) which
+                # navigates this same page (with its now-authenticated PHPSESSID) to
+                # the task URL. No cross-tab cookie issues.
                 try:
                     url = self.urls[site]
                     username = self.credentials[site]["username"]
                     password = self.credentials[site]["password"]
-                    login_page = page.context.new_page()
-                    login_page.goto(f"{url}/customer/account/login/", timeout=30000)
-                    login_page.wait_for_load_state("load", timeout=30000)
-                    # Use the official BrowserGym approach: get_by_label with exact match
-                    login_page.get_by_label("Email", exact=True).fill(username)
-                    login_page.get_by_label("Password", exact=True).fill(password)
-                    login_page.get_by_role("button", name="Sign In").click()
-                    login_page.wait_for_load_state("load", timeout=30000)
-                    login_page.close()
-                    if len(page.context.pages) > 0:
-                        page.context.pages[0].bring_to_front()
-                    print(f"[bridge] ui_login for shopping succeeded via /customer/account/login/", file=sys.stderr)
+                    page.goto(f"{url}/customer/account/login/", timeout=30000)
+                    page.wait_for_load_state("load", timeout=30000)
+                    page.get_by_label("Email", exact=True).fill(username)
+                    page.get_by_label("Password", exact=True).fill(password)
+                    page.get_by_role("button", name="Sign In").click()
+                    page.wait_for_load_state("load", timeout=30000)
+                    # Verify login succeeded by checking for "My Account" or redirect
+                    title = page.title()
+                    print(f"[bridge] ui_login for shopping: post-login title='{title}'", file=sys.stderr)
+                    if "customer/account" in page.url.lower() or "my account" in title.lower():
+                        print(f"[bridge] ui_login for shopping succeeded (same-page)", file=sys.stderr)
+                    else:
+                        print(f"[bridge] ui_login for shopping: unexpected post-login URL={page.url}", file=sys.stderr)
                 except Exception as e:
                     print(f"[bridge] ui_login for shopping failed (non-fatal): {e}", file=sys.stderr)
-                    # Fall back to original login
-                    try:
-                        _original_ui_login(self, site, page)
-                    except Exception as e2:
-                        print(f"[bridge] ui_login fallback for shopping also failed: {e2}", file=sys.stderr)
                 return
 
             # All other sites: use original login with increased timeout
@@ -389,9 +395,9 @@ def main() -> None:
                 bg_page.wait_for_load_state("networkidle", timeout=30000)
             except Exception:
                 bg_page.wait_for_timeout(5000)  # fallback: just wait 5s
-            # Reload the page to pick up login cookies set by ui_login in a separate tab.
-            # Without this, the main page was loaded before login, showing "Sign In" instead
-            # of the logged-in state.
+            # Reload to ensure DOM is fully settled after BrowserGym's setup
+            # (login + start_url navigation). This helps with Magento's JS-heavy
+            # rendering and ensures the a11y tree is populated.
             bg_page.reload(timeout=60000)
             try:
                 bg_page.wait_for_load_state("networkidle", timeout=30000)
@@ -401,10 +407,9 @@ def main() -> None:
         except Exception as e:
             print(f"[bridge] After reset: could not get page info: {e}", file=sys.stderr)
 
-        # Re-capture observation after waiting for DOM to settle
-        # BrowserGym's _get_obs may return empty a11y tree if active page tracking
-        # is confused after ui_login tab open/close. Use env.step("noop()") to force
-        # a full observation cycle through BrowserGym's normal pipeline.
+        # Re-capture observation after waiting for DOM to settle.
+        # Use env.step("noop()") to force a full observation cycle through
+        # BrowserGym's normal pipeline (ensures a11y tree is populated).
         try:
             obs_noop, _, _, _, _ = env.step("noop()")
             obs = obs_noop

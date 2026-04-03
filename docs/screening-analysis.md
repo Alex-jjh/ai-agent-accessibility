@@ -167,6 +167,64 @@ Use tasks that don't require login:
 
 ### Next Steps
 
-1. Investigate Magento cookie behavior in headless Chromium
-2. Consider using BrowserGym's `storage_state` approach (pre-saved cookies)
-3. Or use WebArena-Verified's `X-M2-Admin-Auto-Login` header approach
+1. ~~Investigate Magento cookie behavior in headless Chromium~~ ✅ Done
+2. ~~Consider using BrowserGym's `storage_state` approach (pre-saved cookies)~~ Not needed
+3. ~~Or use WebArena-Verified's `X-M2-Admin-Auto-Login` header approach~~ Not needed
+
+---
+
+## Update: 2026-04-04 — Shopping Login Fix
+
+### Root Cause (Confirmed)
+
+Magento's `PHPSESSID` is a **server-side session**. The old `ui_login` flow:
+
+1. Main page loads → gets `PHPSESSID=AAA` (unauthenticated server session)
+2. `new_page()` opens login tab → inherits `PHPSESSID=AAA` from context
+3. Login tab POSTs credentials → Magento authenticates session `AAA` on server
+4. Login tab closes → main page still has `PHPSESSID=AAA`
+5. Main page reloads → **should** work because `AAA` is now authenticated...
+
+But it didn't work. The actual issue: Magento's login flow **regenerates the session ID**
+after successful authentication (standard PHP security practice to prevent session fixation).
+So after step 3, the login tab gets a new `PHPSESSID=BBB` (authenticated), but the main
+page's cookie jar still has `PHPSESSID=AAA` (now invalidated on server). Even though
+Playwright shares cookies across tabs in the same context, the main page's next request
+sends the stale `AAA` cookie because the cookie was already set in its request headers
+before the login tab updated it.
+
+### How Other Researchers Handle This
+
+- **Original WebArena**: Pre-baked browser profile with login state. Agent starts already
+  authenticated. No runtime login needed.
+- **WebArena-Verified** (ServiceNow): Two approaches:
+  - `storage_state` file: Pre-login cookies saved to `.storage_state.json`, loaded at context creation
+  - `X-M2-Customer-Auto-Login` HTTP header: Custom Magento plugin authenticates via header
+    (requires their optimized Docker image, not compatible with standard WebArena AMI)
+
+### Fix Applied
+
+Changed `ui_login` for shopping to **login directly on the main page** instead of opening
+a new tab. This way:
+
+1. Main page navigates to `/customer/account/login/`
+2. Fills credentials, clicks Sign In
+3. Magento regenerates session → main page gets the new authenticated `PHPSESSID`
+4. BrowserGym's `task.py` then calls `page.goto(start_url)` on this same page
+5. All subsequent requests carry the authenticated session
+
+This matches how a real user would log in — same page, same session, no cross-tab issues.
+
+The `shopping_admin` login still uses `new_page()` because Magento admin has a separate
+session namespace and the admin login flow works correctly with the tab approach (admin
+sessions don't regenerate IDs the same way).
+
+### Verification Plan
+
+Re-run shopping storefront tasks 47-50 to confirm login persistence:
+```bash
+# On EC2, after git pull:
+npx tsx scripts/screen-tasks.ts --config config.yaml --app shopping --tasks 47,48,49,50
+```
+
+Expected: agent should see `Welcome, Emma` instead of `Sign In` in the a11y tree.
