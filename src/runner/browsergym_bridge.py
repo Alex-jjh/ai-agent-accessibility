@@ -67,16 +67,16 @@ def flatten_axtree(axtree_object: dict | None) -> str:
     if not axtree_object:
         return ""
     try:
-        # Use BrowserGym's built-in flattener if available
         from browsergym.utils.obs import flatten_axtree_to_str
-        return flatten_axtree_to_str(axtree_object)
-    except ImportError:
-        pass
+        result = flatten_axtree_to_str(axtree_object)
+        return result
+    except Exception as e:
+        print(f"[bridge] flatten_axtree browsergym.utils.obs failed: {e}", file=sys.stderr)
     try:
         from browsergym.core.obs import flatten_axtree_to_str
         return flatten_axtree_to_str(axtree_object)
-    except ImportError:
-        pass
+    except Exception as e:
+        print(f"[bridge] flatten_axtree browsergym.core.obs failed: {e}", file=sys.stderr)
     # Fallback: simple extraction from CDP nodes
     try:
         nodes = axtree_object.get("nodes", [])
@@ -389,7 +389,15 @@ def main() -> None:
                 bg_page.wait_for_load_state("networkidle", timeout=30000)
             except Exception:
                 bg_page.wait_for_timeout(5000)  # fallback: just wait 5s
-            print(f"[bridge] After wait: title={bg_page.title()}", file=sys.stderr)
+            # Reload the page to pick up login cookies set by ui_login in a separate tab.
+            # Without this, the main page was loaded before login, showing "Sign In" instead
+            # of the logged-in state.
+            bg_page.reload(timeout=60000)
+            try:
+                bg_page.wait_for_load_state("networkidle", timeout=30000)
+            except Exception:
+                bg_page.wait_for_timeout(5000)
+            print(f"[bridge] After reload: title={bg_page.title()}", file=sys.stderr)
         except Exception as e:
             print(f"[bridge] After reset: could not get page info: {e}", file=sys.stderr)
 
