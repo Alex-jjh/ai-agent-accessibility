@@ -43,6 +43,8 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
 - Use `terraform apply` from infra/ — it handles all security correctly
 - NEVER manually create EC2 via AWS console
 - Connect via: `aws ssm start-session --target <instance-id>`
+- Platform EC2 (runs code): `i-0288f77960077b755`
+- WebArena EC2 (runs Docker): `i-0c916d784df56d796`
 - See docs/deployment.md for full guide including all known issues
 
 ## EC2 Reproducibility Rules (CRITICAL)
