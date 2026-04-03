@@ -408,7 +408,18 @@ def main() -> None:
         try:
             obs_noop, _, _, _, _ = env.step("noop()")
             obs = obs_noop
-            print(f"[bridge] Re-captured observation via noop step", file=sys.stderr)
+            # Debug: check what we got
+            axt = obs.get("axtree_txt", "")
+            axo = obs.get("axtree_object")
+            print(f"[bridge] noop obs: axtree_txt len={len(axt)}, axtree_object truthy={bool(axo)}", file=sys.stderr)
+            # If axtree_txt is empty but axtree_object exists, flatten it now
+            if not axt and axo:
+                try:
+                    from browsergym.utils.obs import flatten_axtree_to_str
+                    obs["axtree_txt"] = flatten_axtree_to_str(axo)
+                    print(f"[bridge] Flattened axtree_object: {len(obs['axtree_txt'])} chars", file=sys.stderr)
+                except Exception as fe:
+                    print(f"[bridge] flatten failed: {fe}", file=sys.stderr)
         except Exception as e:
             print(f"[bridge] noop re-capture failed: {e}", file=sys.stderr)
 
