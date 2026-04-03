@@ -473,12 +473,16 @@ def main() -> None:
                         "login[username]": shop_user,
                         "login[password]": shop_pass,
                     }
-                    resp2 = session.post(login_post_url, data=login_data, timeout=30, allow_redirects=True)
-                    print(f"[bridge] HTTP login: POST status={resp2.status_code}, url={resp2.url}", file=sys.stderr)
+                    # Don't follow redirects — Magento's redirect URL has broken
+                    # host (Docker internal). We only need the POST to succeed and
+                    # the Set-Cookie header with the new PHPSESSID.
+                    resp2 = session.post(login_post_url, data=login_data, timeout=30, allow_redirects=False)
+                    print(f"[bridge] HTTP login: POST status={resp2.status_code}", file=sys.stderr)
 
-                    # Check if login succeeded
-                    login_ok = "customer/account" in resp2.url and "login" not in resp2.url
-                    print(f"[bridge] HTTP login: success={login_ok}", file=sys.stderr)
+                    # 302 = success (redirect to account page), 200 = login page re-rendered (wrong creds)
+                    login_ok = resp2.status_code in (301, 302, 303)
+                    redirect_to = resp2.headers.get("Location", "")
+                    print(f"[bridge] HTTP login: redirect={redirect_to}, success={login_ok}", file=sys.stderr)
 
                     if login_ok:
                         # Extract the authenticated PHPSESSID from the session
