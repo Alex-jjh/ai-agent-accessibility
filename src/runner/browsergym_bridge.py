@@ -429,14 +429,53 @@ def main() -> None:
                         shop_pass = "Password.123"
 
                     # Navigate to login page
-                    bg_page.goto(f"{shopping_url}/customer/account/login/", timeout=30000)
+                    login_url = f"{shopping_url}/customer/account/login/"
+                    print(f"[bridge] Shopping: navigating to {login_url}", file=sys.stderr)
+                    bg_page.goto(login_url, timeout=30000)
                     bg_page.wait_for_load_state("load", timeout=30000)
+                    print(f"[bridge] Shopping: login page URL={bg_page.url}, title={bg_page.title()}", file=sys.stderr)
 
-                    # Fill and submit
+                    # Check if goto itself was blocked
+                    if "about:blank" in bg_page.url:
+                        print(f"[bridge] Shopping: goto was BLOCKED, trying via JS window.location", file=sys.stderr)
+                        bg_page.evaluate(f'window.location.href = "{login_url}"')
+                        bg_page.wait_for_timeout(5000)
+                        try:
+                            bg_page.wait_for_load_state("load", timeout=30000)
+                        except Exception:
+                            pass
+                        print(f"[bridge] Shopping: after JS nav URL={bg_page.url}", file=sys.stderr)
+
+                    # Fill and submit — use page.evaluate() for form submission
+                    # instead of clicking the Sign In button. Magento's button
+                    # click handler triggers a JS-based navigation that Chromium's
+                    # popup blocker intercepts (about:blank#blocked). Direct form
+                    # submission via DOM API bypasses this.
                     bg_page.get_by_label("Email", exact=True).fill(shop_user)
                     bg_page.get_by_label("Password", exact=True).fill(shop_pass)
-                    bg_page.get_by_role("button", name="Sign In").click()
-                    bg_page.wait_for_load_state("load", timeout=30000)
+
+                    # Submit the login form directly via DOM
+                    bg_page.evaluate("""
+                        (() => {
+                            const form = document.getElementById('login-form')
+                                      || document.querySelector('form.form-login')
+                                      || document.querySelector('form[action*="loginPost"]');
+                            if (form) {
+                                form.submit();
+                            } else {
+                                // Fallback: click the button
+                                const btn = document.getElementById('send2')
+                                         || document.querySelector('button[type="submit"]');
+                                if (btn) btn.click();
+                            }
+                        })()
+                    """)
+
+                    # Wait for navigation to complete after form submit
+                    try:
+                        bg_page.wait_for_load_state("load", timeout=30000)
+                    except Exception:
+                        bg_page.wait_for_timeout(5000)
                     bg_page.wait_for_timeout(2000)
 
                     post_login_url = bg_page.url
