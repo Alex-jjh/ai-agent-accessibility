@@ -77,6 +77,27 @@ cd ..
 echo "[6/7] Installing LiteLLM..."
 pip install --user litellm
 
+# --- 6b. BrowserGym patches ---
+# BrowserGym has hardcoded timeouts that are too short for Magento on t3a.xlarge.
+# These patches must be re-applied after any BrowserGym reinstall.
+echo "[6b/7] Patching BrowserGym timeouts..."
+BGYM_DIR="$HOME/.local/lib/python3.11/site-packages/browsergym"
+if [ -d "$BGYM_DIR" ]; then
+  # Action timeout: 500ms → 3000ms (click, fill, hover, etc.)
+  sed -i 's/timeout=500/timeout=3000/g' "$BGYM_DIR/core/action/functions.py"
+  echo "  Patched action timeout: 500ms → 3000ms"
+
+  # Task timeout: 10s → 60s (page navigation during env.reset)
+  sed -i 's/self.timeout = 10000/self.timeout = 60000/' "$BGYM_DIR/webarena/task.py"
+  echo "  Patched webarena task timeout: 10s → 60s"
+
+  # Core task goto timeout: 10s → 60s
+  sed -i 's/page.goto(self.start_url, timeout=10000)/page.goto(self.start_url, timeout=60000)/' "$BGYM_DIR/core/task.py"
+  echo "  Patched core task goto timeout: 10s → 60s"
+else
+  echo "  WARNING: BrowserGym not found at $BGYM_DIR — skip patches"
+fi
+
 # --- 7. WebArena Docker ---
 echo "[7/7] Setting up WebArena Docker containers..."
 WEBARENA_DIR="$HOME/webarena-docker"
