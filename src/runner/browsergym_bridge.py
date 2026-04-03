@@ -458,6 +458,13 @@ def main() -> None:
                         )
                     if action_match:
                         login_post_url = action_match.group(1)
+                        # Magento's form action may have incomplete host (Docker internal URL)
+                        # e.g. "http://:7770/customer/account/loginPost/"
+                        # Fix by replacing with the actual shopping URL base
+                        parsed_action = _urlparse.urlparse(login_post_url)
+                        if not parsed_action.hostname:
+                            # Missing host — use path from action, base from shopping_url
+                            login_post_url = shopping_url.rstrip("/") + parsed_action.path
                     else:
                         login_post_url = f"{shopping_url}/customer/account/loginPost/"
                     print(f"[bridge] HTTP login: POST url={login_post_url}", file=sys.stderr)
