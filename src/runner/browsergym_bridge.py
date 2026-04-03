@@ -379,6 +379,13 @@ def main() -> None:
 
         obs, info = env.reset()
 
+        # Debug: check what page we landed on after reset
+        try:
+            bg_page = env.unwrapped.page
+            print(f"[bridge] After reset: URL={bg_page.url}, title={bg_page.title()}", file=sys.stderr)
+        except Exception as e:
+            print(f"[bridge] After reset: could not get page info: {e}", file=sys.stderr)
+
         # Increase page timeout after reset for subsequent actions
         # (supplementary to the action function monkey-patch above)
         try:
