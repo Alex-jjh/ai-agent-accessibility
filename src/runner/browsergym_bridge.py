@@ -394,14 +394,15 @@ def main() -> None:
             print(f"[bridge] After reset: could not get page info: {e}", file=sys.stderr)
 
         # Re-capture observation after waiting for DOM to settle
+        # BrowserGym's _get_obs may return empty a11y tree if active page tracking
+        # is confused after ui_login tab open/close. Use env.step("noop()") to force
+        # a full observation cycle through BrowserGym's normal pipeline.
         try:
-            if hasattr(env.unwrapped, '_get_obs'):
-                fresh_obs = env.unwrapped._get_obs()
-                if fresh_obs:
-                    obs = {**obs, **fresh_obs}
-                    print(f"[bridge] Re-captured observation after DOM settle", file=sys.stderr)
-        except Exception:
-            pass
+            obs_noop, _, _, _, _ = env.step("noop()")
+            obs = obs_noop
+            print(f"[bridge] Re-captured observation via noop step", file=sys.stderr)
+        except Exception as e:
+            print(f"[bridge] noop re-capture failed: {e}", file=sys.stderr)
 
         # Increase page timeout after reset for subsequent actions
         # (supplementary to the action function monkey-patch above)
