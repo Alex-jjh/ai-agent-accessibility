@@ -431,20 +431,44 @@ def main() -> None:
                     login_page.wait_for_load_state("load", timeout=30000)
                     print(f"[bridge] Shopping login tab: URL={login_page.url}", file=sys.stderr)
 
+                    # Capture PHPSESSID before login
+                    cookies_before = {c["value"] for c in ctx.cookies() if c["name"] == "PHPSESSID"}
+                    print(f"[bridge] PHPSESSID before login: {[v[:8]+'...' for v in cookies_before]}", file=sys.stderr)
+
                     login_page.get_by_label("Email", exact=True).fill(shop_user)
                     login_page.get_by_label("Password", exact=True).fill(shop_pass)
-                    login_page.get_by_role("button", name="Sign In").click()
-                    login_page.wait_for_load_state("load", timeout=30000)
-                    login_page.wait_for_timeout(2000)
+
+                    # Use form.submit() instead of clicking the Sign In button.
+                    # Magento's button click triggers a JS redirect that Chromium's
+                    # popup blocker intercepts (about:blank#blocked), preventing the
+                    # login POST from completing. Direct form.submit() bypasses this.
+                    login_page.evaluate("""
+                        (() => {
+                            const form = document.getElementById('login-form')
+                                      || document.querySelector('form.form-login')
+                                      || document.querySelector('form[action*="loginPost"]');
+                            if (form) form.submit();
+                        })()
+                    """)
+                    try:
+                        login_page.wait_for_load_state("load", timeout=30000)
+                    except Exception:
+                        pass
+                    login_page.wait_for_timeout(3000)
 
                     post_url = login_page.url
                     post_title = login_page.title()
                     print(f"[bridge] Shopping login tab: post-login URL={post_url}, title={post_title}", file=sys.stderr)
 
-                    # Check cookies
-                    for c in ctx.cookies():
-                        if c["name"] == "PHPSESSID":
-                            print(f"[bridge]   PHPSESSID domain={c.get('domain')} val={c['value'][:8]}...", file=sys.stderr)
+                    # Check if PHPSESSID changed (Magento regenerates on login)
+                    cookies_after = {c["value"] for c in ctx.cookies() if c["name"] == "PHPSESSID"}
+                    session_changed = cookies_before != cookies_after
+                    print(f"[bridge] PHPSESSID after login: {[v[:8]+'...' for v in cookies_after]}", file=sys.stderr)
+                    print(f"[bridge] Session changed: {session_changed}", file=sys.stderr)
+
+                    # Also check if login tab landed on My Account page
+                    login_tab_ok = "customer/account" in post_url and "login" not in post_url
+                    print(f"[bridge] Login tab redirected to account page: {login_tab_ok}", file=sys.stderr)
 
                     login_page.close()
 
@@ -458,12 +482,19 @@ def main() -> None:
                     obs = obs_reload
                     print(f"[bridge] Shopping: reloaded main page via agent goto", file=sys.stderr)
 
-                    # Verify login
-                    logged_in = env.unwrapped.page.evaluate(
+                    # Verify login on main page
+                    main_page = env.unwrapped.page
+                    logged_in = main_page.evaluate(
                         'document.body.innerText.includes("Sign Out") || '
-                        'document.body.innerText.includes("Welcome")'
+                        'document.body.innerText.includes("Welcome, ")'
                     )
-                    print(f"[bridge] Shopping login {'SUCCEEDED' if logged_in else 'FAILED'}", file=sys.stderr)
+                    still_sign_in = main_page.evaluate(
+                        'document.querySelector("a")?.textContent?.includes("Sign In") && '
+                        '!document.body.innerText.includes("Sign Out")'
+                    )
+                    print(f"[bridge] Shopping main page: logged_in={logged_in}, still_sign_in={still_sign_in}", file=sys.stderr)
+                    if not logged_in:
+                        print(f"[bridge] WARNING: Shopping login did not persist to main page", file=sys.stderr)
         except Exception as e:
             print(f"[bridge] Post-reset shopping login failed (non-fatal): {e}", file=sys.stderr)
 
