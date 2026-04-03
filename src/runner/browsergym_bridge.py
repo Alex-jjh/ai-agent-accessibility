@@ -251,8 +251,6 @@ def main() -> None:
                     url = self.urls[site]
                     username = self.credentials[site]["username"]
                     password = self.credentials[site]["password"]
-                    # Remember current page count
-                    pages_before = len(page.context.pages)
                     login_page = page.context.new_page()
                     login_page.goto(f"{url}/admin/", timeout=30000)
                     login_page.locator("#username").fill(username)
@@ -260,12 +258,39 @@ def main() -> None:
                     login_page.locator(".action-login").click()
                     login_page.wait_for_load_state("load", timeout=30000)
                     login_page.close()
-                    # Ensure original page is still the active one
                     if len(page.context.pages) > 0:
                         page.context.pages[0].bring_to_front()
                     print(f"[bridge] ui_login for shopping_admin succeeded via /admin/", file=sys.stderr)
                 except Exception as e:
                     print(f"[bridge] ui_login for shopping_admin failed (non-fatal): {e}", file=sys.stderr)
+                return
+
+            if site == "shopping":
+                # Magento storefront login — BrowserGym's original ui_login often fails
+                # due to slow page loads or CSRF token issues. Manual login is more reliable.
+                try:
+                    url = self.urls[site]
+                    username = self.credentials[site]["username"]
+                    password = self.credentials[site]["password"]
+                    login_page = page.context.new_page()
+                    login_page.goto(f"{url}/customer/account/login/", timeout=30000)
+                    login_page.wait_for_load_state("load", timeout=30000)
+                    login_page.locator("#email").fill(username)
+                    login_page.locator("#pass").fill(password)
+                    login_page.locator("#send2").click()
+                    login_page.wait_for_load_state("load", timeout=30000)
+                    # Verify login succeeded by checking for "My Account" or redirect
+                    login_page.close()
+                    if len(page.context.pages) > 0:
+                        page.context.pages[0].bring_to_front()
+                    print(f"[bridge] ui_login for shopping succeeded via /customer/account/login/", file=sys.stderr)
+                except Exception as e:
+                    print(f"[bridge] ui_login for shopping failed (non-fatal): {e}", file=sys.stderr)
+                    # Fall back to original login
+                    try:
+                        _original_ui_login(self, site, page)
+                    except Exception as e2:
+                        print(f"[bridge] ui_login fallback for shopping also failed: {e2}", file=sys.stderr)
                 return
 
             # All other sites: use original login with increased timeout
