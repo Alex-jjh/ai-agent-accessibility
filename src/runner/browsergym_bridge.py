@@ -446,7 +446,21 @@ def main() -> None:
                     print(f"[bridge] HTTP login: form_key={form_key[:16]}...", file=sys.stderr)
 
                     # Step 2: POST login credentials
-                    login_post_url = f"{shopping_url}/customer/account/loginPost/"
+                    # Extract the actual form action URL from the HTML
+                    action_match = _re.search(
+                        r'<form[^>]*id=["\']login-form["\'][^>]*action=["\']([^"\']+)["\']',
+                        resp1.text
+                    )
+                    if not action_match:
+                        action_match = _re.search(
+                            r'<form[^>]*action=["\']([^"\']*loginPost[^"\']*)["\']',
+                            resp1.text
+                        )
+                    if action_match:
+                        login_post_url = action_match.group(1)
+                    else:
+                        login_post_url = f"{shopping_url}/customer/account/loginPost/"
+                    print(f"[bridge] HTTP login: POST url={login_post_url}", file=sys.stderr)
                     login_data = {
                         "form_key": form_key,
                         "login[username]": shop_user,
