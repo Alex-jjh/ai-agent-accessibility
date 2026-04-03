@@ -204,48 +204,86 @@ before the login tab updated it.
 
 ### Fix Applied
 
-**Attempt 1 (same-page login):** Changed `ui_login` to login directly on the main page
-instead of a new tab. Failed — BrowserGym's page is at `about:blank` with navigation
-restrictions when `ui_login` is called. `page.goto()` returns `about:blank#blocked`.
-Note: BrowserGym's `task.py` calls `page.goto(start_url)` *after* `ui_login` returns,
-and that navigation succeeds — so the restriction is only during the `ui_login` phase.
+**Attempt 1 (same-page login in ui_login):** Changed `ui_login` to login directly on
+the main page instead of a new tab. Failed — BrowserGym's page is at `about:blank` with
+navigation restrictions when `ui_login` is called. `page.goto()` returns
+`about:blank#blocked`.
 
-**Attempt 2 (new tab + cookie transplant):** Keep the new-tab login approach (which
-works because `new_page()` has no navigation restrictions), but after login succeeds:
+**Attempt 2 (new tab + cookie transplant in ui_login):** Login in new tab, then
+`clear_cookies()` + `add_cookies()` to force main page to use new PHPSESSID. Failed —
+BrowserGym hooks navigation at context level during `ui_login` phase. Even
+`new_page().goto()` returns `about:blank#blocked`. Session never changed.
 
-1. Extract all cookies from the browser context (includes fresh authenticated PHPSESSID)
-2. `context.clear_cookies(domain=shopping_host)` — remove stale session cookies
-3. `context.add_cookies(all_cookies)` — re-inject the fresh authenticated cookies
-4. Close login tab, return to main page
-
-When `task.py` then calls `page.goto(start_url)`, the main page sends the new
-authenticated PHPSESSID because the stale one was cleared and replaced.
-
-**Attempt 3 — post-reset same-page login:** Skip `ui_login`, login on main page after
+**Attempt 3 (post-reset same-page login):** Skip `ui_login`, login on main page after
 `env.reset()`. Failed — BrowserGym hooks the main page's navigation after `env.reset()`.
 Any non-agent-action `page.goto()` gets blocked (`about:blank#blocked`).
 
-**Attempt 4 — post-reset new tab + agent goto (✅ SUCCEEDED):**
+**Attempt 4 (post-reset new tab + Playwright click):** Skip `ui_login`, after
+`env.reset()` open `context.new_page()` for login. New tabs are NOT guarded by
+BrowserGym's navigation hook. Login tab navigates to login page successfully. However,
+Playwright's `button.click()` on Sign In triggers Magento's JS redirect which Chromium's
+popup blocker intercepts → `about:blank#blocked`. PHPSESSID unchanged. Cookie transplant
+injected stale cookie. Bridge reported `SUCCEEDED` but main page still showed `Sign In`.
+
+**Attempt 5 (post-reset new tab + form.submit()):** Same as attempt 4 but using
+`page.evaluate("form.submit()")` instead of button click. Also blocked —
+`about:blank#blocked`. BrowserGym's navigation guard intercepts even JS-triggered
+form submissions in new tabs.
+
+**Attempt 6 — HTTP login + cookie injection (✅ FINAL FIX):**
+
+Completely bypass the browser. Use Python `requests` library to login via raw HTTP:
 
 1. `ui_login` for shopping: skip entirely (deferred to post-reset)
-2. After `env.reset()`, open `context.new_page()` — new tabs are NOT guarded
-3. Login in the new tab (gets authenticated PHPSESSID in context cookie jar)
-4. Close the tab — cookies shared at context level
-5. `env.step('goto("start_url")')` — reload main page via agent action (BrowserGym
-   allows agent-triggered navigation), main page now sends authenticated cookie
-6. Verify: `document.body.innerText.includes("Sign Out")` → True ✅
+2. After `env.reset()`, detect shopping storefront task (URL contains WA_SHOPPING)
+3. Check if page shows "Sign In" (not logged in)
+4. `requests.Session()` — GET login page, extract `form_key` from HTML
+5. POST to `/customer/account/loginPost/` with `form_key` + credentials
+   - Extract actual POST URL from form's `action` attribute (Magento's Docker
+     config produces broken URLs like `http://:7770/...` — fix by replacing
+     missing host with actual shopping URL)
+   - `allow_redirects=False` — Magento's redirect URL also has broken host,
+     but we don't need to follow it. 302 = login succeeded.
+6. Extract authenticated PHPSESSID from `session.cookies`
+7. `context.clear_cookies(domain=shopping_host)` — remove old session
+8. `context.add_cookies(browser_cookies)` — inject authenticated session
+9. `env.step('goto("start_url")')` — reload main page via agent action
+   (BrowserGym allows agent-triggered navigation)
+10. Verify: `document.body.innerText.includes("Sign Out")` → True ✅
 
-Note: the login tab's post-login URL shows `about:blank#blocked` (Magento's JS
-redirect after login is blocked by Chromium popup blocker), but the PHPSESSID cookie
-is already set in the context before the redirect happens. The cookie is valid and
-authenticated — confirmed by `Shopping login SUCCEEDED` in bridge logs.
+Key insights:
+- BrowserGym hooks ALL Playwright navigation (page.goto, form.submit, button.click)
+  at both page and context level after env.reset()
+- Only `env.step()` with agent actions bypasses the navigation guard
+- New tabs created via `context.new_page()` are also guarded
+- Python `requests` operates completely outside the browser — BrowserGym can't intercept it
+- Magento's Docker config produces broken URLs (missing host) in form actions and
+  redirect headers — must be fixed when extracting from HTML
 
-### Verification Result (2026-04-04)
+### Verification Results (2026-04-04)
 
-Task 47 with login fix:
-- Login: ✅ SUCCEEDED (agent sees logged-in state)
-- Task outcome: ❌ (agent failed the task itself, not a login issue)
-- Agent ran 5 steps, clicked around products but didn't complete the task goal
-- Zero crashes, zero timeouts — platform stable
+**Run 1 (pre-fix):** Task 47 — agent saw `Sign In` in a11y tree, not logged in.
+Clicked My Account → blocked, Orders and Returns → blocked, Sign In → timeout.
 
-Login bug is **resolved**. Tasks 47-50 are now viable for Pilot 2.
+**Run 2 (HTTP login fix):** Task 47 — `Shopping login SUCCEEDED on main page`.
+Agent saw `Sign Out` in a11y tree (bid 231). Successfully navigated to My Account
+page, saw `Emma Lopez`, `emma.lopez@gmail.com`, Recent Orders table with 5 orders
+(#170 Canceled, #189/#188/#187 Pending, #180 Complete). Agent correctly identified
+need to check order history but ran out of steps (maxSteps=5 for screening).
+
+| Metric | Run 1 (broken) | Run 2 (fixed) |
+|--------|---------------|---------------|
+| Login state | ❌ Sign In | ✅ Sign Out |
+| My Account access | ❌ Blocked | ✅ Emma Lopez visible |
+| Order data visible | ❌ None | ✅ 5 orders in table |
+| Task outcome | ❌ timeout | ❌ timeout (maxSteps=5) |
+| Platform stability | ✅ No crashes | ✅ No crashes |
+
+Login bug is **resolved**. Task 47 failure is due to insufficient maxSteps (5),
+not login. Tasks 47-50 are now viable for Pilot 2 with maxSteps=30.
+
+### Next Steps
+
+1. Re-screen tasks 47-50 with maxSteps=30 to assess actual task difficulty
+2. Update config-pilot.yaml with shopping login tasks for Pilot 2
+3. Consider also screening tasks 48, 49, 50 to find best candidates

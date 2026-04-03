@@ -358,3 +358,93 @@ v4 confirms: zero platform failures, all remaining failures are agent capability
 ---
 
 *Document generated 2026-04-02. Supersedes individual round docs in docs/bugfix-*.md.*
+
+---
+
+## 2026-04-04: Shopping Storefront Login Fix
+
+### Problem
+
+Shopping storefront tasks requiring login (47-50) all failed because the agent was not
+authenticated. BrowserGym's `ui_login` reported success but the main page still showed
+"Sign In" instead of logged-in state.
+
+### Root Cause Analysis
+
+Three layers of issues combined to make this exceptionally difficult:
+
+1. **Magento session regeneration:** Magento regenerates `PHPSESSID` after successful
+   login (standard PHP session fixation prevention). New tab login gets new session ID,
+   but main page retains stale unauthenticated session.
+
+2. **BrowserGym navigation guards:** BrowserGym hooks ALL Playwright navigation after
+   `env.reset()` — `page.goto()`, `form.submit()`, `button.click()` redirects, even
+   `new_page().goto()` are all intercepted and blocked (`about:blank#blocked`). Only
+   `env.step()` with agent actions bypasses the guard.
+
+3. **Magento Docker URL misconfiguration:** Magento's internal config produces broken
+   URLs (e.g., `http://:7770/...` missing host) in form actions and redirect headers.
+   Standard WebArena AMI doesn't configure `web/unsecure/base_url` correctly for the
+   Docker network.
+
+### Failed Approaches (Attempts 1-5)
+
+| # | Approach | Failure Reason |
+|---|----------|---------------|
+| 1 | Same-page login in `ui_login` | Page at `about:blank`, `goto()` blocked |
+| 2 | New tab + cookie transplant in `ui_login` | Context-level nav guard blocks `new_page().goto()` |
+| 3 | Post-reset same-page login | BrowserGym guards main page navigation |
+| 4 | Post-reset new tab + Playwright click | Button click triggers JS redirect → popup blocked |
+| 5 | Post-reset new tab + `form.submit()` | JS form submission also blocked by nav guard |
+
+### Solution (Attempt 6): HTTP Login + Cookie Injection
+
+Completely bypass the browser using Python `requests`:
+
+```python
+# 1. GET login page, extract form_key
+session = requests.Session()
+resp = session.get(f"{shopping_url}/customer/account/login/")
+form_key = re.search(r'name="form_key".*?value="([^"]+)"', resp.text)
+
+# 2. POST credentials (don't follow broken redirects)
+session.post(login_post_url, data={
+    "form_key": form_key,
+    "login[username]": "emma.lopez@gmail.com",
+    "login[password]": "Password.123",
+}, allow_redirects=False)  # 302 = success
+
+# 3. Inject authenticated cookie into browser
+ctx.clear_cookies(domain=shopping_host)
+ctx.add_cookies([{"name": "PHPSESSID", "value": session.cookies["PHPSESSID"], ...}])
+
+# 4. Reload via agent action (bypasses BrowserGym guard)
+env.step(f'goto("{start_url}")')
+```
+
+### Verification
+
+Task 47 trace confirmed:
+- `link 'Sign Out'` visible in a11y tree (was `Sign In` before fix)
+- Agent navigated to My Account, saw `Emma Lopez`, order history with 5 orders
+- Task failed due to maxSteps=5 (screening config), not login
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/runner/browsergym_bridge.py` | HTTP login + cookie injection for shopping site |
+| `docs/screening-analysis.md` | Detailed fix documentation with all 6 attempts |
+
+### Commits
+
+- `fix(runner): Use same-page login for Magento shopping storefront`
+- `fix(runner): Use new-tab + cookie transplant for Magento shopping login`
+- `fix(runner): Post-reset login for Magento shopping (attempt 3)`
+- `fix(runner): Login via unguarded new tab + agent goto reload`
+- `fix(runner): Use form.submit() instead of button click for shopping login`
+- `fix(runner): Add explicit cookie clear+inject after shopping login`
+- `fix(runner): HTTP-based login bypasses all browser navigation guards`
+- `fix(runner): Extract login POST URL from form action attribute`
+- `fix(runner): Fix incomplete host in Magento form action URL`
+- `fix(runner): Don't follow Magento login redirects (broken Docker URLs)`

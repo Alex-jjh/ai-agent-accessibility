@@ -23,15 +23,20 @@ Screening completed (2026-04-03):
 - reddit: 4/9 success (44%) — tasks 27, 29, 30, 67 (forum navigation type).
 - Regression v5: 3/9 (33%) — platform stable, zero crashes/timeouts/ValueError.
 
+Shopping login fix completed (2026-04-04):
+- Root cause: BrowserGym hooks ALL Playwright navigation after env.reset() +
+  Magento regenerates PHPSESSID on login + Docker URL misconfiguration.
+- Fix: HTTP login via Python requests (bypasses browser entirely), cookie injection
+  via context.add_cookies(), reload via env.step(goto(start_url)).
+- Verified: Task 47 agent sees "Sign Out", navigates to My Account, sees order history.
+- Tasks 47-50 now viable for Pilot 2.
+
 Open issues:
-- Shopping storefront login: ui_login succeeds in new tab but cookies don't persist
-  to main page. Agent sees "Sign In" instead of logged-in state. Tasks 47-50 affected.
-  Root cause: Magento SameSite cookie or session binding. Needs deeper investigation.
 - Initial observation empty: BrowserGym returns axtree_object (dict) but not axtree_txt.
   Bridge now flattens axtree_object explicitly. Step 1 still empty due to timing;
   subsequent steps have full content.
 
-Next: Fix shopping login, then prepare Pilot 2 config with screened tasks.
+Next: Re-screen tasks 47-50 with maxSteps=30, then prepare Pilot 2 config.
 See docs/platform-engineering-log.md and docs/screening-analysis.md for details.
 
 ## WebArena Task ID Mapping (CRITICAL)
