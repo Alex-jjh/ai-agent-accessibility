@@ -384,116 +384,86 @@ def main() -> None:
             print(f"[bridge] After reset: could not get page info: {e}", file=sys.stderr)
 
         # ---------------------------------------------------------------
-        # Post-reset shopping login (the "killswitch" approach)
+        # Post-reset shopping login via separate tab
         # ---------------------------------------------------------------
-        # BrowserGym's ui_login phase can't navigate (about:blank#blocked),
-        # so we deferred shopping login to here. After env.reset(), the page
-        # is at the task's start_url and fully navigable. We:
-        #   1. Navigate to /customer/account/login/
-        #   2. Fill credentials & submit
-        #   3. Navigate back to the original start_url
-        # This keeps the PHPSESSID on the SAME page — no cross-tab issues.
+        # BrowserGym hooks the main page's navigation — any non-agent-action
+        # navigation gets blocked (about:blank#blocked). But new_page() tabs
+        # are NOT guarded after env.reset(). So we:
+        #   1. Open a new tab, login there (gets authenticated PHPSESSID)
+        #   2. Close the tab — cookies are shared at context level
+        #   3. Use env.step('goto("start_url")') to reload the main page
+        #      via an agent action (which BrowserGym allows)
+        # This way the main page picks up the authenticated session cookie.
         try:
             bg_page = env.unwrapped.page
             current_url = bg_page.url
-            # Detect if this is a shopping storefront task by checking the URL
-            # against the WA_SHOPPING env var (port 7770 typically)
             shopping_url = os.environ.get("WA_SHOPPING", "")
             needs_shopping_login = (
                 shopping_url
                 and shopping_url.rstrip("/") in current_url
-                # Don't login for admin tasks (port 7780)
                 and "/admin" not in current_url
             )
 
             if needs_shopping_login:
-                # Check if already logged in (from a previous attempt or pre-baked state)
+                # Check if already logged in
                 is_signed_in = bg_page.evaluate(
                     '!document.body.innerText.includes("Sign In") || '
                     'document.body.innerText.includes("Sign Out")'
                 )
                 if is_signed_in:
-                    print(f"[bridge] Shopping: already logged in, skipping post-reset login", file=sys.stderr)
+                    print(f"[bridge] Shopping: already logged in", file=sys.stderr)
                 else:
-                    print(f"[bridge] Shopping: not logged in, performing post-reset login...", file=sys.stderr)
-                    start_url_before_login = current_url
+                    print(f"[bridge] Shopping: logging in via separate tab...", file=sys.stderr)
+                    start_url_saved = current_url
 
-                    # Get credentials from BrowserGym's webarena instance
                     try:
                         from webarena.browser_env.env_config import ACCOUNTS
                         shop_user = ACCOUNTS["shopping"]["username"]
                         shop_pass = ACCOUNTS["shopping"]["password"]
                     except Exception:
-                        # Fallback: standard WebArena credentials
                         shop_user = "emma.lopez@gmail.com"
                         shop_pass = "Password.123"
 
-                    # Navigate to login page
-                    login_url = f"{shopping_url}/customer/account/login/"
-                    print(f"[bridge] Shopping: navigating to {login_url}", file=sys.stderr)
-                    bg_page.goto(login_url, timeout=30000)
-                    bg_page.wait_for_load_state("load", timeout=30000)
-                    print(f"[bridge] Shopping: login page URL={bg_page.url}, title={bg_page.title()}", file=sys.stderr)
+                    # Login in a NEW tab (not guarded by BrowserGym)
+                    ctx = env.unwrapped.context
+                    login_page = ctx.new_page()
+                    login_page.goto(f"{shopping_url}/customer/account/login/", timeout=30000)
+                    login_page.wait_for_load_state("load", timeout=30000)
+                    print(f"[bridge] Shopping login tab: URL={login_page.url}", file=sys.stderr)
 
-                    # Check if goto itself was blocked
-                    if "about:blank" in bg_page.url:
-                        print(f"[bridge] Shopping: goto was BLOCKED, trying via JS window.location", file=sys.stderr)
-                        bg_page.evaluate(f'window.location.href = "{login_url}"')
-                        bg_page.wait_for_timeout(5000)
-                        try:
-                            bg_page.wait_for_load_state("load", timeout=30000)
-                        except Exception:
-                            pass
-                        print(f"[bridge] Shopping: after JS nav URL={bg_page.url}", file=sys.stderr)
+                    login_page.get_by_label("Email", exact=True).fill(shop_user)
+                    login_page.get_by_label("Password", exact=True).fill(shop_pass)
+                    login_page.get_by_role("button", name="Sign In").click()
+                    login_page.wait_for_load_state("load", timeout=30000)
+                    login_page.wait_for_timeout(2000)
 
-                    # Fill and submit — use page.evaluate() for form submission
-                    # instead of clicking the Sign In button. Magento's button
-                    # click handler triggers a JS-based navigation that Chromium's
-                    # popup blocker intercepts (about:blank#blocked). Direct form
-                    # submission via DOM API bypasses this.
-                    bg_page.get_by_label("Email", exact=True).fill(shop_user)
-                    bg_page.get_by_label("Password", exact=True).fill(shop_pass)
+                    post_url = login_page.url
+                    post_title = login_page.title()
+                    print(f"[bridge] Shopping login tab: post-login URL={post_url}, title={post_title}", file=sys.stderr)
 
-                    # Submit the login form directly via DOM
-                    bg_page.evaluate("""
-                        (() => {
-                            const form = document.getElementById('login-form')
-                                      || document.querySelector('form.form-login')
-                                      || document.querySelector('form[action*="loginPost"]');
-                            if (form) {
-                                form.submit();
-                            } else {
-                                // Fallback: click the button
-                                const btn = document.getElementById('send2')
-                                         || document.querySelector('button[type="submit"]');
-                                if (btn) btn.click();
-                            }
-                        })()
-                    """)
+                    # Check cookies
+                    for c in ctx.cookies():
+                        if c["name"] == "PHPSESSID":
+                            print(f"[bridge]   PHPSESSID domain={c.get('domain')} val={c['value'][:8]}...", file=sys.stderr)
 
-                    # Wait for navigation to complete after form submit
-                    try:
-                        bg_page.wait_for_load_state("load", timeout=30000)
-                    except Exception:
-                        bg_page.wait_for_timeout(5000)
-                    bg_page.wait_for_timeout(2000)
+                    login_page.close()
 
-                    post_login_url = bg_page.url
-                    print(f"[bridge] Shopping post-login: URL={post_login_url}, title={bg_page.title()}", file=sys.stderr)
+                    # Bring main page back to front
+                    if len(ctx.pages) > 0:
+                        ctx.pages[0].bring_to_front()
 
-                    # Verify login succeeded
-                    logged_in = bg_page.evaluate(
+                    # Reload main page via agent action (BrowserGym allows this)
+                    # This makes the main page send the new authenticated cookie
+                    obs_reload, _, _, _, _ = env.step(f'goto("{start_url_saved}")')
+                    obs = obs_reload
+                    print(f"[bridge] Shopping: reloaded main page via agent goto", file=sys.stderr)
+
+                    # Verify login
+                    logged_in = env.unwrapped.page.evaluate(
                         'document.body.innerText.includes("Sign Out") || '
-                        'document.body.innerText.includes("My Account") || '
                         'document.body.innerText.includes("Welcome")'
                     )
-                    print(f"[bridge] Shopping login {'succeeded' if logged_in else 'FAILED'}", file=sys.stderr)
-
-                    # Navigate back to the original start_url
-                    bg_page.goto(start_url_before_login, timeout=30000)
-                    bg_page.wait_for_load_state("load", timeout=30000)
-                    bg_page.wait_for_timeout(1000)
-                    print(f"[bridge] Shopping: returned to start_url={bg_page.url}", file=sys.stderr)
+                    print(f"[bridge] Shopping login {'SUCCEEDED' if logged_in else 'FAILED'}", file=sys.stderr)
         except Exception as e:
             print(f"[bridge] Post-reset shopping login failed (non-fatal): {e}", file=sys.stderr)
 
