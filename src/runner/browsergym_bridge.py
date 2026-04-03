@@ -383,8 +383,25 @@ def main() -> None:
         try:
             bg_page = env.unwrapped.page
             print(f"[bridge] After reset: URL={bg_page.url}, title={bg_page.title()}", file=sys.stderr)
+            # Magento pages rely on JS rendering — the a11y tree may be empty
+            # right after page.goto() returns on 'load'. Wait for DOM to settle.
+            try:
+                bg_page.wait_for_load_state("networkidle", timeout=30000)
+            except Exception:
+                bg_page.wait_for_timeout(5000)  # fallback: just wait 5s
+            print(f"[bridge] After wait: title={bg_page.title()}", file=sys.stderr)
         except Exception as e:
             print(f"[bridge] After reset: could not get page info: {e}", file=sys.stderr)
+
+        # Re-capture observation after waiting for DOM to settle
+        try:
+            if hasattr(env.unwrapped, '_get_obs'):
+                fresh_obs = env.unwrapped._get_obs()
+                if fresh_obs:
+                    obs = {**obs, **fresh_obs}
+                    print(f"[bridge] Re-captured observation after DOM settle", file=sys.stderr)
+        except Exception:
+            pass
 
         # Increase page timeout after reset for subsequent actions
         # (supplementary to the action function monkey-patch above)
