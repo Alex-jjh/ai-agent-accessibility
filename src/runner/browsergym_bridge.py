@@ -618,6 +618,21 @@ def main() -> None:
         # Send initial observation
         obs_msg = extract_observation(obs, step=0)
         obs_msg["goal"] = obs.get("goal", config.get("taskGoal", ""))
+
+        # If initial observation is too short, retry before sending to agent
+        if len(obs_msg.get("axtree_txt", "")) < 50:
+            print(f"[bridge] Initial obs too short ({len(obs_msg.get('axtree_txt', ''))} chars), retrying...", file=sys.stderr)
+            try:
+                bg_page = env.unwrapped.page
+                bg_page.wait_for_timeout(3000)
+                obs_retry, _, _, _, _ = env.step("noop()")
+                obs_msg_retry = extract_observation(obs_retry, step=0)
+                if len(obs_msg_retry.get("axtree_txt", "")) > len(obs_msg.get("axtree_txt", "")):
+                    obs_msg_retry["goal"] = obs_msg["goal"]
+                    obs_msg = obs_msg_retry
+                    print(f"[bridge] Initial obs recovered ({len(obs_msg['axtree_txt'])} chars)", file=sys.stderr)
+            except Exception:
+                pass
         send(obs_msg)
 
         step = 0
@@ -659,22 +674,33 @@ def main() -> None:
                     obs["axtree_txt"] = flatten_axtree(obs.get("axtree_object"))
 
                 # If axtree is too short (< 50 chars = just "RootWebArea '', focused"),
-                # the DOM hasn't rendered yet. Wait a bit more and retry.
+                # the DOM hasn't rendered yet. Progressive wait: try short first,
+                # then longer. Most steps don't need this — only page navigations.
                 axt = obs.get("axtree_txt", "")
                 if len(axt) < 50:
-                    try:
-                        current_page = env.unwrapped.page
-                        current_page.wait_for_timeout(2000)  # Extra 2s for Magento JS
-                        obs_retry, _, _, _, _ = env.step("noop()")
-                        axt_retry = obs_retry.get("axtree_txt", "")
-                        if not axt_retry and obs_retry.get("axtree_object"):
-                            axt_retry = flatten_axtree(obs_retry.get("axtree_object"))
-                        if len(axt_retry) > len(axt):
-                            obs["axtree_txt"] = axt_retry
-                            obs["axtree_object"] = obs_retry.get("axtree_object")
-                            print(f"[bridge] Step {step}: recovered short obs ({len(axt)} → {len(axt_retry)} chars)", file=sys.stderr)
-                    except Exception:
-                        pass
+                    for wait_ms in [1000, 2000, 3000]:
+                        try:
+                            current_page = env.unwrapped.page
+                            try:
+                                current_page.wait_for_load_state("networkidle", timeout=wait_ms)
+                            except Exception:
+                                current_page.wait_for_timeout(wait_ms)
+                            obs_retry, _, _, _, _ = env.step("noop()")
+                            axt_retry = obs_retry.get("axtree_txt", "")
+                            if not axt_retry and obs_retry.get("axtree_object"):
+                                axt_retry = flatten_axtree(obs_retry.get("axtree_object"))
+                            if len(axt_retry) >= 50:
+                                obs["axtree_txt"] = axt_retry
+                                obs["axtree_object"] = obs_retry.get("axtree_object")
+                                # Preserve URL from retry if it changed
+                                if obs_retry.get("url"):
+                                    obs["url"] = obs_retry["url"]
+                                print(f"[bridge] Step {step}: recovered short obs ({len(axt)} → {len(axt_retry)} chars, wait={wait_ms}ms)", file=sys.stderr)
+                                break
+                        except Exception:
+                            pass
+                    else:
+                        print(f"[bridge] Step {step}: obs still short after 3 retries ({len(obs.get('axtree_txt', ''))} chars)", file=sys.stderr)
 
             # Re-inject variant patches if the page changed (new tab or navigation
             # that didn't trigger the load listener). The load listener handles
