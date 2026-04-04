@@ -1,0 +1,63 @@
+# Pilot 2 Experiment Config — Track A
+# Screened tasks with 30-50% base success rate from 2026-04-03/04 screening.
+#
+# 9 tasks × 3 variants × 3 reps × 1 LLM = 81 runs
+# Estimated time: ~81 × 3min = ~4 hours
+#
+# Task selection criteria:
+#   - Base variant success rate 30-50% (discriminative power)
+#   - Multi-step navigation required (a11y-sensitive)
+#   - No external service dependencies (map excluded)
+#   - Login tasks included (HTTP login fix verified)
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.49:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.49:7780"
+    reddit:
+      url: "http://10.0.1.49:9999"
+
+  # Screened task IDs — verified on 2026-04-03/04
+  # ecommerce_admin: tasks 4 (report query), 14 (review search)
+  # ecommerce storefront: tasks 23, 24, 26 (review search, no login)
+  #                        tasks 47, 50 (order history, login required)
+  # reddit: tasks 27, 29, 30, 67 (forum navigation)
+  tasksPerApp:
+    ecommerce_admin: ["4"]
+    ecommerce: ["23", "24", "26", "47", "50"]
+    reddit: ["27", "29", "67"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["low", "base", "high"]
+  scoreRanges:
+    low:  { min: 0.0, max: 0.25 }
+    base: { min: 0.40, max: 0.70 }
+    high: { min: 0.75, max: 1.0 }
+
+runner:
+  repetitions: 3
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/pilot2"
+  exportFormats: ["json", "csv"]
