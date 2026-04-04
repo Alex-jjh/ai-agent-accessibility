@@ -448,3 +448,43 @@ Task 47 trace confirmed:
 - `fix(runner): Extract login POST URL from form action attribute`
 - `fix(runner): Fix incomplete host in Magento form action URL`
 - `fix(runner): Don't follow Magento login redirects (broken Docker URLs)`
+
+
+---
+
+## 2026-04-04: Variant Re-injection on Navigation
+
+### Problem
+
+Variant DOM patches (semantic element → div replacement, ARIA removal, etc.) are applied
+once after `env.reset()` via `page.evaluate(js)`. When the agent navigates to a new page
+(click link, goto URL), the DOM is rebuilt from scratch and all patches are lost. This
+means the agent only sees degraded accessibility on the initial page — subsequent pages
+revert to normal, invalidating the experiment's variant conditions.
+
+### Solution
+
+Two-layer automatic re-injection:
+
+1. **Page event listeners** (`domcontentloaded` + `load`): Registered on the main page
+   after initial variant injection. Fires on every same-tab navigation, re-executes the
+   variant JS. Using `domcontentloaded` (fires before images load) in addition to `load`
+   minimizes the window where the agent could see unpatched DOM.
+
+2. **Step loop marker check**: After every `env.step()`, checks if `[data-variant-revert]`
+   markers exist in the DOM. If missing (new tab, or listener didn't fire), re-injects
+   variant JS and registers listeners on the new page. Uses `_variant_listener_pages` set
+   to prevent duplicate listener registration on the same page object.
+
+### Design Decisions
+
+- `_make_variant_listener()` factory function avoids closure pitfalls with lambda
+- `id(page)` tracking prevents duplicate listeners without needing `remove_listener`
+- Both `domcontentloaded` and `load` events covered for timing robustness
+- All re-injection is non-fatal (try/except) — variant loss is better than crash
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/runner/browsergym_bridge.py` | Variant re-injection listeners + step loop marker check |
