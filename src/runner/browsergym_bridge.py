@@ -560,6 +560,18 @@ def main() -> None:
         # the same accessibility state as the scanner. (Bug 6 fix)
         variant_level = config.get("variantLevel", "base")
         _variant_js = None  # Will be set if variant needs re-injection on navigation
+        _variant_listener_pages = set()  # Track pages with registered listeners (dedup)
+
+        def _make_variant_listener(page_ref, js):
+            """Create a listener function for variant re-injection on page load."""
+            def _listener():
+                try:
+                    page_ref.evaluate(js)
+                    print(f"[bridge] Re-injected variant after navigation", file=sys.stderr)
+                except Exception as e:
+                    print(f"[bridge] Variant re-injection failed (non-fatal): {e}", file=sys.stderr)
+            return _listener
+
         if variant_level != "base":
             try:
                 bg_page = env.unwrapped.page
@@ -576,15 +588,14 @@ def main() -> None:
                 # Register a page load listener to re-inject variant patches
                 # after every navigation. DOM patches are lost when the page
                 # navigates because the DOM is rebuilt from scratch.
+                # Listen on both domcontentloaded (early, before images) and load
+                # (fallback) to minimize the window where agent sees unpatched DOM.
                 if _variant_js:
-                    def _on_page_load(page_ref=bg_page, js=_variant_js):
-                        try:
-                            page_ref.evaluate(js)
-                            print(f"[bridge] Re-injected variant '{variant_level}' after navigation", file=sys.stderr)
-                        except Exception as e:
-                            print(f"[bridge] Variant re-injection failed (non-fatal): {e}", file=sys.stderr)
-                    bg_page.on("load", lambda: _on_page_load())
-                    print(f"[bridge] Registered variant re-injection listener on page load", file=sys.stderr)
+                    _listener = _make_variant_listener(bg_page, _variant_js)
+                    bg_page.on("domcontentloaded", _listener)
+                    bg_page.on("load", _listener)
+                    _variant_listener_pages.add(id(bg_page))
+                    print(f"[bridge] Registered variant re-injection listener (domcontentloaded+load)", file=sys.stderr)
 
                 # Wait for DOM to settle after patches
                 bg_page.wait_for_timeout(500)
@@ -645,14 +656,13 @@ def main() -> None:
                     )
                     if not has_variant:
                         current_page.evaluate(_variant_js)
-                        # Register listener on new page too
-                        def _on_new_page_load(page_ref=current_page, js=_variant_js):
-                            try:
-                                page_ref.evaluate(js)
-                                print(f"[bridge] Re-injected variant on new page after load", file=sys.stderr)
-                            except Exception:
-                                pass
-                        current_page.on("load", lambda: _on_new_page_load())
+                        # Register listener on new page if not already registered
+                        # (prevents duplicate listeners on the same page)
+                        if id(current_page) not in _variant_listener_pages:
+                            _listener = _make_variant_listener(current_page, _variant_js)
+                            current_page.on("domcontentloaded", _listener)
+                            current_page.on("load", _listener)
+                            _variant_listener_pages.add(id(current_page))
                         print(f"[bridge] Step {step}: re-injected variant on new/navigated page", file=sys.stderr)
                 except Exception:
                     pass  # Non-fatal — variant re-injection is best-effort
