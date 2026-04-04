@@ -559,11 +559,33 @@ def main() -> None:
         # Apply variant DOM patches after env.reset() so the agent sees
         # the same accessibility state as the scanner. (Bug 6 fix)
         variant_level = config.get("variantLevel", "base")
+        _variant_js = None  # Will be set if variant needs re-injection on navigation
         if variant_level != "base":
             try:
                 bg_page = env.unwrapped.page
                 changes = apply_variant(bg_page, variant_level)
                 print(f"[bridge] Applied variant '{variant_level}': {len(changes)} DOM changes", file=sys.stderr)
+
+                # Cache the variant JS for re-injection after navigation
+                script_file = VARIANT_SCRIPTS.get(variant_level)
+                if script_file:
+                    js_path = INJECT_DIR / script_file
+                    if js_path.exists():
+                        _variant_js = js_path.read_text(encoding="utf-8")
+
+                # Register a page load listener to re-inject variant patches
+                # after every navigation. DOM patches are lost when the page
+                # navigates because the DOM is rebuilt from scratch.
+                if _variant_js:
+                    def _on_page_load(page_ref=bg_page, js=_variant_js):
+                        try:
+                            page_ref.evaluate(js)
+                            print(f"[bridge] Re-injected variant '{variant_level}' after navigation", file=sys.stderr)
+                        except Exception as e:
+                            print(f"[bridge] Variant re-injection failed (non-fatal): {e}", file=sys.stderr)
+                    bg_page.on("load", lambda: _on_page_load())
+                    print(f"[bridge] Registered variant re-injection listener on page load", file=sys.stderr)
+
                 # Wait for DOM to settle after patches
                 bg_page.wait_for_timeout(500)
                 # Re-capture observation so agent sees the patched a11y tree.
@@ -608,6 +630,32 @@ def main() -> None:
 
             # Execute action in BrowserGym
             obs, reward, terminated, truncated, info = env.step(action)
+
+            # Re-inject variant patches if the page changed (new tab or navigation
+            # that didn't trigger the load listener). The load listener handles
+            # same-page navigations, but if BrowserGym switched the active page
+            # (e.g., agent opened a new tab), we need to re-register the listener
+            # and re-inject on the new page.
+            if _variant_js:
+                try:
+                    current_page = env.unwrapped.page
+                    # Check if variant markers are present — if not, re-inject
+                    has_variant = current_page.evaluate(
+                        'document.querySelector("[data-variant-revert]") !== null'
+                    )
+                    if not has_variant:
+                        current_page.evaluate(_variant_js)
+                        # Register listener on new page too
+                        def _on_new_page_load(page_ref=current_page, js=_variant_js):
+                            try:
+                                page_ref.evaluate(js)
+                                print(f"[bridge] Re-injected variant on new page after load", file=sys.stderr)
+                            except Exception:
+                                pass
+                        current_page.on("load", lambda: _on_new_page_load())
+                        print(f"[bridge] Step {step}: re-injected variant on new/navigated page", file=sys.stderr)
+                except Exception:
+                    pass  # Non-fatal — variant re-injection is best-effort
 
             obs_msg = extract_observation(obs, step=step)
             obs_msg["terminated"] = terminated
