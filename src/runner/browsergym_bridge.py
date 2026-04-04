@@ -658,18 +658,21 @@ def main() -> None:
                 if not axt and obs.get("axtree_object"):
                     obs["axtree_txt"] = flatten_axtree(obs.get("axtree_object"))
 
-                # If still empty, retry with a noop to force fresh observation
-                if not obs.get("axtree_txt") and not obs.get("axtree_object"):
+                # If axtree is too short (< 50 chars = just "RootWebArea '', focused"),
+                # the DOM hasn't rendered yet. Wait a bit more and retry.
+                axt = obs.get("axtree_txt", "")
+                if len(axt) < 50:
                     try:
+                        current_page = env.unwrapped.page
+                        current_page.wait_for_timeout(2000)  # Extra 2s for Magento JS
                         obs_retry, _, _, _, _ = env.step("noop()")
-                        # Preserve reward/terminated/truncated from original step
                         axt_retry = obs_retry.get("axtree_txt", "")
                         if not axt_retry and obs_retry.get("axtree_object"):
                             axt_retry = flatten_axtree(obs_retry.get("axtree_object"))
-                        if axt_retry:
+                        if len(axt_retry) > len(axt):
                             obs["axtree_txt"] = axt_retry
                             obs["axtree_object"] = obs_retry.get("axtree_object")
-                            print(f"[bridge] Step {step}: recovered empty obs via noop retry ({len(axt_retry)} chars)", file=sys.stderr)
+                            print(f"[bridge] Step {step}: recovered short obs ({len(axt)} → {len(axt_retry)} chars)", file=sys.stderr)
                     except Exception:
                         pass
 
