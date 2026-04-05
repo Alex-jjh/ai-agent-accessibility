@@ -1,0 +1,74 @@
+# Pilot 3 Experiment Config — Track A
+#
+# Changes from Pilot 2:
+#   1. Excluded ceiling tasks (27, 47) and floor task (50) — no signal
+#   2. Added medium-low variant — characterize dose-response curve
+#   3. Increased reps to 5 — improve power for base-vs-high comparison
+#   4. Kept task 24 — send_msg_to_user bug is now fixed, re-test
+#   5. Variant patches more aggressive (apply-low.js, apply-high.js updated)
+#
+# Design: 6 tasks × 4 variants × 5 reps × 1 LLM = 120 runs
+# Estimated time: ~120 × 3min = ~6 hours
+#
+# Task selection (from Pilot 2 analysis):
+#   HIGH-SENSITIVITY (variant matters, ≥67pp range in Pilot 2):
+#     Task 4  (ecommerce_admin) — perfect monotonic gradient 0%→33%→67%
+#     Task 23 (ecommerce)       — 0%→100%→100%, low completely blocked
+#     Task 26 (ecommerce)       — 0%→100%→100%, low completely blocked
+#     Task 29 (reddit)          — 0%→100%→33%, base >> high (noise?)
+#     Task 67 (reddit)          — 67%→100%→33%, high worst (noise?)
+#   RE-TEST (was confounded by send_msg_to_user bug in Pilot 2):
+#     Task 24 (ecommerce)       — inverted gradient was platform bug, now fixed
+#
+# Excluded:
+#     Task 27 (reddit)    — ceiling, 100% all variants
+#     Task 47 (ecommerce) — ceiling, 100% all variants
+#     Task 50 (ecommerce) — floor, 0% all variants (context overflow)
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.49:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.49:7780"
+    reddit:
+      url: "http://10.0.1.49:9999"
+
+  tasksPerApp:
+    ecommerce_admin: ["4"]
+    ecommerce: ["23", "24", "26"]
+    reddit: ["29", "67"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["low", "medium-low", "base", "high"]
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+
+runner:
+  repetitions: 5
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/pilot3"
+  exportFormats: ["json", "csv"]
