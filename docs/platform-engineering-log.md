@@ -488,3 +488,89 @@ Two-layer automatic re-injection:
 | File | Change |
 |------|--------|
 | `src/runner/browsergym_bridge.py` | Variant re-injection listeners + step loop marker check |
+
+
+---
+
+## 2026-04-05: Post-Pilot 2 Bug Fixes
+
+### Context
+
+Pilot 2 completed 81 cases (9 tasks × 3 variants × 3 reps). Deep trace analysis
+revealed three bugs affecting experiment validity and effect size measurement.
+
+### BUG-P2-1: parseLlmResponse non-greedy regex truncates send_msg_to_user (P0)
+
+- **File:** `src/runner/agents/executor.ts`
+- **Root cause:** `parseLlmResponse()` used regex `\([\s\S]*?\)` (non-greedy) to
+  extract action function calls. This matched the FIRST `)` in the text, so
+  `send_msg_to_user("review (in German) is positive")` was truncated at
+  `(in German)` — the `)` after "German" was treated as the function call's
+  closing paren. The truncated string then failed `cleanAction()`'s regex and
+  was passed raw to BrowserGym, causing `ValueError: Received an empty action`.
+- **Impact:** All task 24 base/high failures (5/6 cases) were caused by this bug.
+  The agent's answer was correct but the action string was mangled. This created
+  a false "inverted gradient" (low=67% > base=33% > high=0%) that was actually
+  a platform bug masquerading as an accessibility effect.
+- **Fix:** Replaced regex extraction with `extractBalancedCall()` — a depth-counting
+  parser that tracks parenthesis nesting inside string literals. For unbalanced
+  `send_msg_to_user` calls (truncated LLM output), appends `")` to recover the
+  message. Also hardened `cleanAction()` to use first-`(`-to-last-`)` extraction
+  instead of a full-match regex.
+- **Tests:** 14 new test cases covering nested parens, truncated output, internal
+  quotes, and balanced extraction.
+
+### BUG-P2-2: apply-high.js skip-link shifts BrowserGym node IDs (P1)
+
+- **File:** `src/variants/patches/inject/apply-high.js`
+- **Root cause:** `body.insertBefore(skipLink, body.firstChild)` inserted the
+  skip-link as the first DOM element. BrowserGym assigns node IDs in DOM order,
+  so all subsequent element IDs shifted by ~1 in the high variant vs base.
+  While trace analysis showed this didn't cause element mis-targeting in Pilot 2
+  (BrowserGym assigns IDs after injection), it's a latent risk.
+- **Fix:** Changed to `body.appendChild(skipLink)` — skip-link goes at body end.
+  Added `tabindex="1"` so it's still first in tab order. Skip-links work via
+  `href="#main-content"` anchor, so DOM position doesn't affect functionality.
+
+### BUG-P2-3: Variant composite score range compressed (P1)
+
+- **Files:** `src/variants/patches/inject/apply-low.js`, `apply-high.js`
+- **Root cause:** Actual composite scores were 0.405 (low) / 0.459 (base) / 0.457
+  (high) — far more compressed than configured ranges (0.00–0.25 / 0.40–0.70 /
+  0.75–1.00). Patches were too conservative.
+- **Fix (low):** Added 5 new degradation categories:
+  - Replace h1-h6 with styled divs (breaks document outline)
+  - Remove alt text from images
+  - Remove tabindex attributes (breaks keyboard nav order)
+  - Break table semantics (thead/tbody/th → div/td)
+  - Remove lang attribute from html element
+- **Fix (high):** Added 3 new enhancement categories:
+  - Add `aria-required="true"` to required form inputs
+  - Add `aria-current="page"` to nav links matching current URL
+  - Add `scope="col"/"row"` to table header cells
+- **Expected impact:** Low variant should now score closer to 0.0–0.15 (more
+  aggressive degradation). High variant should score closer to 0.65–0.85 (more
+  comprehensive enhancement). The wider score range should increase the
+  measurable effect size in Pilot 3.
+
+### Trace Analysis Insights (documented in docs/pilot2-trace-deep-dive.md)
+
+1. **Two failure pathways identified:**
+   - Token inflation: degraded DOM → verbose a11y tree → context overflow (admin task 4)
+   - Content invisibility: broken ARIA relationships → content hidden from a11y tree (task 24)
+2. **Admin low variant menu flattening:** Degraded DOM converts hierarchical menus
+   to flat links, causing agent to click REPORTS repeatedly without finding sub-items.
+3. **Reddit high failures are stochastic:** Token counts for high failures are LOWER
+   than base successes. Not caused by token overflow or element mis-targeting.
+4. **apply-high.js has undocumented form/banner injection:** Changes Section→form and
+   adds banner landmarks to article headers, adding ~1500 tokens per multi-page reddit task.
+
+### Files Changed
+
+| File | Change |
+|------|--------|
+| `src/runner/agents/executor.ts` | extractBalancedCall(), cleanAction() hardening |
+| `src/runner/agents/executor.test.ts` | 14 new tests for balanced-paren extraction |
+| `src/variants/patches/inject/apply-high.js` | Skip-link to body end, table/form enhancements |
+| `src/variants/patches/inject/apply-low.js` | Headings, alt, tabindex, table, lang degradation |
+| `docs/pilot2-trace-deep-dive.md` | Full trace analysis report |

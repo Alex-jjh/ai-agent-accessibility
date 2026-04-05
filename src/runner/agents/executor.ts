@@ -176,21 +176,84 @@ function cleanAction(raw: string): string {
 
   // Sanitize send_msg_to_user: BrowserGym exec()'s the action string as Python code.
   // Internal double quotes in the message text break the Python string literal,
-  // causing "ValueError: Received an empty action". Replace internal quotes with
-  // single quotes so the outer double quotes stay intact.
-  const sendMsgMatch = action.match(/^send_msg_to_user\("([\s\S]*)"\)$/);
-  if (sendMsgMatch) {
-    let msg = sendMsgMatch[1];
+  // causing "ValueError: Received an empty action". Extract the message between
+  // the FIRST `("` and the LAST `")` to handle nested parens/quotes correctly.
+  if (action.startsWith('send_msg_to_user(')) {
+    // Find message content: everything between first `("` and last `")`
+    const openIdx = action.indexOf('("');
+    const closeIdx = action.lastIndexOf('")');
+    let msg: string;
+    if (openIdx !== -1 && closeIdx > openIdx) {
+      msg = action.slice(openIdx + 2, closeIdx);
+    } else {
+      // Fallback: strip the function wrapper and any quotes
+      msg = action.replace(/^send_msg_to_user\s*\(\s*"?/, '').replace(/"?\s*\)\s*$/, '');
+    }
     // Replace internal double quotes with single quotes
     msg = msg.replace(/"/g, "'");
     // Remove newlines that break Python exec()
     msg = msg.replace(/[\r\n]+/g, ' ');
+    // Remove backslashes that could break Python string
+    msg = msg.replace(/\\/g, '');
     // Truncate to avoid token-explosion in BrowserGym's action parser
     if (msg.length > 500) msg = msg.substring(0, 500);
     action = `send_msg_to_user("${msg}")`;
   }
 
   return action;
+}
+
+/**
+ * Extract a balanced-parenthesis function call starting at the given position.
+ * Returns the full call string (e.g. `send_msg_to_user("text (with parens)")`)
+ * or null if no balanced call is found.
+ *
+ * This replaces the old non-greedy regex `\([\s\S]*?\)` which truncated at the
+ * first `)` inside the message — e.g. `send_msg_to_user("review (in German) is positive")`
+ * was cut to `send_msg_to_user("review (in German)` losing the rest.
+ */
+export function extractBalancedCall(text: string, startIndex: number): string | null {
+  // Find the opening paren
+  const parenIdx = text.indexOf('(', startIndex);
+  if (parenIdx === -1) return null;
+
+  let depth = 0;
+  // Track whether we're inside a string literal to avoid counting parens in strings
+  let inDouble = false;
+  let inSingle = false;
+
+  for (let i = parenIdx; i < text.length; i++) {
+    const ch = text[i];
+    const prev = i > 0 ? text[i - 1] : '';
+
+    // Handle string delimiters (skip escaped quotes)
+    if (ch === '"' && !inSingle && prev !== '\\') {
+      inDouble = !inDouble;
+      continue;
+    }
+    if (ch === "'" && !inDouble && prev !== '\\') {
+      inSingle = !inSingle;
+      continue;
+    }
+
+    // Only count parens outside of string literals
+    if (!inDouble && !inSingle) {
+      if (ch === '(') depth++;
+      if (ch === ')') depth--;
+      if (depth === 0) {
+        return text.slice(startIndex, i + 1);
+      }
+    }
+  }
+
+  // No balanced closing paren found — return best-effort up to end of text,
+  // appending a closing `")` for send_msg_to_user so cleanAction can sanitize it.
+  const partial = text.slice(startIndex);
+  if (partial.startsWith('send_msg_to_user')) {
+    // Unbalanced send_msg_to_user — close it so the message isn't lost
+    return partial.replace(/\s*$/, '') + '")';
+  }
+  return null;
 }
 
 /**
@@ -230,13 +293,22 @@ export function parseLlmResponse(content: string): { reasoning: string; action: 
     // Fall through to regex extraction
   }
 
-  // Extract action from inline function call patterns
-  const actionMatch = content.match(/((?:click|fill|type|hover|press|scroll|goto|go_back|go_forward|new_tab|tab_close|tab_focus|select_option|send_msg_to_user|noop|focus)\s*\([\s\S]*?\))/);
+  // Extract action from inline function call patterns using balanced-paren matching.
+  // The old regex `\([\s\S]*?\)` was non-greedy and truncated at the first `)` inside
+  // the message text — e.g. `send_msg_to_user("review (in German)")` was cut at
+  // `(in German)`. Now we use a depth counter that respects string literals.
+  const ACTION_NAMES = /(?:click|fill|type|hover|press|scroll|goto|go_back|go_forward|new_tab|tab_close|tab_focus|select_option|send_msg_to_user|noop|focus)\s*\(/;
+  const fnMatch = content.match(ACTION_NAMES);
 
-  const action = actionMatch?.[1]?.trim() ?? 'noop()';
-  const reasoning = content.replace(actionMatch?.[0] ?? '', '').trim();
+  if (fnMatch && fnMatch.index !== undefined) {
+    const call = extractBalancedCall(content, fnMatch.index);
+    if (call) {
+      const reasoning = content.replace(call, '').trim();
+      return { reasoning, action: cleanAction(call) };
+    }
+  }
 
-  return { reasoning, action: cleanAction(action) };
+  return { reasoning: content.trim(), action: cleanAction('noop()') };
 }
 
 /**

@@ -4,6 +4,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   executeAgentTask,
   parseLlmResponse,
+  extractBalancedCall,
   type BrowserGymObservation,
   type BridgeProcess,
   type BridgeSpawner,
@@ -145,6 +146,105 @@ describe('parseLlmResponse', () => {
     });
     const result = parseLlmResponse(content);
     expect(result.action).toBe('send_msg_to_user("done")');
+  });
+
+  // --- P0 fix: balanced-paren extraction for send_msg_to_user ---
+
+  it('handles send_msg_to_user with nested parentheses in message', () => {
+    const content = 'I found the answer. send_msg_to_user("Josef Bürger\'s review (in German) is positive")';
+    const result = parseLlmResponse(content);
+    expect(result.action).toBe('send_msg_to_user("Josef Bürger\'s review (in German) is positive")');
+  });
+
+  it('handles send_msg_to_user with multiple nested parentheses', () => {
+    const content = 'send_msg_to_user("The price is $25.99 (USD) and shipping is $5.00 (domestic)")';
+    const result = parseLlmResponse(content);
+    expect(result.action).toContain('$25.99');
+    expect(result.action).toContain('domestic');
+    expect(result.action.startsWith('send_msg_to_user("')).toBe(true);
+    expect(result.action.endsWith('")')).toBe(true);
+  });
+
+  it('handles send_msg_to_user with unbalanced parens (truncated LLM output)', () => {
+    // Simulates the exact bug from Pilot 2 task 24: LLM output is truncated
+    const content = 'send_msg_to_user("No reviewers mention price being unfair. Jay\'s review says Wonderful and Josef Bürger\'s review (in German';
+    const result = parseLlmResponse(content);
+    // Should recover the message, not return noop()
+    expect(result.action).toContain('send_msg_to_user');
+    expect(result.action).toContain('No reviewers mention price');
+    expect(result.action).toContain('in German');
+  });
+
+  it('handles send_msg_to_user via JSON with internal quotes', () => {
+    const content = JSON.stringify({
+      reasoning: 'Found the answer',
+      action: 'send_msg_to_user("The product has 2 reviews: Jay says \\"Wonderful!\\" and Josef (in German) says \\"Sehr gut\\".")',
+    });
+    const result = parseLlmResponse(content);
+    expect(result.action.startsWith('send_msg_to_user("')).toBe(true);
+    expect(result.action.endsWith('")')).toBe(true);
+    // Internal double quotes should be replaced with single quotes
+    expect(result.action).not.toContain('\\"');
+  });
+
+  it('handles click with normal parentheses correctly', () => {
+    const content = 'I will click the button. click("42")';
+    const result = parseLlmResponse(content);
+    expect(result.action).toBe('click("42")');
+  });
+
+  it('handles fill with comma-separated args correctly', () => {
+    const content = 'fill("7", "search query (advanced)")';
+    const result = parseLlmResponse(content);
+    expect(result.action).toBe('fill("7", "search query (advanced)")');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// extractBalancedCall
+// ---------------------------------------------------------------------------
+
+describe('extractBalancedCall', () => {
+  it('extracts simple function call', () => {
+    const text = 'click("42")';
+    expect(extractBalancedCall(text, 0)).toBe('click("42")');
+  });
+
+  it('extracts call with nested parens in string', () => {
+    const text = 'send_msg_to_user("review (in German) is positive")';
+    expect(extractBalancedCall(text, 0)).toBe('send_msg_to_user("review (in German) is positive")');
+  });
+
+  it('extracts call with multiple nested parens', () => {
+    const text = 'send_msg_to_user("price ($25.99) and shipping ($5.00)")';
+    expect(extractBalancedCall(text, 0)).toBe('send_msg_to_user("price ($25.99) and shipping ($5.00)")');
+  });
+
+  it('extracts call from middle of text', () => {
+    const text = 'I found the answer: send_msg_to_user("42") and done';
+    expect(extractBalancedCall(text, 20)).toBe('send_msg_to_user("42")');
+  });
+
+  it('handles unbalanced send_msg_to_user by closing it', () => {
+    const text = 'send_msg_to_user("truncated message (with parens';
+    const result = extractBalancedCall(text, 0);
+    expect(result).toContain('send_msg_to_user');
+    expect(result!.endsWith('")')).toBe(true);
+  });
+
+  it('returns null for non-send_msg_to_user unbalanced calls', () => {
+    const text = 'click("42';
+    expect(extractBalancedCall(text, 0)).toBeNull();
+  });
+
+  it('handles empty function call', () => {
+    const text = 'noop()';
+    expect(extractBalancedCall(text, 0)).toBe('noop()');
+  });
+
+  it('handles single quotes inside double-quoted string', () => {
+    const text = "send_msg_to_user(\"it's a test (really)\")";
+    expect(extractBalancedCall(text, 0)).toBe("send_msg_to_user(\"it's a test (really)\")");
   });
 });
 

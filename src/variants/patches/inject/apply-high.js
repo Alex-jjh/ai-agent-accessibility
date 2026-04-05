@@ -42,13 +42,20 @@
     }
   }
 
-  // 2. Insert skip-navigation link at the top of the page
+  // 2. Insert skip-navigation link at the END of body (not beginning).
+  // Inserting at body.firstChild shifts ALL subsequent BrowserGym node IDs by ~1,
+  // creating a latent element-targeting risk where click("42") targets different
+  // elements in high vs base. Appending at the end avoids this because BrowserGym
+  // assigns IDs in DOM order — existing elements keep their IDs.
+  // Skip-links work via href="#main-content" anchor, so position doesn't matter
+  // for functionality; tab order is controlled by tabindex if needed.
   const existingSkipLink = document.querySelector('a.skip-link, a[href="#main-content"]');
   if (!existingSkipLink) {
     const skipLink = document.createElement('a');
     skipLink.href = '#main-content';
     skipLink.className = 'skip-link';
     skipLink.textContent = 'Skip to main content';
+    skipLink.setAttribute('tabindex', '1');
     skipLink.setAttribute('style',
       'position:absolute;top:-40px;left:0;background:#000;color:#fff;padding:8px;z-index:10000;' +
       'transition:top 0.3s;');
@@ -56,7 +63,7 @@
     skipLink.addEventListener('blur', function() { skipLink.style.top = '-40px'; });
 
     var body = document.body;
-    body.insertBefore(skipLink, body.firstChild);
+    body.appendChild(skipLink);
 
     var mainEl = document.querySelector('main') || document.querySelector('[role="main"]');
     if (mainEl && !mainEl.id) {
@@ -189,6 +196,72 @@
         changeType: 'add-attr',
         original: '',
         modified: 'aria-label="' + labelText + '"',
+      });
+    }
+  }
+
+  // 6. Add aria-describedby for form validation — enhance form error association
+  const requiredInputs = Array.from(document.querySelectorAll('input[required], select[required], textarea[required]'));
+  for (const input of requiredInputs) {
+    if (!input.hasAttribute('aria-required')) {
+      var reqSelector = input.tagName.toLowerCase() +
+        (input.id ? '#' + input.id : input.getAttribute('name') ? '[name="' + input.getAttribute('name') + '"]' : '');
+      input.setAttribute('aria-required', 'true');
+      changes.push({
+        selector: reqSelector,
+        changeType: 'add-attr',
+        original: '',
+        modified: 'aria-required="true"',
+      });
+    }
+  }
+
+  // 7. Add aria-current="page" to links matching current URL
+  try {
+    var currentPath = window.location.pathname;
+    var navLinks = Array.from(document.querySelectorAll('nav a[href], [role="navigation"] a[href]'));
+    for (var ni = 0; ni < navLinks.length; ni++) {
+      var navLink = navLinks[ni];
+      var linkHref = navLink.getAttribute('href') || '';
+      if (linkHref === currentPath || linkHref === window.location.href) {
+        if (!navLink.hasAttribute('aria-current')) {
+          var navSelector = 'a' + (navLink.id ? '#' + navLink.id : '');
+          navLink.setAttribute('aria-current', 'page');
+          changes.push({
+            selector: navSelector,
+            changeType: 'add-attr',
+            original: '',
+            modified: 'aria-current="page"',
+          });
+        }
+      }
+    }
+  } catch (e) { /* non-fatal */ }
+
+  // 8. Enhance table accessibility — add scope to th, caption to tables
+  var tables = Array.from(document.querySelectorAll('table'));
+  for (var ti = 0; ti < tables.length; ti++) {
+    var table = tables[ti];
+    // Add scope="col" to header cells in thead
+    var theadCells = Array.from(table.querySelectorAll('thead th:not([scope])'));
+    for (var tci = 0; tci < theadCells.length; tci++) {
+      theadCells[tci].setAttribute('scope', 'col');
+      changes.push({
+        selector: 'th',
+        changeType: 'add-attr',
+        original: '',
+        modified: 'scope="col"',
+      });
+    }
+    // Add scope="row" to first cell in each tbody row if it's a th
+    var tbodyRowHeaders = Array.from(table.querySelectorAll('tbody th:not([scope])'));
+    for (var tri = 0; tri < tbodyRowHeaders.length; tri++) {
+      tbodyRowHeaders[tri].setAttribute('scope', 'row');
+      changes.push({
+        selector: 'th',
+        changeType: 'add-attr',
+        original: '',
+        modified: 'scope="row"',
       });
     }
   }
