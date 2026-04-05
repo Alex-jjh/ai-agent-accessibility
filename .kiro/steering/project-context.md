@@ -8,7 +8,7 @@ Six modules: Scanner, Variants, Runner, Classifier, Recorder, Analysis (Python).
 
 ## Current Status
 
-Tasks 1–22 complete (all 6 modules implemented, 318 TS + 56 Python tests passing).
+Tasks 1–22 complete (all 6 modules implemented, 334 TS + 67 Python tests passing).
 Scanner verified on real websites (EC2 + local). LiteLLM → Bedrock verified.
 Infrastructure: private subnet + SSM (no public access, burner account compliant).
 Pilot 1 completed 2026-04-01 — 54 cases, 4 successes (7.4% raw / 66.7% effective).
@@ -31,12 +31,25 @@ Shopping login fix completed (2026-04-04):
 - Verified: Task 47 agent sees "Sign Out", navigates to My Account, sees order history.
 - Tasks 47-50 now viable for Pilot 2.
 
+Literature-driven experiment hardening completed (2026-04-05):
+- Low variant patches aligned to Ma11y [ISSTA 2024] WCAG failure operators.
+  8 direct matches + 4 novel extensions (E1-E4) documented.
+  3 new operators added: F42 (link→span), F77 (duplicate IDs), F55 (focus blur).
+- Vision-only agent control condition implemented. ObservationMode extended to
+  'text-only' | 'vision' | 'vision-only'. Vision-only agent receives screenshot
+  only (no a11y tree) — serves as causal control since DOM mutations change
+  semantics but not visual appearance.
+- Semantic density metric defined: interactive_nodes / total_a11y_tree_tokens.
+  Python module with CLI and 11 tests. Quantifies "token inflation pathway".
+- Aegis failure taxonomy comparison: 6 modes vs our 12 types, 5 novel types.
+- Pilot 3 config updated: 2 agents × 6 tasks × 4 variants × 5 reps = 240 runs.
+
 Open issues:
 - Initial observation empty: BrowserGym returns axtree_object (dict) but not axtree_txt.
   Bridge now flattens axtree_object explicitly. Step 1 still empty due to timing;
   subsequent steps have full content.
 
-Next: Re-screen tasks 47-50 with maxSteps=30, then prepare Pilot 2 config.
+Next: Deploy updated code to EC2, run Pilot 3 (240 cases, ~12h).
 See docs/platform-engineering-log.md and docs/screening-analysis.md for details.
 
 ## WebArena Task ID Mapping (CRITICAL)
@@ -100,12 +113,18 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
 ## Key Design Decisions
 
 - Composite Score is supplementary — primary analysis uses criterion-level feature vectors
-- Vision agent is a control condition (expected weak/null a11y gradient)
+- Vision-only agent is a control condition (expected weak/null a11y gradient).
+  Uses screenshot only, no a11y tree. Causal logic: if text-only drops but
+  vision-only stays constant across variants → a11y tree is the causal factor.
 - Variant levels: low (0.0–0.25), medium-low (0.25–0.50), base (0.40–0.70), high (0.75–1.0)
 - Medium-Low variant models real-world pseudo-compliance (ARIA present, handlers missing)
+- Low variant operators grounded in Ma11y [ISSTA 2024] WCAG failure techniques:
+  8 direct matches (F2, F42, F44, F55, F65, F68, F77, F91, F96) + 4 novel extensions
+- Semantic density metric: interactive_nodes / total_a11y_tree_tokens (novel contribution)
 - A11y Tree stability: poll at 2s intervals, SHA-256 hash comparison, 30s timeout
 - Config: only `webarena.apps` is required; all other fields have documented defaults
-- Failure taxonomy: 11 types across 4 domains (accessibility, model, environmental, task)
+- Failure taxonomy: 12 types across 5 domains (accessibility, model, environmental, task, unclassified)
+  — 5 types novel vs Aegis [2025] (F_KBT, F_PCT, F_SDI, F_AMB, F_UNK)
 
 ## Key Reference Files (repo root)
 
@@ -122,12 +141,21 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
 src/scanner/     — Tier 1 (axe-core + Lighthouse) + Tier 2 (CDP metrics)
 src/variants/    — DOM patch engine for 4 accessibility variant levels
 src/runner/      — Agent executor, LLM backend, experiment matrix scheduler
-src/classifier/  — Auto-classifier (11 failure types) + manual review
+src/classifier/  — Auto-classifier (12 failure types) + manual review
 src/recorder/    — HAR capture and replay for Track B
 src/config/      — YAML/JSON config loader with validation and defaults
 src/export/      — Manifest, CSV export, JSON store
-analysis/        — Python: CLMM, GEE, Random Forest + SHAP (future)
+analysis/        — Python: CLMM, GEE, Random Forest + SHAP, semantic density
+docs/            — Engineering log, analysis reports, literature comparisons
 ```
+
+## Key Documentation Files
+
+- `docs/platform-engineering-log.md` — Full bug/fix/regression history
+- `docs/ma11y-operator-mapping.md` — Ma11y operator audit + novel extensions
+- `docs/aegis-taxonomy-comparison.md` — Failure taxonomy comparison with Aegis
+- `docs/pilot2-trace-deep-dive.md` — Pilot 2 trace analysis
+- `docs/screening-analysis.md` — Task screening results
 
 ## Spec Reference
 
