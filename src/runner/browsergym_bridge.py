@@ -362,16 +362,24 @@ def main() -> None:
         use_axtree = obs_mode != "vision-only"  # text-only and vision both get axtree
         use_screenshot = obs_mode in ("vision", "vision-only")
 
-        env = gym.make(
-            gym_task,
-            # BrowserGym observation space configuration
-            # These flags control what's included in the observation dict
-            **{k: v for k, v in {
-                "use_axtree": use_axtree,
-                "use_screenshot": use_screenshot,
-                "use_set_of_marks": use_som,
-            }.items()},
-        )
+        # BrowserGym observation space configuration.
+        # These kwargs control what's included in the observation dict.
+        # Wrap in try/except because parameter names may vary across BrowserGym versions.
+        obs_kwargs = {}
+        if use_screenshot or use_som:
+            obs_kwargs["use_screenshot"] = use_screenshot
+        if use_som:
+            obs_kwargs["use_set_of_marks"] = True
+        if not use_axtree:
+            obs_kwargs["use_axtree"] = False
+
+        try:
+            env = gym.make(gym_task, **obs_kwargs)
+        except TypeError as e:
+            # If BrowserGym doesn't accept these kwargs, fall back to default
+            print(f"[bridge] WARNING: gym.make kwargs failed ({e}), falling back to defaults", file=sys.stderr)
+            env = gym.make(gym_task)
+
         print(f"[bridge] Observation mode: {obs_mode} (axtree={use_axtree}, screenshot={use_screenshot}, som={use_som})", file=sys.stderr)
 
         # Patch Playwright default timeout before reset (ui_login uses 10s default)
