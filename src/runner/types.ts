@@ -3,8 +3,22 @@
 import type { VariantLevel } from '../variants/types.js';
 import type { ScanResult } from '../scanner/types.js';
 
-/** Agent observation mode */
-export type ObservationMode = 'text-only' | 'vision';
+/** Agent observation mode
+ *
+ * - 'text-only': Agent receives only the accessibility tree text (primary condition)
+ * - 'vision': Agent receives both a11y tree text AND a screenshot (multimodal)
+ * - 'vision-only': Agent receives ONLY a screenshot, no a11y tree (control condition)
+ *
+ * The 'vision-only' mode serves as a control condition: since DOM mutations
+ * (variant patches) change semantic structure but not visual appearance,
+ * a vision-only agent should be unaffected by accessibility degradation.
+ * If text-only performance drops but vision-only stays constant across variants,
+ * the causal arrow points to the accessibility tree, not visual layout changes.
+ *
+ * Reference: Screen2AX (2025) demonstrates that vision-based approaches can
+ * reconstruct a11y trees from screenshots, validating this control design.
+ */
+export type ObservationMode = 'text-only' | 'vision' | 'vision-only';
 
 /** LLM backend identifier */
 export type LlmBackend = 'claude-opus' | 'gpt-4o' | (string & {});

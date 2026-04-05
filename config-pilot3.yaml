@@ -7,8 +7,14 @@
 #   4. Kept task 24 — send_msg_to_user bug is now fixed, re-test
 #   5. Variant patches more aggressive (apply-low.js, apply-high.js updated)
 #
-# Design: 6 tasks × 4 variants × 5 reps × 1 LLM = 120 runs
-# Estimated time: ~120 × 3min = ~6 hours
+# Design: 6 tasks × 4 variants × 5 reps × 2 agents = 240 runs
+# Estimated time: ~240 × 3min = ~12 hours
+#
+# Agent configs:
+#   1. text-only (primary): Uses a11y tree — directly affected by variant mutations
+#   2. vision-only (control): Uses screenshot only — should NOT be affected by mutations
+#      If low variant degrades text-only but not vision-only → causal arrow to a11y tree
+#      Reference: Screen2AX (2025) validates vision-based agent approach
 #
 # Task selection (from Pilot 2 analysis):
 #   HIGH-SENSITIVITY (variant matters, ≥67pp range in Pilot 2):
@@ -58,8 +64,19 @@ runner:
   maxSteps: 30
   concurrency: 1
   agentConfigs:
+    # Primary condition: text-only agent (uses a11y tree)
     - observationMode: "text-only"
       llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    # Control condition: vision-only agent (uses screenshot, no a11y tree)
+    # Same LLM backend (Claude Sonnet supports vision natively).
+    # Expected: performance should be roughly constant across variants,
+    # since DOM mutations change semantics but not visual appearance.
+    - observationMode: "vision-only"
+      llmBackend: "claude-sonnet-vision"
       maxSteps: 30
       retryCount: 3
       retryBackoffMs: 1000

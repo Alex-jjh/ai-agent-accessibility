@@ -14,6 +14,13 @@ model_list:
       model: bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0
       aws_region_name: us-east-2
 
+  # Claude Sonnet with vision — same model, explicit alias for config clarity.
+  # Claude Sonnet natively supports multimodal (text + image) inputs.
+  - model_name: claude-sonnet-vision
+    litellm_params:
+      model: bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0
+      aws_region_name: us-east-2
+
   - model_name: claude-haiku
     litellm_params:
       model: bedrock/us.anthropic.claude-3-5-haiku-20241022-v1:0

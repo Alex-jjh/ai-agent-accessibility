@@ -64,10 +64,24 @@ export interface BridgeProcess {
 /**
  * Build the system prompt for the agent LLM call.
  */
-function buildSystemPrompt(goal: string, observationMode: 'text-only' | 'vision'): string {
-  const modeNote = observationMode === 'vision'
-    ? 'You receive both the accessibility tree and a screenshot of the page.'
-    : 'You receive the accessibility tree text representation of the page.';
+function buildSystemPrompt(goal: string, observationMode: 'text-only' | 'vision' | 'vision-only'): string {
+  let modeNote: string;
+  switch (observationMode) {
+    case 'vision':
+      modeNote = 'You receive both the accessibility tree and a screenshot of the page.';
+      break;
+    case 'vision-only':
+      modeNote = [
+        'You receive ONLY a screenshot of the page. You do NOT have access to the accessibility tree.',
+        'You must identify interactive elements visually from the screenshot.',
+        'Use element coordinates or visible text to determine which elements to interact with.',
+        'When you see a button, link, or input field in the screenshot, use the visible text or position to reference it.',
+      ].join('\n');
+      break;
+    default: // text-only
+      modeNote = 'You receive the accessibility tree text representation of the page.';
+      break;
+  }
 
   return [
     'You are a web navigation agent. Your goal is to complete the following task:',
@@ -109,7 +123,7 @@ function buildSystemPrompt(goal: string, observationMode: 'text-only' | 'vision'
  */
 function buildUserMessage(
   obs: BrowserGymObservation,
-  observationMode: 'text-only' | 'vision',
+  observationMode: 'text-only' | 'vision' | 'vision-only',
   previousSteps?: ActionTraceStep[],
 ): string | object[] {
   const parts: string[] = [];
@@ -132,13 +146,18 @@ function buildUserMessage(
     }
   }
 
-  parts.push('');
-  parts.push('Accessibility Tree:');
-  parts.push(obs.axtree_txt || '[Page content not available]');
+  // For vision-only mode, do NOT include the accessibility tree — the agent
+  // must rely solely on the screenshot. This is the control condition.
+  if (observationMode !== 'vision-only') {
+    parts.push('');
+    parts.push('Accessibility Tree:');
+    parts.push(obs.axtree_txt || '[Page content not available]');
+  }
 
   const textContent = parts.join('\n');
 
-  if (observationMode === 'vision' && obs.screenshot_base64) {
+  // Vision and vision-only modes: include screenshot as image content block
+  if ((observationMode === 'vision' || observationMode === 'vision-only') && obs.screenshot_base64) {
     return [
       { type: 'text', text: textContent },
       {
@@ -460,9 +479,14 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
         }
       }
 
-      const observationStr = agentConfig.observationMode === 'text-only'
-        ? (obs.axtree_txt || `[No accessibility tree available] URL: ${obs.url}`)
-        : `[screenshot + axtree] ${obs.url}`;
+      let observationStr: string;
+      if (agentConfig.observationMode === 'vision-only') {
+        observationStr = `[screenshot only] ${obs.url}`;
+      } else if (agentConfig.observationMode === 'vision') {
+        observationStr = `[screenshot + axtree] ${obs.url}`;
+      } else {
+        observationStr = obs.axtree_txt || `[No accessibility tree available] URL: ${obs.url}`;
+      }
 
       steps.push({
         stepNum,

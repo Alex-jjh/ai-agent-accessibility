@@ -7,7 +7,7 @@ import type { VariantLevel } from '../variants/types.js';
 
 const VALID_WCAG = new Set(['A', 'AA', 'AAA']);
 const VALID_VARIANTS = new Set(['low', 'medium-low', 'base', 'high']);
-const VALID_OBS = new Set(['text-only', 'vision']);
+const VALID_OBS = new Set(['text-only', 'vision', 'vision-only']);
 const VALID_FMT = new Set(['json', 'csv']);
 
 const DEFAULTS = {
@@ -78,7 +78,7 @@ function vVariants(v: unknown, e: string[]) {
 
 function vAgentConfig(a: unknown, p: string, e: string[]) {
   if (!isObj(a)) { e.push(`${p} must be an object`); return; }
-  if (!VALID_OBS.has(a.observationMode as string)) e.push(`${p}.observationMode must be "text-only" or "vision"`);
+  if (!VALID_OBS.has(a.observationMode as string)) e.push(`${p}.observationMode must be "text-only", "vision", or "vision-only"`);
   if (typeof a.llmBackend !== 'string' || a.llmBackend.length === 0) e.push(`${p}.llmBackend must be a non-empty string`);
 }
 

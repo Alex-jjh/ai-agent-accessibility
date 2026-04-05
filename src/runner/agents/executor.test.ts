@@ -446,6 +446,47 @@ describe('executeAgentTask', () => {
     expect(contentArr.some((c: any) => c.type === 'image_url')).toBe(true);
   });
 
+  it('sends screenshot WITHOUT a11y tree for vision-only mode (control condition)', async () => {
+    const obs = makeObs({
+      axtree_txt: '[1] RootWebArea "Should Not Appear"',
+      screenshot_base64: 'iVBORw0KGgoAAAANSUhEUg==',
+    });
+    const { bridge } = createMockBridge([obs, makeObs({ terminated: true })]);
+    const bridgeSpawner: BridgeSpawner = () => bridge;
+
+    const { caller, calls } = createMockLlmCaller([
+      { content: JSON.stringify({ reasoning: 'Done', action: 'send_msg_to_user("done")' }) },
+    ]);
+
+    const trace = await executeAgentTask(
+      makeTaskOptions({
+        agentConfig: makeAgentConfig({ observationMode: 'vision-only' }),
+        bridgeSpawner,
+        llmCaller: caller,
+      }),
+    );
+
+    // Observation logged should indicate screenshot-only mode
+    expect(trace.steps[0].observation).toContain('[screenshot only]');
+
+    // LLM message should be an array with text and image_url
+    const userMsg = calls[0].messages.find((m) => m.role === 'user');
+    expect(Array.isArray(userMsg?.content)).toBe(true);
+    const contentArr = userMsg?.content as object[];
+    expect(contentArr.some((c: any) => c.type === 'image_url')).toBe(true);
+
+    // The text part should NOT contain the accessibility tree
+    const textPart = contentArr.find((c: any) => c.type === 'text') as any;
+    expect(textPart.text).not.toContain('RootWebArea');
+    expect(textPart.text).not.toContain('Accessibility Tree');
+    expect(textPart.text).not.toContain('Should Not Appear');
+
+    // System prompt should mention screenshot-only
+    const sysMsg = calls[0].messages.find((m) => m.role === 'system');
+    expect(sysMsg?.content).toContain('ONLY a screenshot');
+    expect(sysMsg?.content).toContain('do NOT have access to the accessibility tree');
+  });
+
   // ---------------------------------------------------------------------------
   // Token accumulation (Req 7.3)
   // ---------------------------------------------------------------------------
