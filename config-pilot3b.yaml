@@ -1,0 +1,69 @@
+# Pilot 3b Experiment Config — Track A
+#
+# Same tasks/variants as Pilot 3a, but with 2 agent conditions:
+#   1. text-only (primary): Uses a11y tree — directly affected by variant mutations
+#   2. vision-only (control): Uses SoM screenshot — should NOT be affected by mutations
+#
+# Design: 6 tasks × 4 variants × 5 reps × 2 agents = 240 runs
+# Estimated time: ~240 × 3min = ~12 hours
+#
+# The vision-only control condition tests causal inference:
+#   DOM mutations change semantics but not visuals, so vision-only agent
+#   should be unaffected by variant degradation. If text-only drops but
+#   vision-only stays constant → causal arrow points to a11y tree.
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.49:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.49:7780"
+    reddit:
+      url: "http://10.0.1.49:9999"
+
+  tasksPerApp:
+    ecommerce_admin: ["4"]
+    ecommerce: ["23", "24", "26"]
+    reddit: ["29", "67"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["low", "medium-low", "base", "high"]
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+
+runner:
+  repetitions: 5
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    # Primary condition: text-only agent (uses a11y tree)
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    # Control condition: vision-only agent (uses SoM screenshot, no a11y tree)
+    - observationMode: "vision-only"
+      llmBackend: "claude-sonnet-vision"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/pilot3b"
+  exportFormats: ["json", "csv"]

@@ -25,8 +25,8 @@ import { loadConfig } from '../src/config/loader.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-const CONFIG_PATH = './config-pilot3.yaml';
 const args = process.argv.slice(2);
+const CONFIG_PATH = args.find((_, i) => args[i - 1] === '--config') ?? './config-pilot3.yaml';
 const resumeRunId = args.find((_, i) => args[i - 1] === '--resume');
 const dryRun = args.includes('--dry-run');
 const cdpPort = parseInt(args.find((_, i) => args[i - 1] === '--cdp-port') ?? '9222');
@@ -47,12 +47,14 @@ async function main() {
     }
   }
   const reps = config.runner.repetitions;
-  const totalCases = tasks.length * variants.length * reps;
+  const agentCount = config.runner.agentConfigs?.length ?? 1;
+  const totalCases = tasks.length * variants.length * reps * agentCount;
 
   console.log(`Config:     ${CONFIG_PATH}`);
   console.log(`Tasks:      ${tasks.length} (${tasks.join(', ')})`);
   console.log(`Variants:   ${variants.join(', ')}`);
   console.log(`Reps:       ${reps}`);
+  console.log(`Agents:     ${agentCount} (${(config.runner.agentConfigs ?? []).map((a: any) => a.observationMode).join(', ')})`);
   console.log(`Total:      ${totalCases} cases`);
   console.log(`Est. time:  ~${Math.ceil(totalCases * 3 / 60)} hours`);
   console.log(`Output:     ${config.output.dataDir}`);
@@ -100,11 +102,15 @@ async function main() {
     console.log('Dry run — would execute the following matrix:');
     console.log('');
     let caseNum = 0;
-    for (const task of tasks) {
-      for (const variant of variants) {
-        for (let rep = 1; rep <= reps; rep++) {
-          caseNum++;
-          console.log(`  ${String(caseNum).padStart(3)}. ${task} × ${variant} × rep${rep}`);
+    const agents = config.runner.agentConfigs ?? [{ observationMode: 'text-only' }];
+    for (const agent of agents) {
+      for (const task of tasks) {
+        for (const variant of variants) {
+          for (let rep = 1; rep <= reps; rep++) {
+            caseNum++;
+            const mode = (agent as any).observationMode ?? 'text-only';
+            console.log(`  ${String(caseNum).padStart(3)}. [${mode}] ${task} × ${variant} × rep${rep}`);
+          }
         }
       }
     }

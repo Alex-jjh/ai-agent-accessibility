@@ -52,6 +52,8 @@ export interface BridgeTaskConfig {
   taskGoal: string;
   /** Variant level to apply in the BrowserGym environment after env.reset() */
   variantLevel: string;
+  /** Observation mode — 'vision-only' enables Set-of-Marks screenshot overlay */
+  observationMode?: string;
 }
 
 /** Abstraction over the bridge subprocess for testability */
@@ -66,20 +68,59 @@ export interface BridgeProcess {
  */
 function buildSystemPrompt(goal: string, observationMode: 'text-only' | 'vision' | 'vision-only'): string {
   let modeNote: string;
+  let actionNote: string;
   switch (observationMode) {
     case 'vision':
       modeNote = 'You receive both the accessibility tree and a screenshot of the page.';
+      actionNote = [
+        'The accessibility tree shows elements with their BrowserGym IDs (bid). Use these IDs in your actions.',
+        '',
+        'Available actions (use EXACTLY this syntax with regular double quotes):',
+        '  click("bid")           - Click an element by its bid',
+        '  fill("bid", "text")    - Fill a text field with the given text',
+        '  scroll(x, y)           - Scroll by x,y pixels (e.g., scroll(0, 500))',
+        '  hover("bid")           - Hover over an element',
+        '  goto("url")            - Navigate to a URL',
+        '  go_back()              - Go back in browser history',
+        '  send_msg_to_user("msg") - Send a message (use "done" when task is complete)',
+        '  noop()                 - Do nothing (wait for page to load)',
+      ].join('\n');
       break;
     case 'vision-only':
       modeNote = [
         'You receive ONLY a screenshot of the page. You do NOT have access to the accessibility tree.',
-        'You must identify interactive elements visually from the screenshot.',
-        'Use element coordinates or visible text to determine which elements to interact with.',
-        'When you see a button, link, or input field in the screenshot, use the visible text or position to reference it.',
+        'The screenshot has numbered labels overlaid on interactive elements (Set-of-Marks).',
+        'Use these numeric labels as element IDs in your actions.',
+      ].join('\n');
+      actionNote = [
+        'Use the numbered labels visible on the screenshot as element IDs.',
+        '',
+        'Available actions (use EXACTLY this syntax with regular double quotes):',
+        '  click("id")            - Click the element with this label number',
+        '  fill("id", "text")     - Fill a text field with the given text',
+        '  scroll(x, y)           - Scroll by x,y pixels (e.g., scroll(0, 500))',
+        '  hover("id")            - Hover over an element',
+        '  goto("url")            - Navigate to a URL',
+        '  go_back()              - Go back in browser history',
+        '  send_msg_to_user("msg") - Send a message (use "done" when task is complete)',
+        '  noop()                 - Do nothing (wait for page to load)',
       ].join('\n');
       break;
     default: // text-only
       modeNote = 'You receive the accessibility tree text representation of the page.';
+      actionNote = [
+        'The accessibility tree shows elements with their BrowserGym IDs (bid). Use these IDs in your actions.',
+        '',
+        'Available actions (use EXACTLY this syntax with regular double quotes):',
+        '  click("bid")           - Click an element by its bid',
+        '  fill("bid", "text")    - Fill a text field with the given text',
+        '  scroll(x, y)           - Scroll by x,y pixels (e.g., scroll(0, 500))',
+        '  hover("bid")           - Hover over an element',
+        '  goto("url")            - Navigate to a URL',
+        '  go_back()              - Go back in browser history',
+        '  send_msg_to_user("msg") - Send a message (use "done" when task is complete)',
+        '  noop()                 - Do nothing (wait for page to load)',
+      ].join('\n');
       break;
   }
 
@@ -89,22 +130,16 @@ function buildSystemPrompt(goal: string, observationMode: 'text-only' | 'vision'
     '',
     modeNote,
     '',
-    'The accessibility tree shows elements with their BrowserGym IDs (bid). Use these IDs in your actions.',
-    '',
-    'Available actions (use EXACTLY this syntax with regular double quotes):',
-    '  click("bid")           - Click an element by its bid',
-    '  fill("bid", "text")    - Fill a text field with the given text',
-    '  scroll(x, y)           - Scroll by x,y pixels (e.g., scroll(0, 500))',
-    '  hover("bid")           - Hover over an element',
-    '  goto("url")            - Navigate to a URL',
-    '  go_back()              - Go back in browser history',
-    '  send_msg_to_user("msg") - Send a message (use "done" when task is complete)',
-    '  noop()                 - Do nothing (wait for page to load)',
+    actionNote,
     '',
     'IMPORTANT:',
     '- Use regular double quotes " not escaped quotes \\" in your action strings',
-    '- Use BARE NUMERIC bid values WITHOUT brackets: click("123") NOT click("[123]")',
-    '- The accessibility tree shows [123] but you must use just "123" in actions',
+    ...(observationMode !== 'vision-only' ? [
+      '- Use BARE NUMERIC bid values WITHOUT brackets: click("123") NOT click("[123]")',
+      '- The accessibility tree shows [123] but you must use just "123" in actions',
+    ] : [
+      '- Use the numeric labels from the screenshot: click("123")',
+    ]),
     '- If the page is loading, use noop() and wait',
     '- If you cannot complete the task after trying, use send_msg_to_user("cannot complete")',
     '- When the task asks for information, respond with ONLY the direct answer:',
@@ -395,7 +430,10 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
   let envTruncated = false;
   let lastReward = 0;
 
-  const bridge = bridgeSpawner(bridgeScriptPath, { taskId, targetUrl, taskGoal, variantLevel: variant });
+  const bridge = bridgeSpawner(bridgeScriptPath, {
+    taskId, targetUrl, taskGoal, variantLevel: variant,
+    observationMode: agentConfig.observationMode,
+  });
 
   try {
     // Get initial observation from env.reset()

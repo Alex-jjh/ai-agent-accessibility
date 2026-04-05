@@ -350,7 +350,29 @@ def main() -> None:
 
     env = None
     try:
-        env = gym.make(gym_task)
+        # Determine observation mode from config
+        obs_mode = config.get("observationMode", "text-only")
+
+        # For vision-only mode, enable Set-of-Marks (SoM) screenshot overlay.
+        # SoM annotates interactive elements with numeric labels on the screenshot,
+        # allowing the agent to reference elements by their label number.
+        # The bid numbers in SoM match the a11y tree bids, so the same action
+        # format (click("42")) works for both text-only and vision-only modes.
+        use_som = obs_mode == "vision-only"
+        use_axtree = obs_mode != "vision-only"  # text-only and vision both get axtree
+        use_screenshot = obs_mode in ("vision", "vision-only")
+
+        env = gym.make(
+            gym_task,
+            # BrowserGym observation space configuration
+            # These flags control what's included in the observation dict
+            **{k: v for k, v in {
+                "use_axtree": use_axtree,
+                "use_screenshot": use_screenshot,
+                "use_set_of_marks": use_som,
+            }.items()},
+        )
+        print(f"[bridge] Observation mode: {obs_mode} (axtree={use_axtree}, screenshot={use_screenshot}, som={use_som})", file=sys.stderr)
 
         # Patch Playwright default timeout before reset (ui_login uses 10s default)
         try:
