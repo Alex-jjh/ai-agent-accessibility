@@ -296,15 +296,14 @@ describe('multi-domain classification', () => {
 // ---------------------------------------------------------------------------
 describe('confidence and review flagging', () => {
   it('flags low-confidence classifications for review', () => {
-    // A trace with no strong patterns → fallback low confidence
+    // A trace with no strong patterns → F_UNK fallback, flagged for review
     const trace = makeTrace([
       { result: 'success', reasoning: 'all good' },
       { result: 'failure', reasoning: 'hmm' },
     ]);
     const result = classifyFailure(trace);
-    if (result.confidence < 0.7) {
-      expect(result.flaggedForReview).toBe(true);
-    }
+    // F_UNK has confidence 1.0 but is still flagged for review
+    expect(result.flaggedForReview).toBe(true);
   });
 
   it('does not flag high-confidence classifications', () => {
@@ -379,12 +378,14 @@ describe('filterByReportingMode', () => {
 // Fallback when no pattern matches
 // ---------------------------------------------------------------------------
 describe('fallback classification', () => {
-  it('returns a low-confidence fallback when no patterns match', () => {
+  it('returns F_UNK with confidence 1.0 when no patterns match', () => {
     const trace = makeTrace([
       { result: 'success', reasoning: 'everything is fine' },
     ]);
     const result = classifyFailure(trace);
-    expect(result.confidence).toBeLessThan(0.7);
+    expect(result.primary).toBe('F_UNK');
+    expect(result.primaryDomain).toBe('unclassified');
+    expect(result.confidence).toBe(1.0);
     expect(result.flaggedForReview).toBe(true);
   });
 });

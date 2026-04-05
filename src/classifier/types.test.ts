@@ -2,25 +2,26 @@ import { describe, it, expect } from 'vitest';
 import { FAILURE_DOMAINS, FAILURE_TYPES } from './types.js';
 
 describe('FAILURE_DOMAINS', () => {
-  it('has exactly 4 domains', () => {
-    expect(FAILURE_DOMAINS).toHaveLength(4);
+  it('has exactly 5 domains', () => {
+    expect(FAILURE_DOMAINS).toHaveLength(5);
   });
 
-  it('contains accessibility, model, environmental, task', () => {
+  it('contains accessibility, model, environmental, task, unclassified', () => {
     expect(FAILURE_DOMAINS).toContain('accessibility');
     expect(FAILURE_DOMAINS).toContain('model');
     expect(FAILURE_DOMAINS).toContain('environmental');
     expect(FAILURE_DOMAINS).toContain('task');
+    expect(FAILURE_DOMAINS).toContain('unclassified');
   });
 });
 
 describe('FAILURE_TYPES', () => {
-  it('maps to exactly 11 total failure types', () => {
+  it('maps to exactly 12 total failure types', () => {
     const total = Object.values(FAILURE_TYPES).reduce(
       (sum, types) => sum + types.length,
       0,
     );
-    expect(total).toBe(11);
+    expect(total).toBe(12);
   });
 
   it('accessibility domain has 5 types: F_ENF, F_WEA, F_KBT, F_PCT, F_SDI', () => {
@@ -48,5 +49,10 @@ describe('FAILURE_TYPES', () => {
   it('task domain has 1 type: F_AMB', () => {
     expect(FAILURE_TYPES.task).toHaveLength(1);
     expect(FAILURE_TYPES.task).toContain('F_AMB');
+  });
+
+  it('unclassified domain has 1 type: F_UNK', () => {
+    expect(FAILURE_TYPES.unclassified).toHaveLength(1);
+    expect(FAILURE_TYPES.unclassified).toContain('F_UNK');
   });
 });

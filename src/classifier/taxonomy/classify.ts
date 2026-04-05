@@ -328,6 +328,7 @@ const DOMAIN_FOR_TYPE: Record<FailureType, FailureDomain> = {
   F_ABB: 'environmental',
   F_NET: 'environmental',
   F_AMB: 'task',
+  F_UNK: 'unclassified',
 };
 
 // ---------------------------------------------------------------------------
@@ -368,15 +369,17 @@ export function classifyFailure(trace: ActionTrace): FailureClassification {
   // Sort by confidence descending
   detections.sort((a, b) => b.confidence - a.confidence);
 
-  // If no detections, fall back to a low-confidence generic classification
+  // If no detections, classify as unclassified rather than defaulting to F_REA.
+  // This avoids inflating the reasoning-error count with low-confidence guesses,
+  // giving the paper a cleaner failure taxonomy.
   if (detections.length === 0) {
     return {
-      primary: 'F_REA',
-      primaryDomain: 'model',
+      primary: 'F_UNK',
+      primaryDomain: 'unclassified',
       secondaryFactors: [],
-      confidence: 0.3,
+      confidence: 1.0,
       flaggedForReview: true,
-      evidence: ['No specific failure pattern detected — defaulting to reasoning error'],
+      evidence: ['No specific failure pattern detected — requires manual review'],
     };
   }
 

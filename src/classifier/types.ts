@@ -3,9 +3,9 @@
 import type { ActionTrace } from '../runner/types.js';
 
 /** Failure domain categories */
-export type FailureDomain = 'accessibility' | 'model' | 'environmental' | 'task';
+export type FailureDomain = 'accessibility' | 'model' | 'environmental' | 'task' | 'unclassified';
 
-/** 11 failure types across 4 domains */
+/** 12 failure types across 5 domains (including unclassified) */
 export type FailureType =
   // Accessibility domain
   | 'F_ENF'   // Element not found (missing label/name)
@@ -21,7 +21,9 @@ export type FailureType =
   | 'F_ABB'   // Anti-bot block
   | 'F_NET'   // Network timeout
   // Task domain
-  | 'F_AMB';  // Task ambiguity
+  | 'F_AMB'   // Task ambiguity
+  // Unclassified
+  | 'F_UNK';  // Unclassified — no detector matched with sufficient confidence
 
 /** Result of auto-classifying a failure */
 export interface FailureClassification {
@@ -68,6 +70,7 @@ export const FAILURE_DOMAINS: readonly FailureDomain[] = [
   'model',
   'environmental',
   'task',
+  'unclassified',
 ] as const;
 
 /** Mapping of failure domains to their failure types */
@@ -76,4 +79,5 @@ export const FAILURE_TYPES: Record<FailureDomain, readonly FailureType[]> = {
   model: ['F_HAL', 'F_COF', 'F_REA'],
   environmental: ['F_ABB', 'F_NET'],
   task: ['F_AMB'],
+  unclassified: ['F_UNK'],
 } as const;
