@@ -40,6 +40,10 @@ export interface ExecuteTaskOptions {
   llmCaller?: typeof callLlm;
   /** Override for testing: inject a custom bridge spawner */
   bridgeSpawner?: BridgeSpawner;
+  /** Wall-clock timeout in ms for the entire case. Default: 600000 (10 min).
+   *  If exceeded, the case is terminated with outcome='timeout' and
+   *  resultDetail='wall-clock timeout' for post-hoc review. */
+  wallClockTimeoutMs?: number;
 }
 
 /** Function signature for spawning the BrowserGym bridge process */
@@ -422,6 +426,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
     bridgeScriptPath = 'src/runner/browsergym_bridge.py',
     llmCaller = callLlm,
     bridgeSpawner = defaultBridgeSpawner,
+    wallClockTimeoutMs = 600_000, // 10 minutes default
   } = options;
 
   const startTime = Date.now();
@@ -448,6 +453,24 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
     const messageHistory: Array<{ role: string; content: string | object[] }> = [];
 
     for (let stepNum = 1; stepNum <= agentConfig.maxSteps; stepNum++) {
+      // Wall-clock timeout: if the case has been running too long, abort.
+      // This prevents a single hung case (e.g., BrowserGym intersection_observer
+      // loop, Bedrock rate limit retry storm) from blocking the entire experiment.
+      const elapsed = Date.now() - startTime;
+      if (elapsed > wallClockTimeoutMs) {
+        console.warn(`[executor] Case ${taskId}:${variant} wall-clock timeout after ${Math.round(elapsed / 1000)}s`);
+        steps.push({
+          stepNum,
+          timestamp: new Date().toISOString(),
+          observation: '[wall-clock timeout]',
+          reasoning: `Case exceeded ${wallClockTimeoutMs / 1000}s wall-clock limit`,
+          action: 'noop()',
+          result: 'error',
+          resultDetail: `wall-clock timeout after ${Math.round(elapsed / 1000)}s`,
+        });
+        break;
+      }
+
       const stepTimestamp = new Date().toISOString();
       const userContent = buildUserMessage(obs, agentConfig.observationMode, steps);
 

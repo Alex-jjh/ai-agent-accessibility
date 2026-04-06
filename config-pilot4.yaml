@@ -1,0 +1,73 @@
+# Pilot 4 Experiment Config — Track A (Canonical Run)
+#
+# Full rerun of Pilot 3b with Plan D variant injection fix:
+#   - context.route() network-layer HTML interception
+#   - Deferred patch (window.load + 500ms) after Magento KO init
+#   - MutationObserver guard with isPatching recursion lock
+#   - Sentinel wait (data-variant-patched) before observation extraction
+#
+# This is the canonical dataset for the paper. Previous pilots had:
+#   - Pilot 3a: variant escape via goto() (patches non-deterministically cleared)
+#   - Pilot 3b: LiteLLM config error (vision-only failed), then hung at 190/240
+#   - Pilot 3b-190: goto escape still present, vision re-injection hang
+#
+# Design: 6 tasks × 4 variants × 2 agents × 5 reps = 240 runs
+# Estimated time: ~12-15 hours (vision-only cases are slower)
+#
+# Agent configs:
+#   1. text-only (primary): Uses a11y tree — directly affected by variant mutations
+#   2. vision-only (control): Uses SoM screenshot — tests causal inference
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.49:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.49:7780"
+    reddit:
+      url: "http://10.0.1.49:9999"
+
+  tasksPerApp:
+    ecommerce_admin: ["4"]
+    ecommerce: ["23", "24", "26"]
+    reddit: ["29", "67"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["low", "medium-low", "base", "high"]
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+
+runner:
+  repetitions: 5
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    - observationMode: "vision-only"
+      llmBackend: "claude-sonnet-vision"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/pilot4"
+  exportFormats: ["json", "csv"]
