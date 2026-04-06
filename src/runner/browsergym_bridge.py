@@ -62,6 +62,95 @@ def encode_screenshot(screenshot: np.ndarray | None) -> str | None:
         return None
 
 
+def render_som_overlay(screenshot: np.ndarray | None, extra_properties: dict | None) -> np.ndarray | None:
+    """Render Set-of-Marks overlay on screenshot — draw bid labels on interactive elements.
+
+    BrowserGym's extra_element_properties contains bounding boxes for each bid element.
+    We draw small numbered labels at each element's position so the vision-only agent
+    can identify elements by their bid number from the screenshot alone.
+
+    Only labels interactive elements (links, buttons, inputs, etc.) to avoid clutter.
+    """
+    if screenshot is None or not extra_properties:
+        return screenshot
+
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+
+        img = Image.fromarray(screenshot)
+        draw = ImageDraw.Draw(img)
+
+        # Try to load a small monospace font; fall back to default
+        try:
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 11)
+        except Exception:
+            try:
+                font = ImageFont.truetype("/usr/share/fonts/dejavu-sans-mono-fonts/DejaVuSansMono.ttf", 11)
+            except Exception:
+                font = ImageFont.load_default()
+
+        # Interactive roles worth labeling
+        interactive_tags = {
+            'a', 'button', 'input', 'select', 'textarea', 'option',
+            'summary', 'details', 'label',
+        }
+
+        count = 0
+        for bid, props in extra_properties.items():
+            if not isinstance(props, dict):
+                continue
+
+            # Filter to interactive elements only
+            tag = props.get("tag_name", "").lower()
+            role = props.get("role", "").lower()
+            is_interactive = (
+                tag in interactive_tags
+                or role in ("button", "link", "checkbox", "radio", "combobox",
+                           "listbox", "menuitem", "tab", "searchbox", "switch",
+                           "textbox", "option", "slider", "spinbutton")
+                or props.get("is_clickable", False)
+            )
+            if not is_interactive:
+                continue
+
+            # Get bounding box [x, y, width, height]
+            bbox = props.get("bbox")
+            if not bbox or len(bbox) < 4:
+                continue
+
+            x, y, w, h = bbox[0], bbox[1], bbox[2], bbox[3]
+            # Skip off-screen or tiny elements
+            if w < 5 or h < 5 or x < 0 or y < 0:
+                continue
+            if x > img.width or y > img.height:
+                continue
+
+            # Draw a small label box at top-left of element
+            label = str(bid)
+            text_bbox = draw.textbbox((0, 0), label, font=font)
+            tw = text_bbox[2] - text_bbox[0] + 4
+            th = text_bbox[3] - text_bbox[1] + 2
+
+            lx = max(0, min(int(x), img.width - tw))
+            ly = max(0, min(int(y) - th - 1, img.height - th))
+            if ly < 0:
+                ly = int(y)  # put below if no room above
+
+            # Background rectangle (semi-transparent red)
+            draw.rectangle([lx, ly, lx + tw, ly + th], fill=(220, 40, 40, 200))
+            # Text
+            draw.text((lx + 2, ly), label, fill=(255, 255, 255), font=font)
+            count += 1
+
+        if count > 0:
+            print(f"[bridge] SoM overlay: labeled {count} interactive elements", file=sys.stderr)
+
+        return np.array(img)
+    except Exception as e:
+        print(f"[bridge] SoM overlay failed (non-fatal): {e}", file=sys.stderr)
+        return screenshot
+
+
 def flatten_axtree(axtree_object: dict | None) -> str:
     """Convert BrowserGym's axtree_object to text using BrowserGym's own utility."""
     if not axtree_object:
@@ -99,8 +188,12 @@ def flatten_axtree(axtree_object: dict | None) -> str:
         return str(axtree_object)[:3000]
 
 
-def extract_observation(obs: dict, step: int) -> dict:
-    """Convert BrowserGym observation dict to our JSON protocol format."""
+def extract_observation(obs: dict, step: int, som_mode: bool = False) -> dict:
+    """Convert BrowserGym observation dict to our JSON protocol format.
+
+    If som_mode=True, renders Set-of-Marks overlay on the screenshot with
+    bid labels on interactive elements (for vision-only agent mode).
+    """
     # BrowserGym returns axtree_object (dict), not axtree_txt (string)
     axtree_txt = obs.get("axtree_txt", "")
     if not axtree_txt:
@@ -117,10 +210,15 @@ def extract_observation(obs: dict, step: int) -> dict:
         except (IndexError, TypeError, ValueError):
             current_url = ""
 
+    # Apply SoM overlay if requested (vision-only mode)
+    screenshot = obs.get("screenshot")
+    if som_mode and screenshot is not None:
+        screenshot = render_som_overlay(screenshot, obs.get("extra_element_properties"))
+
     return {
         "goal": obs.get("goal", ""),
         "axtree_txt": axtree_txt,
-        "screenshot_base64": encode_screenshot(obs.get("screenshot")),
+        "screenshot_base64": encode_screenshot(screenshot),
         "url": current_url,
         "last_action_error": obs.get("last_action_error", ""),
         "terminated": False,
@@ -353,34 +451,13 @@ def main() -> None:
         # Determine observation mode from config
         obs_mode = config.get("observationMode", "text-only")
 
-        # For vision-only mode, enable Set-of-Marks (SoM) screenshot overlay.
-        # SoM annotates interactive elements with numeric labels on the screenshot,
-        # allowing the agent to reference elements by their label number.
-        # The bid numbers in SoM match the a11y tree bids, so the same action
-        # format (click("42")) works for both text-only and vision-only modes.
-        use_som = obs_mode == "vision-only"
-        use_axtree = obs_mode != "vision-only"  # text-only and vision both get axtree
-        use_screenshot = obs_mode in ("vision", "vision-only")
+        # BrowserGym always returns both screenshot and axtree in its observation.
+        # SoM overlay is rendered in our bridge (render_som_overlay), not by BrowserGym.
+        # The executor's buildUserMessage controls what gets sent to the LLM
+        # (text-only: axtree only, vision: axtree+screenshot, vision-only: SoM screenshot only).
+        env = gym.make(gym_task)
 
-        # BrowserGym observation space configuration.
-        # These kwargs control what's included in the observation dict.
-        # Wrap in try/except because parameter names may vary across BrowserGym versions.
-        obs_kwargs = {}
-        if use_screenshot or use_som:
-            obs_kwargs["use_screenshot"] = use_screenshot
-        if use_som:
-            obs_kwargs["use_set_of_marks"] = True
-        if not use_axtree:
-            obs_kwargs["use_axtree"] = False
-
-        try:
-            env = gym.make(gym_task, **obs_kwargs)
-        except TypeError as e:
-            # If BrowserGym doesn't accept these kwargs, fall back to default
-            print(f"[bridge] WARNING: gym.make kwargs failed ({e}), falling back to defaults", file=sys.stderr)
-            env = gym.make(gym_task)
-
-        print(f"[bridge] Observation mode: {obs_mode} (axtree={use_axtree}, screenshot={use_screenshot}, som={use_som})", file=sys.stderr)
+        print(f"[bridge] Observation mode: {obs_mode}", file=sys.stderr)
 
         # Patch Playwright default timeout before reset (ui_login uses 10s default)
         try:
@@ -646,7 +723,8 @@ def main() -> None:
                 traceback.print_exc(file=sys.stderr)
 
         # Send initial observation
-        obs_msg = extract_observation(obs, step=0)
+        _som = obs_mode == "vision-only"
+        obs_msg = extract_observation(obs, step=0, som_mode=_som)
         obs_msg["goal"] = obs.get("goal", config.get("taskGoal", ""))
 
         # If initial observation is too short, retry before sending to agent
@@ -656,7 +734,7 @@ def main() -> None:
                 bg_page = env.unwrapped.page
                 bg_page.wait_for_timeout(3000)
                 obs_retry, _, _, _, _ = env.step("noop()")
-                obs_msg_retry = extract_observation(obs_retry, step=0)
+                obs_msg_retry = extract_observation(obs_retry, step=0, som_mode=_som)
                 if len(obs_msg_retry.get("axtree_txt", "")) > len(obs_msg.get("axtree_txt", "")):
                     obs_msg_retry["goal"] = obs_msg["goal"]
                     obs_msg = obs_msg_retry
@@ -757,7 +835,7 @@ def main() -> None:
                 except Exception:
                     pass  # Non-fatal — variant re-injection is best-effort
 
-            obs_msg = extract_observation(obs, step=step)
+            obs_msg = extract_observation(obs, step=step, som_mode=_som)
             obs_msg["terminated"] = terminated
             obs_msg["truncated"] = truncated
             obs_msg["reward"] = float(reward)
