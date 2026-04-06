@@ -696,17 +696,38 @@ def main() -> None:
                     _variant_listener_pages.add(id(bg_page))
                     print(f"[bridge] Registered variant re-injection listener (domcontentloaded+load)", file=sys.stderr)
 
-                    # NOTE: We do NOT use page.add_init_script() or context.add_init_script().
-                    # Both cause BrowserGym's intersection_observer to hang on heavily modified
-                    # DOM (admin low: 431 changes → observer can't complete → infinite loop).
-                    # The init_script fires during BrowserGym's internal _get_obs() cycle,
-                    # which triggers _pre_extract → intersection_observer on the modified DOM.
+                    # Use context.add_init_script with iframe guard.
+                    # This ensures variant patches persist across goto() page reloads
+                    # (which clear the DOM and don't trigger page-level listeners).
                     #
-                    # Instead we rely on:
-                    #   1. Page-level domcontentloaded/load listeners (above) — fires on navigation
-                    #   2. Step loop secondary verification (below) — catches page JS overwriting patches
-                    # The goto() escape issue (Pilot 3b) is accepted as a known limitation.
-                    # It only affects ~3/120 cases and doesn't change the statistical conclusion.
+                    # The iframe guard `if (window.self !== window.top) return;` prevents
+                    # the variant JS from running inside iframes — Magento admin has many
+                    # iframes, and running 431 DOM changes on each one causes BrowserGym's
+                    # intersection_observer to hang indefinitely.
+                    #
+                    # The DOMContentLoaded wrapper ensures the variant JS runs after HTML
+                    # parsing but before the page's own deferred scripts.
+                    try:
+                        _variant_init_js = (
+                            '(() => {\n'
+                            '  // Skip iframes — only patch the main frame\n'
+                            '  if (window.self !== window.top) return;\n'
+                            '  function __applyVariant() {\n'
+                            '    try {\n'
+                            '      ' + _variant_js + '\n'
+                            '    } catch(e) { /* variant init error, non-fatal */ }\n'
+                            '  }\n'
+                            '  if (document.readyState === "loading") {\n'
+                            '    document.addEventListener("DOMContentLoaded", __applyVariant);\n'
+                            '  } else {\n'
+                            '    __applyVariant();\n'
+                            '  }\n'
+                            '})();\n'
+                        )
+                        env.unwrapped.context.add_init_script(_variant_init_js)
+                        print(f"[bridge] Registered context init script with iframe guard for variant persistence", file=sys.stderr)
+                    except Exception as e:
+                        print(f"[bridge] WARNING: context.add_init_script failed: {e}", file=sys.stderr)
 
                 # Wait for DOM to settle after patches
                 bg_page.wait_for_timeout(500)
