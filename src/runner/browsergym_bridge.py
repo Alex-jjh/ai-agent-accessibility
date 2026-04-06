@@ -696,6 +696,35 @@ def main() -> None:
                     _variant_listener_pages.add(id(bg_page))
                     print(f"[bridge] Registered variant re-injection listener (domcontentloaded+load)", file=sys.stderr)
 
+                    # Register init script for persistent variant injection across navigations.
+                    # add_init_script runs JS at document creation time — before DOM is built.
+                    # We wrap the variant JS in a DOMContentLoaded listener so it runs after
+                    # HTML parsing but before page's own deferred scripts (which may rebuild
+                    # DOM structures like Magento's tabpanel). This is more reliable than
+                    # page-level event listeners because it's registered at the context level
+                    # and applies to ALL future navigations automatically.
+                    try:
+                        # Build a wrapper that waits for DOM to be ready, then runs variant JS.
+                        # Using a script tag approach: add_init_script accepts a path or script string.
+                        _variant_init_js = (
+                            '(() => {\n'
+                            '  function __applyVariant() {\n'
+                            '    try {\n'
+                            '      ' + _variant_js + '\n'
+                            '    } catch(e) { console.warn("[variant-init] error:", e); }\n'
+                            '  }\n'
+                            '  if (document.readyState === "loading") {\n'
+                            '    document.addEventListener("DOMContentLoaded", __applyVariant);\n'
+                            '  } else {\n'
+                            '    __applyVariant();\n'
+                            '  }\n'
+                            '})();\n'
+                        )
+                        env.unwrapped.context.add_init_script(_variant_init_js)
+                        print(f"[bridge] Registered context-level init script for variant re-injection", file=sys.stderr)
+                    except Exception as e:
+                        print(f"[bridge] WARNING: Failed to register init script: {e}", file=sys.stderr)
+
                 # Wait for DOM to settle after patches
                 bg_page.wait_for_timeout(500)
                 # Re-capture observation so agent sees the patched a11y tree.
@@ -826,6 +855,24 @@ def main() -> None:
                         print(f"[bridge] Step {step}: re-injected variant on new/navigated page", file=sys.stderr)
                 except Exception:
                     pass  # Non-fatal — variant re-injection is best-effort
+
+            # Secondary verification: wait briefly and check again.
+            # The page's own JS (e.g., Magento's tabpanel initialization) may
+            # rebuild DOM after our initial re-injection, overwriting patches.
+            # This catches the race condition where variant JS runs but page JS
+            # runs AFTER and restores the original DOM structure.
+            if _variant_js and not terminated and not truncated:
+                try:
+                    current_page = env.unwrapped.page
+                    current_page.wait_for_timeout(200)  # let page JS settle
+                    has_variant_after = current_page.evaluate(
+                        'document.querySelector("[data-variant-revert]") !== null'
+                    )
+                    if not has_variant_after:
+                        current_page.evaluate(_variant_js)
+                        print(f"[bridge] Step {step}: re-injected variant after secondary check (page JS overwrote patches)", file=sys.stderr)
+                except Exception:
+                    pass
 
             obs_msg = extract_observation(obs, step=step, som_mode=_som)
             obs_msg["terminated"] = terminated
