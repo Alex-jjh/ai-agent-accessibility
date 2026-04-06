@@ -684,54 +684,85 @@ def main() -> None:
                     if js_path.exists():
                         _variant_js = js_path.read_text(encoding="utf-8")
 
-                # === NETWORK-LAYER HTML INTERCEPTION (Plan A) ===
-                # Intercept HTML document responses at the network level and inject
-                # the variant patch script into the HTML before it reaches the browser.
-                # This is the most robust approach because:
-                #   - The browser never sees the original unpatched HTML
-                #   - Magento's RequireJS/KnockoutJS initializes on already-patched DOM
-                #   - No race condition with page JS (script is part of the HTML)
-                #   - Automatically covers goto(), form submit, JS redirect
-                #   - iframe requests are skipped (only main frame documents patched)
-                #   - Doesn't conflict with BrowserGym's _pre_extract/_post_extract
+                # === PLAN D: NETWORK-LAYER HTML INTERCEPTION + DELAYED PATCH + MUTATIONOBSERVER ===
+                # Inject a deferred variant script into HTML responses that:
+                #   1. Waits for window.load + 500ms (after Magento's RequireJS/KnockoutJS init)
+                #   2. Applies variant patches on the fully-rendered DOM
+                #   3. Sets a sentinel attribute to track patch state
+                #   4. Uses MutationObserver to re-apply if Magento overwrites patches
+                #
+                # This solves the timing problem: Magento's async init pipeline is
+                # HTML parse → RequireJS → mage/apply/main → data-mage-init → KO bindings → DOM render
+                # Our patches run AFTER step 6, on the final rendered DOM.
                 if _variant_js:
-                    _variant_script_tag = '<script>(() => { try { ' + _variant_js + ' } catch(e) {} })();</script>'
+                    # Build the deferred script that will be injected into HTML
+                    _deferred_script = (
+                        '<script>\n'
+                        '(function() {\n'
+                        '  if (window.self !== window.top) return; // skip iframes\n'
+                        '  var isPatching = false; // recursion lock\n'
+                        '  function applyPatches() {\n'
+                        '    if (isPatching) return;\n'
+                        '    isPatching = true;\n'
+                        '    try {\n'
+                        '      ' + _variant_js + '\n'
+                        '      document.documentElement.setAttribute("data-variant-patched", "true");\n'
+                        '    } catch(e) { /* variant patch error, non-fatal */ }\n'
+                        '    isPatching = false;\n'
+                        '  }\n'
+                        '  // Wait for window.load + delay for KnockoutJS async rendering\n'
+                        '  function schedulePatches() {\n'
+                        '    setTimeout(applyPatches, 500);\n'
+                        '  }\n'
+                        '  if (document.readyState === "complete") {\n'
+                        '    schedulePatches();\n'
+                        '  } else {\n'
+                        '    window.addEventListener("load", schedulePatches);\n'
+                        '  }\n'
+                        '  // MutationObserver guard: re-apply if Magento overwrites patches\n'
+                        '  function startObserver() {\n'
+                        '    var observer = new MutationObserver(function(mutations) {\n'
+                        '      if (isPatching) return; // our own mutations, skip\n'
+                        '      // Check sentinel: if a nav link reappears, patches were overwritten\n'
+                        '      var sentinel = document.querySelector("nav a[href], [role=\\"navigation\\"] a[href]");\n'
+                        '      if (sentinel && document.documentElement.getAttribute("data-variant-patched")) {\n'
+                        '        document.documentElement.removeAttribute("data-variant-patched");\n'
+                        '        applyPatches();\n'
+                        '      }\n'
+                        '    });\n'
+                        '    observer.observe(document.body || document.documentElement, {\n'
+                        '      childList: true, subtree: true\n'
+                        '    });\n'
+                        '  }\n'
+                        '  if (document.body) { startObserver(); }\n'
+                        '  else { document.addEventListener("DOMContentLoaded", startObserver); }\n'
+                        '})();\n'
+                        '</script>\n'
+                    )
 
                     def _intercept_html(route):
-                        """Intercept HTML responses and inject variant patch script."""
+                        """Intercept HTML responses and inject deferred variant patch script."""
                         request = route.request
                         try:
-                            # Only intercept main-frame HTML document requests
                             if request.resource_type != "document":
                                 route.continue_()
                                 return
-
-                            # Skip iframe requests — only patch main frame
+                            # Skip iframe requests
                             try:
                                 if request.frame and request.frame != request.frame.page.main_frame:
                                     route.continue_()
                                     return
                             except Exception:
-                                pass  # If frame check fails, proceed with interception
-
-                            # Fetch the original response
+                                pass
                             response = route.fetch()
                             body = response.text()
-
-                            # Inject variant script before </head> (or </body> as fallback)
-                            if '</head>' in body:
-                                body = body.replace('</head>', _variant_script_tag + '</head>', 1)
-                            elif '</body>' in body:
-                                body = body.replace('</body>', _variant_script_tag + '</body>', 1)
+                            # Inject before </body> (after all Magento scripts)
+                            if '</body>' in body:
+                                body = body.replace('</body>', _deferred_script + '</body>', 1)
                             else:
-                                body = body + _variant_script_tag
-
-                            route.fulfill(
-                                response=response,
-                                body=body,
-                            )
+                                body = body + _deferred_script
+                            route.fulfill(response=response, body=body)
                         except Exception as e:
-                            # Non-fatal: if interception fails, let the request through
                             print(f"[bridge] HTML intercept error (non-fatal): {e}", file=sys.stderr)
                             try:
                                 route.continue_()
@@ -740,11 +771,11 @@ def main() -> None:
 
                     try:
                         env.unwrapped.context.route("**/*", _intercept_html)
-                        print(f"[bridge] Registered network-layer HTML interception for variant persistence", file=sys.stderr)
+                        print(f"[bridge] Registered Plan D: network intercept + deferred patch + MutationObserver", file=sys.stderr)
                     except Exception as e:
                         print(f"[bridge] WARNING: context.route failed: {e}", file=sys.stderr)
 
-                # Also keep page-level listeners as fallback defense
+                # Also keep page-level listeners as additional fallback
                 if _variant_js:
                     _listener = _make_variant_listener(bg_page, _variant_js)
                     bg_page.on("domcontentloaded", _listener)
@@ -869,6 +900,17 @@ def main() -> None:
             # Re-injection on vision-only cases causes BrowserGym's intersection_observer
             # to hang (re-injection modifies DOM → observer restarts → never completes).
             if _variant_js and obs_mode != "vision-only":
+                # Wait for the deferred variant patch to complete (Plan D sentinel).
+                # The injected script sets data-variant-patched="true" after applying patches.
+                try:
+                    current_page = env.unwrapped.page
+                    current_page.wait_for_function(
+                        'document.documentElement.getAttribute("data-variant-patched") === "true"',
+                        timeout=3000,
+                    )
+                except Exception:
+                    pass  # Timeout is OK — patches may not have fired yet on this page
+
                 try:
                     current_page = env.unwrapped.page
                     # Check if variant markers are present — if not, re-inject
