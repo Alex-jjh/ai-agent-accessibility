@@ -84,6 +84,11 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
 
 ## Deployment Rules (CRITICAL)
 
+- ALWAYS run experiments via nohup or the launch-*.sh scripts on EC2.
+  SSM sessions disconnect after ~20 min idle. Running `npx tsx` directly
+  in foreground WILL be killed when the session drops. Use:
+  `bash scripts/launch-pilot3b.sh` (nohup wrapper with PID tracking)
+  or: `nohup npx tsx scripts/run-pilot3.ts --config X.yaml > log 2>&1 &`
 - Burner accounts auto-close if EC2 has public access (0.0.0.0/0 inbound SG)
 - ALWAYS use private subnet + SSM Session Manager (no SSH, no public IP)
 - Use `terraform apply` from infra/ — it handles all security correctly
