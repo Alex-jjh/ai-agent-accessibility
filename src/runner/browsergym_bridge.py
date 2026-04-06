@@ -696,22 +696,21 @@ def main() -> None:
                     _variant_listener_pages.add(id(bg_page))
                     print(f"[bridge] Registered variant re-injection listener (domcontentloaded+load)", file=sys.stderr)
 
-                    # Register init script for persistent variant injection across navigations.
-                    # add_init_script runs JS at document creation time — before DOM is built.
-                    # We wrap the variant JS in a DOMContentLoaded listener so it runs after
-                    # HTML parsing but before page's own deferred scripts (which may rebuild
-                    # DOM structures like Magento's tabpanel). This is more reliable than
-                    # page-level event listeners because it's registered at the context level
-                    # and applies to ALL future navigations automatically.
+                    # Use PAGE-level add_init_script (not context-level).
+                    # page.add_init_script() only fires on the main frame of this page,
+                    # NOT on iframes. This is critical because:
+                    #   - context.add_init_script() fires on ALL frames including iframes
+                    #   - Magento admin has many iframes → 431 DOM ops per iframe → page hangs
+                    #   - page.add_init_script() is safe: main frame only
+                    # The init script wraps variant JS in a DOMContentLoaded listener so it
+                    # runs after HTML parsing but before page's deferred scripts.
                     try:
-                        # Build a wrapper that waits for DOM to be ready, then runs variant JS.
-                        # Using a script tag approach: add_init_script accepts a path or script string.
                         _variant_init_js = (
                             '(() => {\n'
                             '  function __applyVariant() {\n'
                             '    try {\n'
                             '      ' + _variant_js + '\n'
-                            '    } catch(e) { console.warn("[variant-init] error:", e); }\n'
+                            '    } catch(e) { /* variant init error, non-fatal */ }\n'
                             '  }\n'
                             '  if (document.readyState === "loading") {\n'
                             '    document.addEventListener("DOMContentLoaded", __applyVariant);\n'
@@ -720,10 +719,10 @@ def main() -> None:
                             '  }\n'
                             '})();\n'
                         )
-                        env.unwrapped.context.add_init_script(_variant_init_js)
-                        print(f"[bridge] Registered context-level init script for variant re-injection", file=sys.stderr)
+                        bg_page.add_init_script(_variant_init_js)
+                        print(f"[bridge] Registered page-level init script for variant persistence", file=sys.stderr)
                     except Exception as e:
-                        print(f"[bridge] WARNING: Failed to register init script: {e}", file=sys.stderr)
+                        print(f"[bridge] WARNING: page.add_init_script failed: {e}", file=sys.stderr)
 
                 # Wait for DOM to settle after patches
                 bg_page.wait_for_timeout(500)
@@ -845,12 +844,30 @@ def main() -> None:
                     )
                     if not has_variant:
                         current_page.evaluate(_variant_js)
-                        # Register listener on new page if not already registered
-                        # (prevents duplicate listeners on the same page)
+                        # Register listener + init_script on new page if not already registered
                         if id(current_page) not in _variant_listener_pages:
                             _listener = _make_variant_listener(current_page, _variant_js)
                             current_page.on("domcontentloaded", _listener)
                             current_page.on("load", _listener)
+                            # Page-level init_script for persistence across navigations
+                            try:
+                                _variant_init_js = (
+                                    '(() => {\n'
+                                    '  function __applyVariant() {\n'
+                                    '    try {\n'
+                                    '      ' + _variant_js + '\n'
+                                    '    } catch(e) {}\n'
+                                    '  }\n'
+                                    '  if (document.readyState === "loading") {\n'
+                                    '    document.addEventListener("DOMContentLoaded", __applyVariant);\n'
+                                    '  } else {\n'
+                                    '    __applyVariant();\n'
+                                    '  }\n'
+                                    '})();\n'
+                                )
+                                current_page.add_init_script(_variant_init_js)
+                            except Exception:
+                                pass
                             _variant_listener_pages.add(id(current_page))
                         print(f"[bridge] Step {step}: re-injected variant on new/navigated page", file=sys.stderr)
                 except Exception:
