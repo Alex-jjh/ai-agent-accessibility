@@ -819,7 +819,12 @@ def main() -> None:
             # same-page navigations, but if BrowserGym switched the active page
             # (e.g., agent opened a new tab), we need to re-register the listener
             # and re-inject on the new page.
-            if _variant_js:
+            #
+            # SKIP for vision-only mode: vision agent sees screenshots, not a11y tree.
+            # Variant patches modify DOM semantics but not visual appearance.
+            # Re-injection on vision-only cases causes BrowserGym's intersection_observer
+            # to hang (re-injection modifies DOM → observer restarts → never completes).
+            if _variant_js and obs_mode != "vision-only":
                 try:
                     current_page = env.unwrapped.page
                     # Check if variant markers are present — if not, re-inject
@@ -839,11 +844,8 @@ def main() -> None:
                     pass  # Non-fatal — variant re-injection is best-effort
 
             # Secondary verification: wait briefly and check again.
-            # The page's own JS (e.g., Magento's tabpanel initialization) may
-            # rebuild DOM after our initial re-injection, overwriting patches.
-            # This catches the race condition where variant JS runs but page JS
-            # runs AFTER and restores the original DOM structure.
-            if _variant_js and not terminated and not truncated:
+            # SKIP for vision-only mode (same reason as above).
+            if _variant_js and obs_mode != "vision-only" and not terminated and not truncated:
                 try:
                     current_page = env.unwrapped.page
                     current_page.wait_for_timeout(200)  # let page JS settle
