@@ -772,3 +772,172 @@ taxonomy needs explicit comparison to show novelty.
 | Power et al. [CHI 2012] | 50.4% WCAG coverage gap — motivates our research question |
 | ADeLe [Nature 2026] | IRT framework — future work for formal experiment |
 | nohacks.co [CHI 2026] | 78.33%→41.67% keyboard constraint — validates our approach |
+
+
+---
+
+## 2026-04-05/06: Pilot 3 Series — Bug Fixes, Experiments, and Analysis
+
+### Timeline
+
+| Date/Time | Event | Outcome |
+|-----------|-------|---------|
+| 04-05 AM | Post-Pilot 2 bug fixes | 3 bugs fixed (P0 regex, P1 skip-link, P1 score compression) |
+| 04-05 AM | F_UNK classifier type added | Honest failure taxonomy for paper |
+| 04-05 PM | Pilot 3a executed | 120 cases, 87/120 (72.5%), monotonic gradient ✓ |
+| 04-05 PM | Pilot 3a analysis (3 sub-agents) | Statistical, scan, trace analysis complete |
+| 04-05 PM | Vision-only control condition added | SoM overlay, system prompt separation |
+| 04-05 PM | Pilot 3b executed (vision broken) | 240 cases, vision-only all failed (LiteLLM config) |
+| 04-05 PM | LiteLLM restarted, SoM smoke test | SoM overlay working, agent uses correct bids |
+| 04-05 PM | Pilot 3b re-executed (SoM fixed) | Running with working vision-only pipeline |
+| 04-06 AM | Pilot 3b text-only analysis | Replicates 3a core findings (71.7% vs 72.5%) |
+| 04-06 AM | Pilot 3b trace deep-dive | Variant injection race condition discovered |
+| 04-06 AM | Variant re-injection fix | Three-layer defense: init_script + listeners + secondary check |
+
+### Bug Catalog (Pilot 3 Series)
+
+#### BUG-P2-1: parseLlmResponse non-greedy regex truncates send_msg_to_user (P0)
+
+- **File:** `src/runner/agents/executor.ts`
+- **Root cause:** Regex `[\s\S]*?\)` matched first `)` in message text. `send_msg_to_user("review (in German)")` truncated at `(in German)`.
+- **Impact:** All task 24 base/high failures in Pilot 2 (5/6 cases). Created false "inverted gradient."
+- **Fix:** `extractBalancedCall()` — depth-counting parser respecting string literals. Unbalanced `send_msg_to_user` auto-closed with `")`.
+- **Tests:** 14 new test cases.
+
+#### BUG-P2-2: apply-high.js skip-link shifts BrowserGym node IDs (P1)
+
+- **File:** `src/variants/patches/inject/apply-high.js`
+- **Root cause:** `body.insertBefore(skipLink, body.firstChild)` shifted all subsequent element IDs.
+- **Fix:** `body.appendChild(skipLink)` + `tabindex="1"` for tab order.
+
+#### BUG-P2-3: Variant composite score range compressed (P1)
+
+- **Files:** `src/variants/patches/inject/apply-low.js`, `apply-high.js`
+- **Root cause:** Patches too conservative. Actual scores 0.405–0.457 vs configured 0.00–1.00.
+- **Fix (low):** Added 5 degradation categories (headings, alt, tabindex, tables, lang).
+- **Fix (high):** Added 3 enhancement categories (aria-required, aria-current, table scope).
+- **Result:** Score spread widened 40% (0.052 → 0.073), still compressed.
+
+#### BUG-P3-1: F_UNK classifier type missing (P2)
+
+- **Files:** `src/classifier/types.ts`, `src/classifier/taxonomy/classify.ts`
+- **Root cause:** Default fallback was F_REA(0.3), inflating reasoning-error count.
+- **Fix:** Added `F_UNK` type with `unclassified` domain, confidence=1.0, always flagged for review.
+
+#### BUG-P3-2: Vision-only system prompt contradicts action instructions (P1)
+
+- **File:** `src/runner/agents/executor.ts`
+- **Root cause:** Vision-only mode said "no a11y tree" but gave bid-specific instructions.
+- **Fix:** Mode-specific `actionNote` and `IMPORTANT` sections. Vision-only references SoM labels.
+
+#### BUG-P3-3: BrowserGym doesn't support SoM via gym.make kwargs (P0)
+
+- **File:** `src/runner/browsergym_bridge.py`
+- **Root cause:** `BrowserEnv.__init__()` rejects `use_set_of_marks` kwarg. BrowserGym has no built-in SoM screenshot rendering.
+- **Fix:** Implemented `render_som_overlay()` — draws red numbered labels on clickable elements using PIL, reading bounding boxes from `extra_element_properties`.
+- **Verification:** Smoke test confirmed SoM labels visible, agent uses correct bids, `click("42")` succeeds.
+
+#### BUG-P3-4: LiteLLM model name not loaded on EC2 (P0 — operational)
+
+- **Root cause:** EC2 LiteLLM process started before `git pull`, didn't have `claude-sonnet-vision` alias.
+- **Impact:** All 120 vision-only cases in Pilot 3b first run failed with "Invalid model name."
+- **Fix:** `pkill -f litellm && ~/.local/bin/litellm --config litellm_config.yaml --port 4000 &`
+
+#### BUG-P3-5: Variant patches non-deterministically cleared on page reload (P1)
+
+- **File:** `src/runner/browsergym_bridge.py`
+- **Root cause:** `goto(bare_url)` triggers full page reload. Variant JS races with page's own JS (Magento tabpanel initialization). In Pilot 3b, patches cleared ~60% of the time on ecom:23/26 low, allowing agent to "escape" degradation.
+- **Impact:** ecom:23 low went from 0/5 (3a) to 3/5 (3b) — not genuine agent improvement.
+- **Fix:** Three-layer defense:
+  1. `context.add_init_script()` with DOMContentLoaded wrapper — runs variant JS on every new document
+  2. Existing page-level `domcontentloaded`/`load` listeners (fallback)
+  3. Secondary verification: 200ms delay after step, re-check markers, re-inject if missing
+
+### Experiment Results Summary
+
+#### Pilot 3a (canonical text-only results)
+
+- **Design:** 6 tasks × 4 variants × 5 reps = 120 cases
+- **Run ID:** `9fb3cd72-aa44-40f0-9cc6-52289ff25b4d`
+- **Duration:** 147 min
+- **Results:**
+
+| Variant | Success | Rate | vs Base |
+|---------|---------|------|---------|
+| low | 6/30 | 20.0% | −70.0pp |
+| medium-low | 26/30 | 86.7% | −3.3pp |
+| base | 27/30 | 90.0% | — |
+| high | 28/30 | 93.3% | +3.3pp |
+
+- **Gradient:** Strictly monotonic (20% → 86.7% → 90% → 93.3%)
+- **Low vs base:** χ²=29.70, p<0.0001, Cramér's V=0.704 (large effect)
+- **Cochran-Armitage trend:** Z=6.126, p<0.0001
+- **Threshold:** low→medium-low jump (66.7pp) = 91% of total effect
+- **Token inflation:** low 181K vs base 62K (2.9×)
+- **Failure taxonomy:** F_UNK 20, F_AMB 8, F_COF 5
+
+#### Pilot 3b (text-only replication + vision-only control)
+
+- **Design:** 6 tasks × 4 variants × 5 reps × 2 agents = 240 cases
+- **Run ID:** `6726c405-fac2-4757-99ad-707ad022da6b`
+- **Duration:** 232 min
+- **Text-only results (120 cases):**
+
+| Variant | 3b Rate | 3a Rate | Δ |
+|---------|---------|---------|---|
+| low | 43.3% | 20.0% | +23.3pp (variant leak bug) |
+| medium-low | 70.0% | 86.7% | −16.7pp |
+| base | 93.3% | 90.0% | +3.3pp |
+| high | 80.0% | 93.3% | −13.3pp |
+
+- **Core finding replicated:** low vs base p<0.001 in both pilots
+- **Overall rate stable:** 71.7% (3b) vs 72.5% (3a)
+- **Case-level agreement:** 74.2% (κ=0.36) — macro reproducible, micro stochastic
+- **Low variant improvement explained:** Variant injection race condition (BUG-P3-5), not agent capability
+- **Vision-only:** All 120 cases failed (BUG-P3-4 — LiteLLM config). Re-running with fix.
+
+### Key Findings for Paper
+
+1. **Accessibility degradation causes catastrophic agent failure.** Low variant (20%) vs base (90%), p<0.0001, V=0.704. Replicated across two independent runs.
+
+2. **Dose-response is a step function.** The 66.7pp jump from low to medium-low accounts for 91% of the total effect. Medium-low/base/high are statistically indistinguishable.
+
+3. **Two parallel failure pathways:**
+   - Token inflation: degraded DOM → verbose a11y tree → context overflow (admin:4, reddit:67)
+   - Content invisibility: broken ARIA relationships → content hidden from a11y tree (ecom:23/24/26)
+
+4. **Enhanced accessibility provides no measurable benefit beyond baseline.** Base vs high: 3.3pp, p=0.640, would need n=534/group to detect.
+
+5. **The composite score is a poor proxy for agent-relevant accessibility.** Actual range 0.386–0.461 vs configured 0.00–1.00. Criterion-level features show better separation.
+
+6. **Task 29 (reddit vote count) is confounded by task ambiguity.** 80% of failures are F_AMB (Hot vs New sort confusion), independent of variant.
+
+### Files Changed (Pilot 3 Series)
+
+| File | Changes |
+|------|---------|
+| `src/runner/agents/executor.ts` | extractBalancedCall(), cleanAction(), vision-only prompt, --config flag |
+| `src/runner/agents/executor.test.ts` | 14 new tests for balanced-paren extraction |
+| `src/runner/browsergym_bridge.py` | SoM overlay, obs mode config, variant re-injection fix |
+| `src/variants/patches/inject/apply-low.js` | 5 new degradation categories, Ma11y operator alignment |
+| `src/variants/patches/inject/apply-high.js` | Skip-link to body end, 3 new enhancement categories |
+| `src/classifier/types.ts` | F_UNK type, unclassified domain |
+| `src/classifier/taxonomy/classify.ts` | F_UNK fallback, DOMAIN_FOR_TYPE |
+| `src/classifier/types.test.ts` | Updated for 12 types, 5 domains |
+| `src/classifier/taxonomy/classify.test.ts` | F_UNK fallback test |
+| `src/runner/types.ts` | ObservationMode: 'vision-only' |
+| `src/config/loader.ts` | vision-only validation |
+| `config-pilot3.yaml` | 6 tasks × 4 variants × 5 reps |
+| `config-pilot3b.yaml` | + vision-only control condition |
+| `config-vision-smoke.yaml` | 1-case SoM verification |
+| `scripts/run-pilot3.ts` | --config flag, agent count in matrix |
+| `scripts/launch-pilot3.sh` | nohup wrapper for pilot3 |
+| `scripts/launch-pilot3b.sh` | nohup wrapper for pilot3b |
+| `litellm_config.yaml` | claude-sonnet-vision alias |
+| `docs/pilot2-trace-deep-dive.md` | Pilot 2 trace analysis |
+| `docs/pilot2-findings.md` | Pilot 2 findings and recommendations |
+| `data/pilot3-analysis.md` | Pilot 3a statistical analysis |
+| `data/pilot3-scan-analysis.md` | Pilot 3a scan metrics analysis |
+| `data/pilot3-trace-analysis.md` | Pilot 3a trace deep-dive |
+| `data/pilot3b-textonly-analysis.md` | Pilot 3b text-only replication analysis |
+| `data/pilot3b-trace-deep-dive.md` | Pilot 3b trace analysis (variant leak discovery) |

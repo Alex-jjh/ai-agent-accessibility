@@ -45,12 +45,25 @@ Literature-driven experiment hardening completed (2026-04-05):
 - Pilot 3 config updated: 2 agents × 6 tasks × 4 variants × 5 reps = 240 runs.
 
 Open issues:
-- Initial observation empty: BrowserGym returns axtree_object (dict) but not axtree_txt.
-  Bridge now flattens axtree_object explicitly. Step 1 still empty due to timing;
-  subsequent steps have full content.
+- Pilot 3b vision-only re-run in progress (with SoM + LiteLLM fix)
+- Composite score compression persists (0.386–0.461 vs 0.00–1.00)
+- reddit:29 confounded by task ambiguity (Hot vs New sort)
 
-Next: Deploy updated code to EC2, run Pilot 3 (240 cases, ~12h).
-See docs/platform-engineering-log.md and docs/screening-analysis.md for details.
+Pilot 3a completed (2026-04-05): 120 cases, 87/120 (72.5%).
+- Monotonic gradient: low 20% → ml 86.7% → base 90% → high 93.3%
+- Low vs base: χ²=29.70, p<0.0001, V=0.704. Core finding confirmed.
+- Dose-response is step function: low→ml jump = 91% of total effect.
+- Two failure pathways: token inflation (admin:4, reddit:67) + content invisibility (ecom:23/24/26).
+
+Pilot 3b completed (2026-04-05/06): 240 cases (text-only + vision-only).
+- Text-only replicates 3a: 71.7% overall, low vs base p<0.001.
+- Vision-only failed first run (LiteLLM config not loaded), re-running.
+- Variant injection race condition discovered: goto() reload clears patches non-deterministically.
+  Fixed with three-layer defense (init_script + listeners + secondary verification).
+- SoM overlay implemented for vision-only agent (PIL-based bid label rendering).
+
+Next: Analyze Pilot 3b vision-only results when re-run completes.
+See docs/platform-engineering-log.md for full bug catalog and analysis reports.
 
 ## WebArena Task ID Mapping (CRITICAL)
 
