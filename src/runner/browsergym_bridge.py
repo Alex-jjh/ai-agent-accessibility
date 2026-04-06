@@ -65,11 +65,11 @@ def encode_screenshot(screenshot: np.ndarray | None) -> str | None:
 def render_som_overlay(screenshot: np.ndarray | None, extra_properties: dict | None) -> np.ndarray | None:
     """Render Set-of-Marks overlay on screenshot — draw bid labels on interactive elements.
 
-    BrowserGym's extra_element_properties contains bounding boxes for each bid element.
-    We draw small numbered labels at each element's position so the vision-only agent
-    can identify elements by their bid number from the screenshot alone.
+    BrowserGym's extra_element_properties has structure:
+        {'0': {'visibility': 1.0, 'bbox': [x, y, w, h], 'clickable': True, 'set_of_marks': False}, ...}
 
-    Only labels interactive elements (links, buttons, inputs, etc.) to avoid clutter.
+    We draw small numbered labels at each clickable/visible element's position so the
+    vision-only agent can identify elements by their bid number from the screenshot.
     """
     if screenshot is None or not extra_properties:
         return screenshot
@@ -77,40 +77,27 @@ def render_som_overlay(screenshot: np.ndarray | None, extra_properties: dict | N
     try:
         from PIL import Image, ImageDraw, ImageFont
 
-        img = Image.fromarray(screenshot)
+        img = Image.fromarray(screenshot.copy())
         draw = ImageDraw.Draw(img)
 
         # Try to load a small monospace font; fall back to default
         try:
-            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 11)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", 10)
         except Exception:
             try:
-                font = ImageFont.truetype("/usr/share/fonts/dejavu-sans-mono-fonts/DejaVuSansMono.ttf", 11)
+                font = ImageFont.truetype("/usr/share/fonts/dejavu-sans-mono-fonts/DejaVuSansMono.ttf", 10)
             except Exception:
                 font = ImageFont.load_default()
-
-        # Interactive roles worth labeling
-        interactive_tags = {
-            'a', 'button', 'input', 'select', 'textarea', 'option',
-            'summary', 'details', 'label',
-        }
 
         count = 0
         for bid, props in extra_properties.items():
             if not isinstance(props, dict):
                 continue
 
-            # Filter to interactive elements only
-            tag = props.get("tag_name", "").lower()
-            role = props.get("role", "").lower()
-            is_interactive = (
-                tag in interactive_tags
-                or role in ("button", "link", "checkbox", "radio", "combobox",
-                           "listbox", "menuitem", "tab", "searchbox", "switch",
-                           "textbox", "option", "slider", "spinbutton")
-                or props.get("is_clickable", False)
-            )
-            if not is_interactive:
+            # Only label visible, clickable elements
+            visibility = props.get("visibility", 0)
+            clickable = props.get("clickable", False)
+            if not clickable and visibility < 0.5:
                 continue
 
             # Get bounding box [x, y, width, height]
@@ -118,36 +105,41 @@ def render_som_overlay(screenshot: np.ndarray | None, extra_properties: dict | N
             if not bbox or len(bbox) < 4:
                 continue
 
-            x, y, w, h = bbox[0], bbox[1], bbox[2], bbox[3]
-            # Skip off-screen or tiny elements
-            if w < 5 or h < 5 or x < 0 or y < 0:
+            x, y, w, h = float(bbox[0]), float(bbox[1]), float(bbox[2]), float(bbox[3])
+            # Skip off-screen, tiny, or full-page elements
+            if w < 8 or h < 8 or x < 0 or y < 0:
                 continue
             if x > img.width or y > img.height:
                 continue
+            if w >= img.width * 0.95 and h >= img.height * 0.95:
+                continue  # skip the root/body element
 
-            # Draw a small label box at top-left of element
+            # Draw a small label box at top-left corner of element
             label = str(bid)
             text_bbox = draw.textbbox((0, 0), label, font=font)
             tw = text_bbox[2] - text_bbox[0] + 4
-            th = text_bbox[3] - text_bbox[1] + 2
+            th = text_bbox[3] - text_bbox[1] + 4
 
             lx = max(0, min(int(x), img.width - tw))
-            ly = max(0, min(int(y) - th - 1, img.height - th))
+            ly = max(0, int(y) - th - 1)
             if ly < 0:
                 ly = int(y)  # put below if no room above
 
-            # Background rectangle (semi-transparent red)
-            draw.rectangle([lx, ly, lx + tw, ly + th], fill=(220, 40, 40, 200))
-            # Text
-            draw.text((lx + 2, ly), label, fill=(255, 255, 255), font=font)
+            # Background rectangle
+            draw.rectangle([lx, ly, lx + tw, ly + th], fill=(220, 40, 40))
+            # White text
+            draw.text((lx + 2, ly + 1), label, fill=(255, 255, 255), font=font)
             count += 1
 
         if count > 0:
-            print(f"[bridge] SoM overlay: labeled {count} interactive elements", file=sys.stderr)
+            print(f"[bridge] SoM overlay: labeled {count} elements", file=sys.stderr)
+        else:
+            print(f"[bridge] SoM overlay: no clickable elements found in {len(extra_properties)} props", file=sys.stderr)
 
         return np.array(img)
     except Exception as e:
         print(f"[bridge] SoM overlay failed (non-fatal): {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
         return screenshot
 
 
