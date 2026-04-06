@@ -1,0 +1,56 @@
+# Re-injection smoke test — verify two critical scenarios:
+#
+# 1. admin:4 low (text-only) — must NOT hang on click() (was hanging with context.add_init_script)
+# 2. ecom:23 low (text-only) — goto() reload must NOT escape variant patches
+# 3. reddit:67 base (vision-only) — SoM overlay still works
+#
+# 3 cases × 1 rep = 3 cases, ~10 min total
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.49:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.49:7780"
+    reddit:
+      url: "http://10.0.1.49:9999"
+
+  tasksPerApp:
+    ecommerce_admin: ["4"]
+    ecommerce: ["23"]
+    reddit: ["67"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["low", "base"]
+
+runner:
+  repetitions: 1
+  maxSteps: 15
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 15
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    - observationMode: "vision-only"
+      llmBackend: "claude-sonnet-vision"
+      maxSteps: 10
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/reinject-smoke"
+  exportFormats: ["json", "csv"]
