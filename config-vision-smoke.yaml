@@ -1,0 +1,38 @@
+# Vision-only smoke test — 1 task × 1 variant × 1 rep = 1 case
+# Verify SoM screenshot + claude-sonnet-vision works before full run
+
+webarena:
+  apps:
+    reddit:
+      url: "http://10.0.1.49:9999"
+  tasksPerApp:
+    reddit: ["67"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["base"]
+
+runner:
+  repetitions: 1
+  maxSteps: 10
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "vision-only"
+      llmBackend: "claude-sonnet-vision"
+      maxSteps: 10
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/vision-smoke"
+  exportFormats: ["json", "csv"]
