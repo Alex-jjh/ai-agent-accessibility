@@ -108,6 +108,10 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
 - Data files (experiment results, screening data) are synced via S3, not stored only on EC2
 - `task-site-mapping.json` (repo root) is committed — do NOT regenerate on EC2 unless
   the webarena package version changes
+- ALWAYS download experiment data to local workspace and read actual trace files
+  before drawing conclusions. Never assume outcomes from summary statistics alone —
+  trace-level analysis has repeatedly revealed unexpected mechanisms (variant escape,
+  false positives, stochastic divergence points) that summary numbers hide.
 
 ## Architecture Rules
 
