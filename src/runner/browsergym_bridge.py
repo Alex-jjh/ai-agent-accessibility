@@ -684,50 +684,73 @@ def main() -> None:
                     if js_path.exists():
                         _variant_js = js_path.read_text(encoding="utf-8")
 
-                # Register a page load listener to re-inject variant patches
-                # after every navigation. DOM patches are lost when the page
-                # navigates because the DOM is rebuilt from scratch.
-                # Listen on both domcontentloaded (early, before images) and load
-                # (fallback) to minimize the window where agent sees unpatched DOM.
+                # === NETWORK-LAYER HTML INTERCEPTION (Plan A) ===
+                # Intercept HTML document responses at the network level and inject
+                # the variant patch script into the HTML before it reaches the browser.
+                # This is the most robust approach because:
+                #   - The browser never sees the original unpatched HTML
+                #   - Magento's RequireJS/KnockoutJS initializes on already-patched DOM
+                #   - No race condition with page JS (script is part of the HTML)
+                #   - Automatically covers goto(), form submit, JS redirect
+                #   - iframe requests are skipped (only main frame documents patched)
+                #   - Doesn't conflict with BrowserGym's _pre_extract/_post_extract
+                if _variant_js:
+                    _variant_script_tag = '<script>(() => { try { ' + _variant_js + ' } catch(e) {} })();</script>'
+
+                    def _intercept_html(route):
+                        """Intercept HTML responses and inject variant patch script."""
+                        request = route.request
+                        try:
+                            # Only intercept main-frame HTML document requests
+                            if request.resource_type != "document":
+                                route.continue_()
+                                return
+
+                            # Skip iframe requests — only patch main frame
+                            try:
+                                if request.frame and request.frame != request.frame.page.main_frame:
+                                    route.continue_()
+                                    return
+                            except Exception:
+                                pass  # If frame check fails, proceed with interception
+
+                            # Fetch the original response
+                            response = route.fetch()
+                            body = response.text()
+
+                            # Inject variant script before </head> (or </body> as fallback)
+                            if '</head>' in body:
+                                body = body.replace('</head>', _variant_script_tag + '</head>', 1)
+                            elif '</body>' in body:
+                                body = body.replace('</body>', _variant_script_tag + '</body>', 1)
+                            else:
+                                body = body + _variant_script_tag
+
+                            route.fulfill(
+                                response=response,
+                                body=body,
+                            )
+                        except Exception as e:
+                            # Non-fatal: if interception fails, let the request through
+                            print(f"[bridge] HTML intercept error (non-fatal): {e}", file=sys.stderr)
+                            try:
+                                route.continue_()
+                            except Exception:
+                                pass
+
+                    try:
+                        env.unwrapped.context.route("**/*", _intercept_html)
+                        print(f"[bridge] Registered network-layer HTML interception for variant persistence", file=sys.stderr)
+                    except Exception as e:
+                        print(f"[bridge] WARNING: context.route failed: {e}", file=sys.stderr)
+
+                # Also keep page-level listeners as fallback defense
                 if _variant_js:
                     _listener = _make_variant_listener(bg_page, _variant_js)
                     bg_page.on("domcontentloaded", _listener)
                     bg_page.on("load", _listener)
                     _variant_listener_pages.add(id(bg_page))
                     print(f"[bridge] Registered variant re-injection listener (domcontentloaded+load)", file=sys.stderr)
-
-                    # Use context.add_init_script with iframe guard.
-                    # This ensures variant patches persist across goto() page reloads
-                    # (which clear the DOM and don't trigger page-level listeners).
-                    #
-                    # The iframe guard `if (window.self !== window.top) return;` prevents
-                    # the variant JS from running inside iframes — Magento admin has many
-                    # iframes, and running 431 DOM changes on each one causes BrowserGym's
-                    # intersection_observer to hang indefinitely.
-                    #
-                    # The DOMContentLoaded wrapper ensures the variant JS runs after HTML
-                    # parsing but before the page's own deferred scripts.
-                    try:
-                        _variant_init_js = (
-                            '(() => {\n'
-                            '  // Skip iframes — only patch the main frame\n'
-                            '  if (window.self !== window.top) return;\n'
-                            '  function __applyVariant() {\n'
-                            '    try {\n'
-                            '      ' + _variant_js + '\n'
-                            '    } catch(e) { /* variant init error, non-fatal */ }\n'
-                            '  }\n'
-                            '  if (document.readyState === "loading") {\n'
-                            '    document.addEventListener("DOMContentLoaded", __applyVariant);\n'
-                            '  } else {\n'
-                            '    __applyVariant();\n'
-                            '  }\n'
-                            '})();\n'
-                        )
-                        env.unwrapped.context.add_init_script(_variant_init_js)
-                        print(f"[bridge] Registered context init script with iframe guard for variant persistence", file=sys.stderr)
-                    except Exception as e:
-                        print(f"[bridge] WARNING: context.add_init_script failed: {e}", file=sys.stderr)
 
                 # Wait for DOM to settle after patches
                 bg_page.wait_for_timeout(500)
