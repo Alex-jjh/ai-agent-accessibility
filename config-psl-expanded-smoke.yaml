@@ -1,0 +1,47 @@
+# PSL expanded smoke — all 6 tasks × PSL × text-only × 1 rep = 6 cases
+# Tests PSL effect across different task types:
+#   - Content-reading (ecom:23/24/26): PSL may have weak effect
+#   - Navigation-dependent (admin:4, reddit:29/67): PSL should have strong effect
+# Text-only only — CUA can be added after confirming differential effect.
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.49:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.49:7780"
+    reddit:
+      url: "http://10.0.1.49:9999"
+  tasksPerApp:
+    ecommerce_admin: ["4"]
+    ecommerce: ["23", "24", "26"]
+    reddit: ["29", "67"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["pure-semantic-low"]
+
+runner:
+  repetitions: 1
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/psl-expanded-smoke"
+  exportFormats: ["json", "csv"]
