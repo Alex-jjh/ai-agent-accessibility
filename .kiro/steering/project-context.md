@@ -72,6 +72,37 @@ Pilot 3b completed (2026-04-05/06): 240 cases (text-only + vision-only).
 Next: Analyze Pilot 3b vision-only results when re-run completes.
 See docs/platform-engineering-log.md for full bug catalog and analysis reports.
 
+Pilot 4 completed (2026-04-07): 240/240 cases, N=240 full design matrix.
+- Text-only: low 23.3% → ml 100% → base 86.7% → high 76.7%
+- Vision-only (SoM): low 0% → ml 23.3% → base 20% → high 30%
+- Primary stat: low vs base χ²=24.31, p<0.000001, Cramér's V=0.637
+- Plan D verified: 33/33 goto traces show persistent degradation
+- Three failure pathways: content invisibility, token inflation, phantom bids
+
+CUA (Computer Use Agent) integration completed (2026-04-07):
+- Pure coordinate-based vision agent via Anthropic Computer Use tool + Bedrock
+- LiteLLM cannot forward computer_use → direct boto3 Bedrock Converse API
+- Architecture: bridge self-driven (cua_bridge.py), fully decoupled from existing modes
+- Smoke test: ecom:23 base, reward=1.0, 11 steps, 139K tokens, 72s
+- Two rounds of code review: 11 issues found, all fixed
+- Pilot 4 CUA running: 6 tasks × 4 variants × 5 reps = 120 cases
+
+CUA known issue — low variant cross-layer visual effects:
+- Patch 3 (label removal): form label TEXT disappears from visual rendering
+- Patch 5 (Shadow DOM): elements may lose external CSS styles
+- Patch 9 (table→div): table layout may break visually
+- If CUA shows a11y gradient, need to distinguish: semantic-only vs visual confound
+- Tasks ecom:23/24/26 (review reading) are less affected than admin:4 (form-heavy)
+
+Next steps — Task expansion (incremental):
+- Current: 6 tasks across 2 sites (ecommerce + reddit). Goal: 12+ tasks across 3 sites.
+- Expansion strategy: smoke test per task → verify → add to matrix
+- Priority 1: GitLab tasks (new site, Vue.js DOM, different structure)
+- Priority 2: Form submission tasks (ARIA label + form association coverage)
+- Priority 3: Dropdown/select tasks (combobox/listbox role)
+- Each new task: base smoke → low variant smoke → add to full matrix
+- GitLab variant patches may need site-specific tuning (Vue.js rendering)
+
 ## WebArena Task ID Mapping (CRITICAL)
 
 Task IDs are interleaved across sites in webarena/test.raw.json — NOT contiguous ranges.
@@ -152,6 +183,13 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
 - Vision-only agent is a control condition (expected weak/null a11y gradient).
   Uses screenshot only, no a11y tree. Causal logic: if text-only drops but
   vision-only stays constant across variants → a11y tree is the causal factor.
+  NOTE: Pilot 4 proved SoM overlays depend on DOM (phantom bids at low=0%).
+- CUA agent is the TRUE pure-vision control (zero DOM dependency).
+  Uses Anthropic Computer Use tool via direct Bedrock Converse API (bypasses LiteLLM).
+  Bridge self-driven: cua_bridge.py runs agent loop internally, executor just waits.
+  ObservationMode: 'text-only' | 'vision' | 'vision-only' | 'cua'
+  CUA bridge read timeout: wallClockTimeoutMs + 30s (default 630s, vs 120s for others).
+  Screenshot eviction: sliding window keeps last 5 turns to avoid 20MB Bedrock limit.
 - Variant levels: low (0.0–0.25), medium-low (0.25–0.50), base (0.40–0.70), high (0.75–1.0)
 - Medium-Low variant models real-world pseudo-compliance (ARIA present, handlers missing)
 - Low variant operators grounded in Ma11y [ISSTA 2024] WCAG failure techniques:
@@ -177,12 +215,15 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
 src/scanner/     — Tier 1 (axe-core + Lighthouse) + Tier 2 (CDP metrics)
 src/variants/    — DOM patch engine for 4 accessibility variant levels
 src/runner/      — Agent executor, LLM backend, experiment matrix scheduler
+  cua_bridge.py  — CUA agent loop (boto3 Bedrock, coordinate actions, screenshot eviction)
 src/classifier/  — Auto-classifier (12 failure types) + manual review
 src/recorder/    — HAR capture and replay for Track B
 src/config/      — YAML/JSON config loader with validation and defaults
 src/export/      — Manifest, CSV export, JSON store
 analysis/        — Python: CLMM, GEE, Random Forest + SHAP, semantic density
 docs/            — Engineering log, analysis reports, literature comparisons
+scripts/         — Launch scripts, smoke tests, analysis tools
+  smoke-cua-*.   — CUA API verification scripts (LiteLLM + Bedrock direct)
 ```
 
 ## Key Documentation Files
