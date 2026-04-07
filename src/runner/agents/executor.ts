@@ -9,6 +9,7 @@ import type {
   ActionTrace,
   ActionTraceStep,
   LlmRequest,
+  ObservationMode,
 } from '../types.js';
 import type { VariantLevel } from '../../variants/types.js';
 import { callLlm } from '../backends/llm.js';
@@ -72,7 +73,7 @@ export interface BridgeProcess {
 /**
  * Build the system prompt for the agent LLM call.
  */
-function buildSystemPrompt(goal: string, observationMode: 'text-only' | 'vision' | 'vision-only'): string {
+function buildSystemPrompt(goal: string, observationMode: ObservationMode): string {
   let modeNote: string;
   let actionNote: string;
   switch (observationMode) {
@@ -164,7 +165,7 @@ function buildSystemPrompt(goal: string, observationMode: 'text-only' | 'vision'
  */
 function buildUserMessage(
   obs: BrowserGymObservation,
-  observationMode: 'text-only' | 'vision' | 'vision-only',
+  observationMode: ObservationMode,
   previousSteps?: ActionTraceStep[],
 ): string | object[] {
   const parts: string[] = [];
@@ -453,6 +454,74 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
 
     const systemPrompt = buildSystemPrompt(obs.goal || taskGoal, agentConfig.observationMode);
     const maxHistory = agentConfig.maxHistorySteps ?? 6;
+
+    // CUA mode: bridge runs its own agent loop internally.
+    // We just wait for the final summary observation.
+    if (agentConfig.observationMode === 'cua') {
+      console.log(`[executor] CUA mode: waiting for bridge self-driven agent loop...`);
+      const finalObs = await bridge.readObservation();
+      bridgeLog = bridge.getStderrLog();
+
+      if (!finalObs) {
+        throw new Error('CUA bridge terminated without sending result');
+      }
+
+      // Extract CUA-specific result from the observation
+      const cuaResult = (finalObs as unknown as Record<string, unknown>).cua_result as Record<string, unknown> | undefined;
+      const cuaOutcome = (cuaResult?.outcome as string) ?? 'failure';
+      const cuaAnswer = (cuaResult?.answer as string) ?? '';
+      const cuaSteps = (cuaResult?.steps as Array<Record<string, unknown>>) ?? [];
+      const cuaTotalTokens = (cuaResult?.totalTokens as number) ?? 0;
+      const cuaDurationMs = (cuaResult?.durationMs as number) ?? (Date.now() - startTime);
+
+      // Convert CUA steps to ActionTraceStep format
+      for (const cs of cuaSteps) {
+        steps.push({
+          stepNum: (cs.step as number) ?? steps.length + 1,
+          timestamp: new Date().toISOString(),
+          observation: `[cua screenshot] ${finalObs.url}`,
+          reasoning: (cs.reasoning as string) ?? '',
+          action: `cua:${cs.action ?? 'unknown'}(${JSON.stringify(cs.input ?? {}).substring(0, 100)})`,
+          result: cs.error ? 'failure' : 'success',
+          resultDetail: (cs.error as string) ?? (cs.answer as string) ?? undefined,
+        });
+      }
+
+      totalTokens = cuaTotalTokens;
+      lastReward = finalObs.reward;
+
+      // Map CUA outcome
+      const outcomeMap: Record<string, 'success' | 'partial_success' | 'failure' | 'timeout'> = {
+        success: 'success',
+        failure: 'failure',
+        timeout: 'timeout',
+      };
+      const mappedOutcome = outcomeMap[cuaOutcome] ?? 'failure';
+
+      // If CUA reported success with an answer, try to get BrowserGym reward
+      // by sending the answer via the normal protocol
+      if (cuaAnswer && cuaOutcome === 'success') {
+        const sanitized = cuaAnswer.replace(/"/g, "'").replace(/[\r\n]+/g, ' ').substring(0, 500);
+        bridge.sendAction(`send_msg_to_user("${sanitized}")`);
+        const evalObs = await bridge.readObservation();
+        if (evalObs && evalObs.reward > 0) {
+          lastReward = evalObs.reward;
+        }
+      }
+
+      return {
+        taskId, variant, agentConfig, attempt,
+        success: lastReward > 0 || mappedOutcome === 'success',
+        outcome: lastReward > 0 ? 'success' : mappedOutcome,
+        steps,
+        totalSteps: steps.length,
+        totalTokens,
+        durationMs: cuaDurationMs,
+        bridgeLog: bridgeLog || undefined,
+      };
+    }
+
+    // --- Normal (non-CUA) agent loop below ---
     // Accumulate conversation history for multi-turn context
     const messageHistory: Array<{ role: string; content: string | object[] }> = [];
 

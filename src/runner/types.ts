@@ -7,18 +7,17 @@ import type { ScanResult } from '../scanner/types.js';
  *
  * - 'text-only': Agent receives only the accessibility tree text (primary condition)
  * - 'vision': Agent receives both a11y tree text AND a screenshot (multimodal)
- * - 'vision-only': Agent receives ONLY a screenshot, no a11y tree (control condition)
+ * - 'vision-only': Agent receives ONLY a screenshot with SoM overlay, no a11y tree (SoM control)
+ * - 'cua': Agent uses Anthropic Computer Use tool — pure coordinate-based vision via
+ *   Bedrock Converse API. Zero DOM dependency: no a11y tree, no SoM overlays. The agent
+ *   sees raw screenshots and returns pixel coordinates for click/type/scroll actions.
+ *   Bridge runs the agent loop internally via boto3 (bypasses LiteLLM).
  *
- * The 'vision-only' mode serves as a control condition: since DOM mutations
- * (variant patches) change semantic structure but not visual appearance,
- * a vision-only agent should be unaffected by accessibility degradation.
- * If text-only performance drops but vision-only stays constant across variants,
- * the causal arrow points to the accessibility tree, not visual layout changes.
- *
- * Reference: Screen2AX (2025) demonstrates that vision-based approaches can
- * reconstruct a11y trees from screenshots, validating this control design.
+ * The 'vision-only' mode uses SoM overlays which depend on DOM interactive elements,
+ * making it NOT a pure visual control (Pilot 4 proved phantom bid phenomenon).
+ * The 'cua' mode is the true pure-vision control condition.
  */
-export type ObservationMode = 'text-only' | 'vision' | 'vision-only';
+export type ObservationMode = 'text-only' | 'vision' | 'vision-only' | 'cua';
 
 /** LLM backend identifier */
 export type LlmBackend = 'claude-opus' | 'gpt-4o' | (string & {});

@@ -451,6 +451,11 @@ def main() -> None:
 
         print(f"[bridge] Observation mode: {obs_mode}", file=sys.stderr)
 
+        # CUA mode flag — actual handoff happens after variant injection (see below)
+        if obs_mode == "cua":
+            from cua_bridge import run_cua_agent_loop
+            print(f"[bridge] CUA mode: will hand off to cua_bridge after setup", file=sys.stderr)
+
         # Patch Playwright default timeout before reset (ui_login uses 10s default)
         try:
             if hasattr(env, 'unwrapped') and hasattr(env.unwrapped, 'context'):
@@ -833,6 +838,29 @@ def main() -> None:
             except Exception:
                 pass
         send(obs_msg)
+
+        # CUA mode: hand off to the self-driving agent loop.
+        # At this point, env is reset, shopping login done, variant patches applied.
+        # The CUA loop runs internally and sends a single summary result.
+        if obs_mode == "cua":
+            try:
+                run_cua_agent_loop(env, config, send)
+            except Exception as cua_err:
+                print(f"[bridge] CUA agent loop failed: {cua_err}", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+                send({
+                    "goal": config.get("taskGoal", ""),
+                    "axtree_txt": "",
+                    "screenshot_base64": None,
+                    "url": "",
+                    "last_action_error": f"CUA error: {cua_err}",
+                    "terminated": True,
+                    "truncated": False,
+                    "reward": 0.0,
+                    "step": -1,
+                })
+            # Skip the normal step loop — CUA handled everything
+            return
 
         step = 0
         while True:
