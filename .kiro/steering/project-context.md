@@ -128,6 +128,13 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
 - Python Analysis Engine consumes CSV exports only
 - Always read before you edit if the file exists
 - Commit when a feature is completed
+- TRACE IS KING: After any change to variant injection, observation extraction,
+  bridge communication, or agent prompts, ALWAYS run a smoke test (config-reinject-smoke.yaml),
+  download the trace data, and read the actual agent observations step-by-step before
+  concluding the fix works. Summary statistics (success rates) are not sufficient —
+  multiple times a "fix" appeared to work from summary numbers but trace analysis
+  revealed the underlying mechanism was unchanged (e.g., goto escape, Magento re-rendering).
+  Never assume a code change affects what the agent sees without reading the trace.
 
 ## Coding Standards
 
