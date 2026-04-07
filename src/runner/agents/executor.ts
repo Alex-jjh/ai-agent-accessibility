@@ -655,7 +655,23 @@ function defaultBridgeSpawner(scriptPath: string, taskConfig: BridgeTaskConfig):
     },
 
     async readObservation(): Promise<BrowserGymObservation | null> {
-      const line = await nextLine();
+      // Timeout: if bridge doesn't respond within 120s, it's hung
+      // (e.g., BrowserGym intersection_observer loop, Magento hang).
+      // Kill the child process and return null so the executor can
+      // record the error and move to the next case.
+      const BRIDGE_READ_TIMEOUT_MS = 120_000; // 2 minutes
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => {
+          console.warn(`[BrowserGym bridge] readObservation timeout after ${BRIDGE_READ_TIMEOUT_MS / 1000}s — killing bridge`);
+          try {
+            child.kill('SIGKILL');
+          } catch { /* already dead */ }
+          closed = true;
+          resolve(null);
+        }, BRIDGE_READ_TIMEOUT_MS);
+      });
+
+      const line = await Promise.race([nextLine(), timeoutPromise]);
       if (line === null) return null;
       try {
         return JSON.parse(line) as BrowserGymObservation;
