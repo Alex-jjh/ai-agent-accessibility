@@ -59,6 +59,8 @@ export interface BridgeTaskConfig {
   variantLevel: string;
   /** Observation mode — 'vision-only' enables Set-of-Marks screenshot overlay */
   observationMode?: string;
+  /** Override bridge read timeout in ms (default 120s). CUA mode needs longer. */
+  bridgeReadTimeoutMs?: number;
 }
 
 /** Abstraction over the bridge subprocess for testability */
@@ -441,6 +443,8 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
   const bridge = bridgeSpawner(bridgeScriptPath, {
     taskId, targetUrl, taskGoal, variantLevel: variant,
     observationMode: agentConfig.observationMode,
+    // CUA mode: bridge runs its own agent loop (5-10 min), needs longer read timeout
+    bridgeReadTimeoutMs: agentConfig.observationMode === 'cua' ? wallClockTimeoutMs + 30_000 : undefined,
   });
 
   let bridgeLog = ''; // ISSUE-BR-7: will be populated from bridge stderr
@@ -458,7 +462,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
     // CUA mode: bridge runs its own agent loop internally.
     // We just wait for the final summary observation.
     if (agentConfig.observationMode === 'cua') {
-      console.log(`[executor] CUA mode: waiting for bridge self-driven agent loop...`);
+      console.log(`[executor] CUA mode: waiting for bridge self-driven agent loop (up to ${wallClockTimeoutMs / 1000}s)...`);
       const finalObs = await bridge.readObservation();
       bridgeLog = bridge.getStderrLog();
 
@@ -725,11 +729,10 @@ function defaultBridgeSpawner(scriptPath: string, taskConfig: BridgeTaskConfig):
     },
 
     async readObservation(): Promise<BrowserGymObservation | null> {
-      // Timeout: if bridge doesn't respond within 120s, it's hung
-      // (e.g., BrowserGym intersection_observer loop, Magento hang).
-      // Kill the child process and return null so the executor can
-      // record the error and move to the next case.
-      const BRIDGE_READ_TIMEOUT_MS = 120_000; // 2 minutes
+      // Timeout: if bridge doesn't respond within the configured timeout, it's hung.
+      // Default 120s for normal mode; CUA mode passes a longer timeout since the
+      // bridge runs its own agent loop (5-10 min).
+      const BRIDGE_READ_TIMEOUT_MS = taskConfig.bridgeReadTimeoutMs ?? 120_000;
       let timer: ReturnType<typeof setTimeout>;
       const timeoutPromise = new Promise<null>((resolve) => {
         timer = setTimeout(() => {
