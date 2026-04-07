@@ -291,6 +291,9 @@ def run_cua_agent_loop(env, config: dict, send_fn) -> None:
     max_steps = config.get("maxSteps", DEFAULT_MAX_STEPS)
     page = env.unwrapped.page
 
+    if not goal or goal.isdigit():
+        print(f"[cua] WARNING: goal is '{goal}' — may be task ID, not intent", file=sys.stderr)
+
     # Initialize Bedrock client
     client = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
 

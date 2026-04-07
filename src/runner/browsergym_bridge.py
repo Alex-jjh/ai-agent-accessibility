@@ -846,7 +846,13 @@ def main() -> None:
         # The CUA loop runs internally and sends a single summary result.
         if obs_mode == "cua":
             try:
-                run_cua_agent_loop(env, config, send)
+                # Pass BrowserGym's goal (full task intent) to CUA loop.
+                # config.taskGoal may only contain the task ID (e.g., "23").
+                cua_config = {**config}
+                bg_goal = obs.get("goal", "")
+                if bg_goal and len(bg_goal) > len(cua_config.get("taskGoal", "")):
+                    cua_config["taskGoal"] = bg_goal
+                run_cua_agent_loop(env, cua_config, send)
             except Exception as cua_err:
                 print(f"[bridge] CUA agent loop failed: {cua_err}", file=sys.stderr)
                 traceback.print_exc(file=sys.stderr)
