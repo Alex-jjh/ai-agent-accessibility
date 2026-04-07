@@ -941,3 +941,101 @@ taxonomy needs explicit comparison to show novelty.
 | `data/pilot3-trace-analysis.md` | Pilot 3a trace deep-dive |
 | `data/pilot3b-textonly-analysis.md` | Pilot 3b text-only replication analysis |
 | `data/pilot3b-trace-deep-dive.md` | Pilot 3b trace analysis (variant leak discovery) |
+
+
+---
+
+## 2026-04-07: Pilot 4 — Variant Persistence Fix & Hang Prevention
+
+### Context
+
+Pilot 3 series revealed that variant DOM patches were non-deterministically cleared
+by Magento's RequireJS/KnockoutJS framework after page navigation. Multiple fix
+attempts (add_init_script, page listeners, secondary verification) failed because
+Magento's async init pipeline overwrites DOM changes after they're applied.
+
+### Bug Catalog (Pilot 4 Series)
+
+#### BUG-P4-1: Variant patches cleared by Magento's KnockoutJS re-rendering (P0)
+
+- **Root cause:** Magento's init pipeline: HTML parse → RequireJS → mage/apply/main →
+  data-mage-init → KnockoutJS applyBindings → DOM render. Variant patches applied
+  before step 6 get overwritten. BrowserGym's _pre_extract/_post_extract DOM marking
+  also triggers Magento's contentUpdated event → re-rendering.
+- **Failed approaches:**
+  - Plan A: context.route + immediate script injection in `</head>` — patches run at
+    step 1, Magento overwrites at step 6
+  - add_init_script: runs before DOM exists, or hangs on iframes
+  - page.evaluate + listeners: race condition with Magento JS
+- **Fix (Plan D):** context.route() injects deferred script before `</body>`:
+  1. `window.load` + 500ms delay (after Magento's full async init)
+  2. Apply variant patches on fully-rendered DOM
+  3. MutationObserver with `isPatching` recursion lock monitors for re-rendering
+  4. Sentinel check (`nav a[href]`) detects if Magento restored original structure
+- **Verification:** Smoke test v4 confirmed ecom:23 low = 0/1 failure, no tablist/tabpanel
+  in trace observations. Plan D blocks goto() escape.
+
+#### BUG-P4-2: Wall-clock timeout doesn't catch bridge hangs (P0)
+
+- **Root cause:** Wall-clock timeout checks at step loop start, but if bridge hangs
+  mid-step (BrowserGym intersection_observer loop), executor blocks on
+  `readObservation()` await and never reaches the timeout check.
+- **Impact:** Pilot 4 hung for 7 hours on reddit:high:29:1:5 (vision-only, step 19).
+  Same case hung in pilot3b-190.
+- **Fix:** Added 120s timeout to `readObservation()` using `Promise.race`. If bridge
+  doesn't respond within 120s, child process is killed with SIGKILL and null returned.
+  Executor records error and moves to next case.
+
+#### BUG-P4-3: Plan D MutationObserver hangs vision-only reddit cases (P1)
+
+- **Root cause:** Plan D's context.route() injects deferred script (with MutationObserver)
+  into ALL HTML responses, including vision-only cases. The MutationObserver interferes
+  with BrowserGym's intersection_observer on large reddit pages (200+ elements).
+- **Impact:** reddit × vision-only cases hang (same pattern as BUG-P4-2).
+- **Fix:** Skip HTML interception entirely for vision-only mode (`obs_mode == "vision-only"`
+  check in `_intercept_html`). Vision agent doesn't use a11y tree, so variant patches
+  are irrelevant.
+
+### Pilot 4 Status
+
+- **Run ID:** `f4929214-3d48-443b-a859-dd013a737d50`
+- **Started:** 2026-04-06 ~18:00 UTC
+- **52/240 cases completed** before first hang (BUG-P4-2)
+- **Resumed** with bridge timeout + vision-only skip fixes
+- **Mid-run results (52 cases):**
+  - Text-only: low 25% → ml/base/high 100% (step function confirmed)
+  - Vision-only: 21.7% overall (low 0%, high 37.5%)
+  - Plan D confirmed: ecom:23 low 0/2, no tablist/tabpanel in traces
+  - 7 step-limit timeouts (3 admin:4 low text, 4 vision scattered)
+
+### Hang Prevention (Three-Layer Defense)
+
+| Layer | Mechanism | Timeout | Catches |
+|-------|-----------|---------|---------|
+| 1. Bridge read | `Promise.race` in `readObservation()` | 120s | Python process hang, BrowserGym observer loop |
+| 2. Wall-clock | Check at step loop start | 600s (10 min) | Slow cases, rate limit storms |
+| 3. Vision skip | `obs_mode == "vision-only"` in `_intercept_html` | N/A | MutationObserver × observer interference |
+
+### Next Steps
+
+1. **Wait for Pilot 4 to complete** (~188 remaining cases, ~10-12 hours)
+2. **Download full data and analyze:**
+   - Text-only: confirm Plan D blocks goto() escape across all ecom low cases
+   - Vision-only: check if reddit hang is resolved by vision-only skip
+   - Compare text-only results with Pilot 3a (canonical reference)
+   - Analyze vision-only variant gradient (unexpected in pilot4-52)
+3. **Key verification points:**
+   - ecom:23/24/26 low text-only should be ~0% (content invisibility)
+   - admin:4 low text-only should be 0% (structural infeasibility)
+   - No cases should hang >10 minutes (bridge timeout + wall-clock)
+   - Vision-only should complete all 120 cases (no hangs)
+4. **If Pilot 4 succeeds:** This becomes the canonical dataset for the paper
+
+### Files Changed (Pilot 4 Series)
+
+| File | Changes |
+|------|---------|
+| `src/runner/browsergym_bridge.py` | Plan D (context.route + deferred patch + MutationObserver), vision-only skip |
+| `src/runner/agents/executor.ts` | Wall-clock timeout (600s), bridge read timeout (120s) |
+| `config-pilot4.yaml` | 240 cases config |
+| `scripts/launch-pilot4.sh` | Nohup launcher with LiteLLM pre-flight checks |

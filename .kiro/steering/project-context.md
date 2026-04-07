@@ -44,10 +44,17 @@ Literature-driven experiment hardening completed (2026-04-05):
 - Aegis failure taxonomy comparison: 6 modes vs our 12 types, 5 novel types.
 - Pilot 3 config updated: 2 agents × 6 tasks × 4 variants × 5 reps = 240 runs.
 
+Pilot 4 in progress (2026-04-07): 240 cases with Plan D variant injection.
+- Plan D: context.route() + deferred patch (load+500ms) + MutationObserver guard
+- Smoke test confirmed: ecom:23 low 0/1, no tablist/tabpanel in trace (goto escape blocked)
+- 52/240 completed before bridge hang fix; resumed with 120s bridge timeout + vision skip
+- Mid-run text-only: low 25% → ml/base/high 100% (step function replicates)
+- Three-layer hang prevention: bridge 120s timeout, wall-clock 10min, vision-only skip
+
 Open issues:
-- Pilot 3b vision-only re-run in progress (with SoM + LiteLLM fix)
+- Pilot 4 running (~188 cases remaining, ~10-12 hours)
+- reddit × vision-only may still be slow (large SoM overlay on 200+ elements)
 - Composite score compression persists (0.386–0.461 vs 0.00–1.00)
-- reddit:29 confounded by task ambiguity (Hot vs New sort)
 
 Pilot 3a completed (2026-04-05): 120 cases, 87/120 (72.5%).
 - Monotonic gradient: low 20% → ml 86.7% → base 90% → high 93.3%
