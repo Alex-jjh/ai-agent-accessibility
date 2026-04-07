@@ -1538,3 +1538,104 @@ detect the violation", not "does the violation cause agent failure".
 
 Three-way comparison (current low vs pure-semantic-low vs base) enables complete
 decomposition of the causal pathway: DOM structure → a11y tree → agent perception → task failure.
+
+---
+
+## 2026-04-07: Pure-Semantic-Low (PSL) Variant Implementation & Smoke Test
+
+### Chromium A11y Tree Behavior Verification
+
+Ran `scripts/smoke-psl-a11y-tree.py` on Chromium headless to test ARIA manipulation
+effects on the Accessibility Tree. Critical findings:
+
+| Operation | Element | A11y Tree Effect | Usable for PSL? |
+|-----------|---------|-----------------|-----------------|
+| `role="presentation"` | `<nav>` (non-focusable) | Landmark removed | ✅ Yes |
+| `role="presentation"` | `<h1>` (non-focusable) | heading: 2→1 | ✅ Yes |
+| `role="presentation"` | `<a href>` (focusable) | **NO EFFECT** (link: 2→2) | ❌ No — Chromium ignores per W3C spec |
+| `role="presentation"` | `<table>` | Table semantics removed | ✅ Yes |
+| `aria-hidden="true"` | `<a href>` (focusable) | link: 2→1 ✅ | ✅ Yes — works despite spec "undefined" |
+| `aria-hidden="true"` | `<button>` (focusable) | button: 1→0 ✅ | ✅ Yes |
+| `aria-hidden` + remove `for` | `<label>` | Label hidden, input unlinked | ✅ Yes |
+
+Key insight: `role="presentation"` is ignored on focusable elements (`<a>`, `<button>`)
+per W3C conflict resolution rules. Must use `aria-hidden="true"` instead for these.
+
+### PSL Patch Design (11 patches, based on verified behavior)
+
+| # | Operation | Target | A11y Effect | Visual Effect |
+|---|-----------|--------|-------------|---------------|
+| 1 | `role="presentation"` | Landmarks (nav, main, header...) | Remove landmark roles | None |
+| 2 | Remove all `aria-*` | Global | Strip semantic annotations | None |
+| 3 | `aria-hidden` + remove `for` | Labels | Hide from tree, unlink inputs | None (text stays) |
+| 5 | `aria-hidden="true"` | Buttons, tabs, menuitems | Hide from tree | None |
+| 6 | `role="presentation"` | Headings (h1-h6) | Remove heading semantics | None |
+| 7 | Remove `alt` | Images | No alt text | None |
+| 8 | `role="presentation"` | Tables | Remove table semantics | None |
+| 9 | Remove `lang` | `<html>` | No language info | None |
+| 10 | `aria-hidden="true"` | Links (`<a href>`) | Hide from tree (href preserved) | None |
+| 11 | Duplicate IDs | Adjacent elements | Break ARIA references | None |
+
+Patches NOT included (functional layer, not semantic):
+- #4: Keyboard handler removal (pure functional)
+- #13: onfocus blur (pure functional)
+
+### PSL Smoke Test Results (ecom:23 × PSL × text-only + CUA)
+
+| Agent | Outcome | Reward | Steps | Tokens | Analysis |
+|-------|---------|--------|-------|--------|----------|
+| text-only | success | 1.0 | 3 | 25,759 | "Rachel, T. Gannon" — correct answer |
+| CUA | success | 0.0 | 11 | 137,210 | "Open Source Prof" — wrong reviewer name |
+
+**Text-only succeeded under PSL** — this was unexpected. The review text content
+appears as StaticText nodes in the a11y tree even after PSL patches. PSL hides
+navigation elements (links, buttons, headings) but not page content text. For
+content-reading tasks like ecom:23, the agent can extract answers directly from
+the flattened text without needing semantic navigation.
+
+**CUA failed due to reasoning error** — not PSL-related. CUA correctly navigated
+to Reviews tab, read all reviews, but misidentified "finger glides over screen"
+as "fingerprint resistant". This is a stochastic LLM reasoning error, same type
+seen in Pilot 4 CUA base variant.
+
+### Implications for PSL Experiment Design
+
+PSL's effect depends on task type:
+- **Content-reading tasks** (ecom:23/24/26): PSL may have weak effect — review text
+  is still visible as StaticText in a11y tree. Agent doesn't need semantic navigation.
+- **Navigation-dependent tasks** (admin:4, reddit:29/67): PSL should have strong effect —
+  links and buttons are hidden from a11y tree, agent can't identify clickable elements.
+
+Next step: Test PSL on all 6 tasks to see differential effect by task type.
+
+### Code Review Findings (PSL integration)
+
+Sub-agent review found 4 issues, all fixed:
+1. **CRITICAL**: `patches/index.ts` switch missing PSL case → added
+2. **CRITICAL**: `VARIANT_SCORE_RANGES` missing PSL entry → added (0.0-0.30)
+3. **HIGH**: `VARIANT_LEVELS` array missing PSL → added
+4. **LOW**: `loadInjectScript` type too narrow → widened
+
+### Files Changed (PSL)
+
+| File | Changes |
+|------|---------|
+| `src/variants/patches/inject/apply-pure-semantic-low.js` | NEW — 248 lines, 11 patches |
+| `src/variants/types.ts` | Added `'pure-semantic-low'` to VariantLevel + VARIANT_LEVELS |
+| `src/variants/patches/index.ts` | Added PSL case to switch + widened loadInjectScript type |
+| `src/variants/validation/index.ts` | Added PSL score range (0.0-0.30) |
+| `src/config/loader.ts` | Added PSL to VALID_VARIANTS |
+| `src/runner/browsergym_bridge.py` | Added PSL to VARIANT_SCRIPTS map |
+| `config-psl-smoke.yaml` | NEW — smoke test config (1 task × PSL × 2 agents) |
+| `scripts/smoke-psl-a11y-tree.py` | NEW — Chromium a11y tree verification script |
+
+### Pilot 4 CUA Final Progress (62/120 at time of PSL work)
+
+| Variant | Success | Total | Rate |
+|---------|---------|-------|------|
+| low | 6 | 13 | 46% |
+| medium-low | 15 | 15 | 100% |
+| base | 16 | 16 | 100% |
+| high | 18 | 18 | 100% |
+
+CUA experiment continues running in background. Pattern stable: low ~46% vs non-low 100%.
