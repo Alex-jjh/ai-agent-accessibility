@@ -498,16 +498,9 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
       };
       const mappedOutcome = outcomeMap[cuaOutcome] ?? 'failure';
 
-      // If CUA reported success with an answer, try to get BrowserGym reward
-      // by sending the answer via the normal protocol
-      if (cuaAnswer && cuaOutcome === 'success') {
-        const sanitized = cuaAnswer.replace(/"/g, "'").replace(/[\r\n]+/g, ' ').substring(0, 500);
-        bridge.sendAction(`send_msg_to_user("${sanitized}")`);
-        const evalObs = await bridge.readObservation();
-        if (evalObs && evalObs.reward > 0) {
-          lastReward = evalObs.reward;
-        }
-      }
+      // BrowserGym reward is already evaluated by the CUA bridge (it calls
+      // env.step(send_msg_to_user) before sending the summary). We don't
+      // need to send another action — the bridge has already exited.
 
       return {
         taskId, variant, agentConfig, attempt,

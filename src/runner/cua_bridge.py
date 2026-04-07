@@ -27,7 +27,6 @@ import time
 import traceback
 
 import boto3
-import numpy as np
 
 # Bedrock config — matches litellm_config.yaml
 BEDROCK_MODEL_ID = "us.anthropic.claude-sonnet-4-20250514-v1:0"
@@ -304,6 +303,9 @@ def run_cua_agent_loop(env, config: dict, send_fn) -> None:
             print(f"[cua] Step {step_num}: text only (no tool_use)", file=sys.stderr)
             continue
 
+        # Collect all tool results into a single user message (Bedrock requires
+        # all tool_results for one turn in the same user message).
+        tool_result_blocks = []
         for tu in tool_uses:
             tool_name = tu.get("name", "")
             tool_input = tu.get("input", {})
@@ -319,11 +321,11 @@ def run_cua_agent_loop(env, config: dict, send_fn) -> None:
                 "action": action,
                 "input": tool_input,
                 "error": error,
+                "reasoning": text_response[:500] if text_response else "",
             }
             steps.append(step_record)
 
-            # Build tool_result for next turn
-            # After executing, take a fresh screenshot as the result
+            # Build tool_result content (screenshot after action)
             try:
                 time.sleep(0.3)  # Brief pause for page to react
                 result_b64, _, _, _ = capture_screenshot_b64(page)
@@ -340,17 +342,16 @@ def run_cua_agent_loop(env, config: dict, send_fn) -> None:
             except Exception:
                 tool_result_content = [{"text": error or "Action executed"}]
 
-            messages.append({
-                "role": "user",
-                "content": [
-                    {
-                        "toolResult": {
-                            "toolUseId": tool_id,
-                            "content": tool_result_content,
-                        }
-                    }
-                ],
+            tool_result_blocks.append({
+                "toolResult": {
+                    "toolUseId": tool_id,
+                    "content": tool_result_content,
+                }
             })
+
+        # Send all tool results in a single user message
+        if tool_result_blocks:
+            messages.append({"role": "user", "content": tool_result_blocks})
 
     else:
         # Hit max_steps without completing
@@ -359,8 +360,21 @@ def run_cua_agent_loop(env, config: dict, send_fn) -> None:
     duration_ms = int((time.time() - start_time) * 1000)
     total_tokens = total_input_tokens + total_output_tokens
 
+    # Evaluate task via BrowserGym: send the answer through env.step() so
+    # BrowserGym's evaluator can compute the reward (ground truth check).
+    # This MUST happen before we send the summary to the executor, because
+    # the bridge exits after send_fn() and the executor can't send actions.
+    reward = 0.0
+    if outcome == "success" and final_answer:
+        try:
+            sanitized = final_answer.replace('"', "'").replace("\n", " ")[:500]
+            _, reward, _, _, _ = env.step(f'send_msg_to_user("{sanitized}")')
+            print(f"[cua] BrowserGym reward: {reward}", file=sys.stderr)
+        except Exception as e:
+            print(f"[cua] BrowserGym eval failed (non-fatal): {e}", file=sys.stderr)
+
     print(f"[cua] Loop finished: outcome={outcome}, steps={len(steps)}, "
-          f"tokens={total_tokens}, duration={duration_ms}ms", file=sys.stderr)
+          f"tokens={total_tokens}, reward={reward}, duration={duration_ms}ms", file=sys.stderr)
 
     # Send final result to executor via JSON-line protocol.
     # For CUA mode, we send a single summary observation that the executor
@@ -373,7 +387,7 @@ def run_cua_agent_loop(env, config: dict, send_fn) -> None:
         "last_action_error": "",
         "terminated": True,
         "truncated": outcome == "timeout",
-        "reward": 0.0,  # BrowserGym evaluator will determine this
+        "reward": reward,  # BrowserGym ground truth evaluation
         "step": len(steps),
         # CUA-specific fields
         "cua_result": {

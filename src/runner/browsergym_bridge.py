@@ -453,6 +453,8 @@ def main() -> None:
 
         # CUA mode flag — actual handoff happens after variant injection (see below)
         if obs_mode == "cua":
+            import os as _os
+            sys.path.insert(0, _os.path.dirname(_os.path.abspath(__file__)))
             from cua_bridge import run_cua_agent_loop
             print(f"[bridge] CUA mode: will hand off to cua_bridge after setup", file=sys.stderr)
 
