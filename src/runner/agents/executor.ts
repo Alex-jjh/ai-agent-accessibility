@@ -469,7 +469,6 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
       // Extract CUA-specific result from the observation
       const cuaResult = (finalObs as unknown as Record<string, unknown>).cua_result as Record<string, unknown> | undefined;
       const cuaOutcome = (cuaResult?.outcome as string) ?? 'failure';
-      const cuaAnswer = (cuaResult?.answer as string) ?? '';
       const cuaSteps = (cuaResult?.steps as Array<Record<string, unknown>>) ?? [];
       const cuaTotalTokens = (cuaResult?.totalTokens as number) ?? 0;
       const cuaDurationMs = (cuaResult?.durationMs as number) ?? (Date.now() - startTime);

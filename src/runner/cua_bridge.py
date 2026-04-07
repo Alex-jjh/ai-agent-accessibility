@@ -40,6 +40,10 @@ MAX_TOTAL_PIXELS = 1_150_000
 
 # Agent loop limits
 DEFAULT_MAX_STEPS = 30
+# Keep only the last N screenshot-bearing messages to avoid hitting Bedrock's
+# 20MB request size limit. Each screenshot is ~500KB-2MB; 5 turns × 2 screenshots
+# (user + tool_result) = ~10 screenshots × 1MB = ~10MB, well under the limit.
+MAX_SCREENSHOT_HISTORY = 5
 
 
 def get_scale_factor(width: int, height: int) -> float:
@@ -90,35 +94,54 @@ def call_bedrock_cua(
     goal: str,
     display_w: int,
     display_h: int,
+    max_retries: int = 3,
+    base_backoff: float = 2.0,
 ) -> dict:
     """Call Bedrock Converse API with computer_use tool.
 
+    Includes exponential backoff retry for throttling and transient errors.
     Returns the full response dict from Bedrock.
     """
-    response = client.converse(
-        modelId=BEDROCK_MODEL_ID,
-        system=[{"text": (
-            f"You are a web navigation agent. Complete this task: {goal}\n\n"
-            "You can see the browser screenshot. Use the computer tool to interact.\n"
-            "When the task is complete, respond with a text message starting with 'DONE:' "
-            "followed by your answer.\n"
-            "If you cannot complete the task, respond with 'CANNOT_COMPLETE: reason'.\n"
-            "Be concise and efficient. Click precisely on UI elements."
-        )}],
-        messages=messages,
-        additionalModelRequestFields={
-            "tools": [
-                {
-                    "type": TOOL_VERSION,
-                    "name": "computer",
-                    "display_height_px": display_h,
-                    "display_width_px": display_w,
-                }
-            ],
-            "anthropic_beta": [BETA_VERSION],
-        },
-    )
-    return response
+    last_err = None
+    for attempt in range(max_retries + 1):
+        try:
+            response = client.converse(
+                modelId=BEDROCK_MODEL_ID,
+                system=[{"text": (
+                    f"You are a web navigation agent. Complete this task: {goal}\n\n"
+                    "You can see the browser screenshot. Use the computer tool to interact.\n"
+                    "When the task is complete, respond with a text message starting with 'DONE:' "
+                    "followed by your answer.\n"
+                    "If you cannot complete the task, respond with 'CANNOT_COMPLETE: reason'.\n"
+                    "Be concise and efficient. Click precisely on UI elements."
+                )}],
+                messages=messages,
+                additionalModelRequestFields={
+                    "tools": [
+                        {
+                            "type": TOOL_VERSION,
+                            "name": "computer",
+                            "display_height_px": display_h,
+                            "display_width_px": display_w,
+                        }
+                    ],
+                    "anthropic_beta": [BETA_VERSION],
+                },
+            )
+            return response
+        except Exception as e:
+            last_err = e
+            err_name = type(e).__name__
+            # Retry on throttling and transient errors
+            if err_name in ("ThrottlingException", "ServiceUnavailableException",
+                            "ModelTimeoutException") and attempt < max_retries:
+                delay = base_backoff * (2 ** attempt)
+                print(f"[cua] Bedrock {err_name}, retry {attempt+1}/{max_retries} "
+                      f"after {delay:.1f}s", file=sys.stderr)
+                time.sleep(delay)
+                continue
+            raise
+    raise last_err  # type: ignore
 
 
 def execute_cua_action(page, action: str, input_data: dict, scale: float) -> str | None:
@@ -176,6 +199,54 @@ def execute_cua_action(page, action: str, input_data: dict, scale: float) -> str
         return None
     except Exception as e:
         return f"Action {action} failed: {e}"
+
+
+def _evict_old_screenshots(messages: list, keep_last_n: int = MAX_SCREENSHOT_HISTORY) -> None:
+    """Replace old screenshots in message history with text placeholders.
+
+    Keeps the last `keep_last_n` screenshot-bearing messages intact.
+    Older screenshots are replaced with "[screenshot omitted]" to stay
+    under Bedrock's 20MB request size limit while preserving conversation
+    structure and text content.
+    """
+    # Find indices of messages that contain images
+    img_indices = []
+    for i, msg in enumerate(messages):
+        content = msg.get("content", [])
+        if isinstance(content, list):
+            for block in content:
+                if isinstance(block, dict) and ("image" in block or
+                    ("toolResult" in block and any(
+                        "image" in c for c in block.get("toolResult", {}).get("content", [])
+                        if isinstance(c, dict)
+                    ))):
+                    img_indices.append(i)
+                    break
+
+    # Keep the last N, evict the rest
+    to_evict = img_indices[:-keep_last_n * 2] if len(img_indices) > keep_last_n * 2 else []
+
+    for idx in to_evict:
+        msg = messages[idx]
+        content = msg.get("content", [])
+        if not isinstance(content, list):
+            continue
+        new_content = []
+        for block in content:
+            if isinstance(block, dict) and "image" in block:
+                new_content.append({"text": "[screenshot omitted — older turn]"})
+            elif isinstance(block, dict) and "toolResult" in block:
+                tr = block["toolResult"]
+                new_tr_content = []
+                for c in tr.get("content", []):
+                    if isinstance(c, dict) and "image" in c:
+                        new_tr_content.append({"text": "[screenshot omitted]"})
+                    else:
+                        new_tr_content.append(c)
+                new_content.append({"toolResult": {**tr, "content": new_tr_content}})
+            else:
+                new_content.append(block)
+        msg["content"] = new_content
 
 
 def run_cua_agent_loop(env, config: dict, send_fn) -> None:
@@ -244,6 +315,9 @@ def run_cua_agent_loop(env, config: dict, send_fn) -> None:
 
         # 3. Call Bedrock
         try:
+            # Evict old screenshots to stay under Bedrock's 20MB request limit
+            _evict_old_screenshots(messages)
+
             # Calculate display dimensions (what Claude sees after scaling)
             display_w = int(orig_w * scale)
             display_h = int(orig_h * scale)
