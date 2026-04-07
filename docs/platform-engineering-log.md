@@ -1399,3 +1399,142 @@ Two rounds of sub-agent code review performed:
 - Analyze whether CUA performance is affected by accessibility degradation
 - If CUA shows no a11y gradient → confirms a11y tree as causal mechanism
 - If CUA shows gradient → DOM mutations affect visual layout (unexpected finding)
+
+---
+
+## 2026-04-07: Pilot 4 CUA Early Results & Pure-Semantic-Low Analysis
+
+### CUA Mid-Run Results (48/120 cases)
+
+| Variant | Success | Total | Rate |
+|---------|---------|-------|------|
+| low | 3 | 9 | 33% |
+| medium-low | 12 | 12 | 100% |
+| base | 15 | 15 | 100% |
+| high | 12 | 12 | 100% |
+
+CUA shows a clear gradient at low variant — but medium-low/base/high are all 100%.
+
+### CUA Low Variant Failure Trace Analysis
+
+9 low cases examined, 6 failures across all task types:
+
+| Task | Failure Mode | Claude's Reasoning |
+|------|-------------|-------------------|
+| ecom:23 | CANNOT_COMPLETE (28 steps) | "customer reviews section is not loading properly" |
+| ecom:24 | CANNOT_COMPLETE (19 steps) | "reviews section is not accessible due to technical issues" |
+| ecom:26 | timeout (30 steps) | "no customer reviews" — scrolled entire page |
+| admin:4 | CANNOT_COMPLETE (23 steps) | "unable to access Magento sales reports" |
+| reddit:29 | timeout × 2 (30 steps each) | Navigation lost, tried refresh/search |
+| reddit:67 | timeout × 3 (30 steps each) | Navigation lost, tried manual URL entry |
+
+### Cross-Layer Effect Discovery
+
+CUA failures at low variant are NOT caused by "can't see the page" — they're caused by
+DOM mutations breaking JavaScript behavior that controls visual rendering:
+
+1. **ecom:23/24/26**: Low variant breaks ARIA tabpanel associations → Magento's KnockoutJS
+   uses these ARIA attributes to control tab panel show/hide → Reviews content never renders
+   visually → CUA sees a page with no reviews section → CANNOT_COMPLETE
+
+2. **admin:4**: Low variant removes semantic landmarks + ARIA → Magento admin navigation
+   depends on these for JS-driven menu behavior → admin panels don't render
+
+3. **reddit:29/67**: Low variant converts `<a>` → `<span>` → navigation links lose href →
+   CUA clicks on text that looks like a link but doesn't navigate → agent gets lost
+
+This is a **cross-layer confound**: DOM semantic changes → JS behavior changes → visual
+rendering changes. The CUA agent fails not because it can't "see" the page, but because
+the page's functionality is broken.
+
+### DOM Property Layers (Key Insight)
+
+```
+DOM attributes operate on three layers:
+
+┌─────────────────────────────────┐
+│ Semantic Layer (a11y tree only) │ ← pure-semantic-low targets HERE
+│ role, aria-*, alt, lang,        │
+│ implicit roles from HTML5 tags  │
+├─────────────────────────────────┤
+│ Functional Layer (interaction)  │ ← current low ALSO changes this ⚠️
+│ href, onclick, tabindex,        │
+│ form submission behavior        │
+├─────────────────────────────────┤
+│ Visual Layer (rendering)        │ ← current low ALSO changes this ⚠️
+│ CSS, style, class,              │
+│ <label> text content,           │
+│ <thead>/<th> table layout       │
+└─────────────────────────────────┘
+```
+
+Current low variant patches that cross layers:
+- Patch 3 (F68): `label.remove()` — removes visual text (semantic + visual)
+- Patch 5 (E2): Shadow DOM wrapping — may break CSS inheritance (semantic + visual)
+- Patch 9 (F91): `thead→div` — breaks table layout (semantic + visual)
+- Patch 11 (F42): `<a>→<span>` — removes navigation (semantic + functional)
+- Patch 13 (F55): `onfocus blur` — breaks keyboard interaction (functional)
+
+### Connection to Feasibility Problem
+
+This is the same root cause as the task feasibility issue identified in Pilot 2:
+- **Feasibility**: low variant makes tasks logically impossible (content invisible in a11y tree)
+- **CUA confound**: low variant makes tasks physically impossible (functionality broken)
+- **Common root**: low variant is too aggressive — destroys task prerequisites, not just a11y quality
+
+### Pure-Semantic-Low Variant Proposal
+
+A new variant level that ONLY modifies the semantic layer:
+
+| Operation | Effect on A11y Tree | Effect on Visual | Effect on Function |
+|-----------|--------------------|-----------------|--------------------|
+| `role="presentation"` on landmarks | Removes landmark roles | None | None |
+| `aria-hidden="true"` on sections | Hides from a11y tree | None | None |
+| `aria-label=""` (empty) on buttons | Removes accessible name | None | None |
+| `role="none"` on headings | Removes heading semantics | None | None |
+| Remove `alt` from images | No alt text in a11y tree | None (img still shows) | None |
+
+Predicted outcomes:
+- **Text-only agent**: Should fail (a11y tree degraded, same as current low)
+- **CUA agent**: Should succeed (visual + functional unchanged)
+- **If confirmed**: Clean causal isolation — a11y tree is THE causal mechanism
+
+This resolves both the feasibility confound AND the CUA cross-layer confound simultaneously.
+
+### Ma11y Operator Coverage
+
+Ma11y (ISSTA 2024) defines 25 mutation operators. Our mapping:
+- 8 directly mapped: F2, F42, F44, F55, F65, F68, F77, F91, F96
+- 5 novel extensions: E1 (all landmarks→div), E2 (Shadow DOM), E3 (lang removal),
+  E4 (all ARIA removal), onfocus blur on controls
+- 17 Ma11y operators not used: color contrast, font size, language direction, etc.
+  (irrelevant to text-only agent — can't see visual properties)
+
+Ma11y's operators have the same cross-layer confound (F68 removes label text, F42 removes
+link functionality) but Ma11y doesn't need causal isolation — their DV is "can testing tools
+detect the violation", not "does the violation cause agent failure".
+
+### Next Steps (Prioritized)
+
+1. **CUA 120 cases complete** — running, ~2h remaining
+2. **Pure-semantic-low variant design** — highest ROI for paper quality
+   - Design patch script (role="presentation", aria-hidden, etc.)
+   - Smoke test on ecom:23 (text-only should fail, CUA should succeed)
+   - Run 60 cases (text-only 30 + CUA 30) with pure-semantic-low
+3. **Task expansion** — incremental smoke-first approach
+   - GitLab tasks (new site, Vue.js DOM)
+   - Form submission tasks (ARIA label coverage)
+4. **Multi-model replication** — GPT-4o targeted run
+5. **Paper finalization** — CHI 2027 target (Sep deadline)
+
+### Paper Contribution Upgrade Path
+
+| Evidence Level | What We Have | What Pure-Semantic-Low Adds |
+|---------------|-------------|---------------------------|
+| Correlational | Low variant → agent failure | — |
+| Causal (weak) | CUA also fails at low → cross-layer | — |
+| Causal (strong) | — | PSL: text-only fails, CUA succeeds → a11y tree is THE cause |
+| Decomposition | — | Current low vs PSL → quantifies functional vs semantic contribution |
+
+Three-way comparison (current low vs pure-semantic-low vs base) enables complete
+decomposition of the causal pathway: DOM structure → a11y tree → agent perception → task failure.
