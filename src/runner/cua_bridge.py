@@ -127,6 +127,32 @@ def call_bedrock_cua(
                     ],
                     "anthropic_beta": [BETA_VERSION],
                 },
+                # Bedrock Converse API requires toolConfig when messages contain
+                # toolUse/toolResult blocks. We add a dummy tool spec to satisfy
+                # this requirement — the actual computer_use tool is defined in
+                # additionalModelRequestFields (Anthropic-specific).
+                toolConfig={
+                    "tools": [
+                        {
+                            "toolSpec": {
+                                "name": "task_complete",
+                                "description": "Signal task completion with an answer",
+                                "inputSchema": {
+                                    "json": {
+                                        "type": "object",
+                                        "properties": {
+                                            "answer": {
+                                                "type": "string",
+                                                "description": "The answer to the task",
+                                            }
+                                        },
+                                        "required": ["answer"],
+                                    }
+                                },
+                            }
+                        }
+                    ]
+                },
             )
             return response
         except Exception as e:
@@ -368,6 +394,19 @@ def run_cua_agent_loop(env, config: dict, send_fn) -> None:
                               "reasoning": text_response})
                 print(f"[cua] Cannot complete: {text_response[:100]}", file=sys.stderr)
                 break
+
+        # Check if Claude used the task_complete tool (dummy toolConfig tool)
+        task_complete_tu = [tu for tu in tool_uses if tu.get("name") == "task_complete"]
+        if task_complete_tu:
+            answer = task_complete_tu[0].get("input", {}).get("answer", "")
+            final_answer = answer
+            outcome = "success"
+            steps.append({"step": step_num, "action": "task_complete", "answer": answer,
+                          "reasoning": text_response})
+            print(f"[cua] Task complete (via tool): {answer[:100]}", file=sys.stderr)
+            break
+        # Filter out task_complete from tool_uses for action execution
+        tool_uses = [tu for tu in tool_uses if tu.get("name") != "task_complete"]
 
         # 6. Execute tool actions
         if not tool_uses and stop_reason != "tool_use":
