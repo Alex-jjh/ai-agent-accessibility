@@ -741,10 +741,18 @@ def main() -> None:
                     )
 
                     def _intercept_html(route):
-                        """Intercept HTML responses and inject deferred variant patch script."""
+                        """Intercept HTML responses and inject deferred variant patch script.
+                        Skip for vision-only mode — vision agent doesn't use a11y tree,
+                        and the MutationObserver in the deferred script can interfere with
+                        BrowserGym's intersection_observer on large pages (reddit hang)."""
                         request = route.request
                         try:
+                            # Skip non-document requests
                             if request.resource_type != "document":
+                                route.continue_()
+                                return
+                            # Skip for vision-only mode
+                            if obs_mode == "vision-only":
                                 route.continue_()
                                 return
                             # Skip iframe requests
