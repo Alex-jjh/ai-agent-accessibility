@@ -1,0 +1,45 @@
+# Pure-Semantic-Low smoke test — 1 task × 1 variant × 2 agents × 1 rep = 2 cases
+# Verify PSL variant: text-only should struggle, CUA should succeed.
+# Uses ecommerce task 23 (review search) — well-tested baseline task.
+
+webarena:
+  apps:
+    shopping:
+      url: "http://10.0.1.49:7770"
+  tasksPerApp:
+    shopping: ["23"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["pure-semantic-low"]
+
+runner:
+  repetitions: 1
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    - observationMode: "cua"
+      llmBackend: "claude-sonnet"
+      maxSteps: 15
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/psl-smoke"
+  exportFormats: ["json", "csv"]

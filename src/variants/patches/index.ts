@@ -22,7 +22,7 @@ const scriptCache = new Map<string, string>();
  * Load a variant injection script from the inject/ directory.
  * Scripts are cached after first read.
  */
-function loadInjectScript(level: 'low' | 'medium-low' | 'high'): string {
+function loadInjectScript(level: 'low' | 'medium-low' | 'high' | 'pure-semantic-low'): string {
   const cached = scriptCache.get(level);
   if (cached) return cached;
   const filename = `apply-${level}.js`;
@@ -106,6 +106,11 @@ export async function applyVariant(
     case 'high':
       changes = await applyHigh(page);
       break;
+    case 'pure-semantic-low': {
+      const pslScript = loadInjectScript('pure-semantic-low');
+      changes = await page.evaluate(pslScript);
+      break;
+    }
     default:
       changes = [];
       break;

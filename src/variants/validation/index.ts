@@ -43,6 +43,7 @@ export const VARIANT_SCORE_RANGES: Record<VariantLevel, { min: number; max: numb
   'medium-low': { min: 0.25, max: 0.50 },
   'base':       { min: 0.40, max: 0.70 },
   'high':       { min: 0.75, max: 1.0 },
+  'pure-semantic-low': { min: 0.0, max: 0.30 },
 };
 
 /** Default weights used for composite score in validation (equal weighting). */

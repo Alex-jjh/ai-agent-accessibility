@@ -29,4 +29,4 @@ export interface VariantValidationResult {
 }
 
 /** All variant levels as a constant array */
-export const VARIANT_LEVELS: readonly VariantLevel[] = ['low', 'medium-low', 'base', 'high'] as const;
+export const VARIANT_LEVELS: readonly VariantLevel[] = ['low', 'medium-low', 'base', 'high', 'pure-semantic-low'] as const;
