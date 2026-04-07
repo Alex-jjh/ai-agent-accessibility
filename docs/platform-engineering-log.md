@@ -1289,3 +1289,113 @@ variant injection success/failure from trace files alone.
 ### Verification
 
 All three files pass diagnostics (0 errors, 0 warnings). TypeScript type check clean.
+
+---
+
+## 2026-04-07: CUA (Computer Use Agent) Integration
+
+### Motivation
+
+The existing `vision-only` agent uses SoM (Set-of-Marks) overlays which depend on DOM
+interactive elements — Pilot 4 proved this creates "phantom bids" under low variant
+(0% success). SoM is NOT a pure visual control because overlay labels are generated
+from DOM state. A true coordinate-based vision agent that never reads DOM is needed
+to isolate the causal pathway: if CUA performance is unaffected by accessibility
+degradation while text-only drops, the a11y tree is definitively the causal factor.
+
+### Approach Selection
+
+Evaluated three approaches for coordinate-based web agent:
+1. **Anthropic Computer Use Tool via LiteLLM** — FAILED. LiteLLM cannot forward
+   `computer_use` tool definitions or `anthropic-beta` headers to Bedrock.
+2. **Anthropic Computer Use Tool via LiteLLM /v1/chat/completions + extra_body** —
+   FAILED. Bedrock rejects `extra_body` parameter.
+3. **Direct Bedrock Converse API via boto3** — SUCCEEDED. `computer_20250124` tool
+   with `computer-use-2025-01-24` beta on Claude Sonnet 4.
+
+Decision: CUA agent loop runs in the Python bridge (`cua_bridge.py`), calling Bedrock
+directly via boto3. Bypasses LiteLLM entirely for CUA mode.
+
+### Architecture (Fully Decoupled)
+
+```
+observationMode == "cua":
+  browsergym_bridge.py → cua_bridge.run_cua_agent_loop()
+    screenshot → boto3 Bedrock Converse → parse tool_use → page.mouse.click(x,y) → loop
+    env.step(send_msg_to_user) → reward → send summary JSON to executor
+
+observationMode == "text-only" | "vision" | "vision-only":
+  (unchanged — executor drives step loop via LiteLLM)
+```
+
+Zero impact on existing modes. CUA code only executes when `observationMode == "cua"`.
+
+### Files Changed
+
+| File | Lines Changed | Purpose |
+|------|--------------|---------|
+| `src/runner/cua_bridge.py` | +350 (new) | Self-driving CUA agent loop, Bedrock client, coordinate scaling, screenshot eviction |
+| `src/runner/browsergym_bridge.py` | +20 | CUA branch entry point after variant injection |
+| `src/runner/agents/executor.ts` | +55 | CUA mode: wait for bridge summary, no LLM calls |
+| `src/runner/types.ts` | +5 | `ObservationMode` union extended with `'cua'` |
+| `src/config/loader.ts` | +2 | Validation accepts `'cua'` |
+| `config-cua-smoke.yaml` | +40 (new) | Smoke test config |
+| `scripts/smoke-cua-litellm.ts` | +250 (new) | LiteLLM CUA smoke test (approach 1 & 2) |
+| `scripts/smoke-cua-bedrock-direct.py` | +120 (new) | Bedrock direct CUA smoke test (approach 3) |
+
+### Bugs Found and Fixed
+
+| Bug | Severity | Description | Fix |
+|-----|----------|-------------|-----|
+| Bridge protocol deadlock | Critical | Bridge exits after CUA loop; executor's send_msg_to_user hangs | CUA loop calls env.step(send_msg_to_user) itself |
+| Python import fragile | Medium | `from cua_bridge import` relies on implicit sys.path | Explicit sys.path.insert |
+| Consecutive user messages | Medium | Multiple tool_use blocks create invalid Bedrock conversation | Collect tool_results into single user message |
+| No Bedrock retry | Medium | Throttling/transient errors lose turns | 3-retry exponential backoff |
+| Unbounded screenshots | High | 30-step task hits 20MB Bedrock request limit at step ~15 | Sliding window evicts old screenshots |
+| Bedrock toolConfig required | Blocker | Converse API rejects requests without toolConfig | Added dummy `task_complete` tool spec |
+| Goal is task ID | Critical | CUA received goal='23' instead of task intent | Bridge passes BrowserGym obs["goal"] to CUA loop |
+| Unused numpy import | Low | Dead import | Removed |
+| Missing reasoning in steps | Low | CUA step records lacked Claude's reasoning text | Added reasoning field |
+
+### Smoke Test Results
+
+| Run | Goal Fix | Outcome | Reward | Steps | Tokens | Duration |
+|-----|----------|---------|--------|-------|--------|----------|
+| 351bf989 | Before toolConfig fix | timeout | 0.0 | 30 | 3,093 | — |
+| 1eb54a0f | After toolConfig fix, before goal fix | success (wrong answer) | 0.0 | 7 | 66,167 | 43s |
+| 011a1630 | After goal fix | **success** | **1.0** | 11 | 138,800 | 72s |
+
+Final successful run: Task 23 ("List reviewers who mention good fingerprint resistant"),
+CUA agent clicked Reviews tab, scrolled through 12 reviews, found 3 matching reviewers,
+BrowserGym evaluator confirmed correct answer (reward=1.0). 11 steps, 139K tokens, 72s.
+
+### Key Observations
+
+1. **CUA uses ~2x tokens vs text-only** (139K vs ~30K for same task at base variant).
+   Expected: screenshots are expensive (~1600 tokens each), and CUA sends 2 per step
+   (observation + tool_result).
+
+2. **CUA takes more steps** (11 vs ~5 for text-only). The agent needs to scroll through
+   reviews visually rather than parsing the a11y tree which contains all text at once.
+
+3. **Coordinate actions work correctly**: left_click at (888, 512) hit the Reviews tab,
+   scroll actions navigated through review content. No coordinate scaling issues on
+   EC2 headless (DPR=1).
+
+4. **Plan D variant injection still applies in CUA mode** — context.route() intercepts
+   HTML responses regardless of observation mode. This means CUA experiments with
+   low/medium-low variants will have DOM patches applied, but the CUA agent won't
+   "see" the semantic changes (only visual layout changes, if any).
+
+### Code Review
+
+Two rounds of sub-agent code review performed:
+- Round 1: Found 9 issues (4 critical/medium fixed, 5 accepted risks)
+- Round 2: Verified fixes, found 2 new issues (retry logic + screenshot eviction), both fixed
+
+### Next Steps
+
+- Run CUA across all 6 tasks × 4 variants to compare with text-only/vision-only
+- Analyze whether CUA performance is affected by accessibility degradation
+- If CUA shows no a11y gradient → confirms a11y tree as causal mechanism
+- If CUA shows gradient → DOM mutations affect visual layout (unexpected finding)
