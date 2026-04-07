@@ -244,6 +244,7 @@ VARIANT_SCRIPTS = {
     "low": "apply-low.js",
     "medium-low": "apply-medium-low.js",
     "high": "apply-high.js",
+    "pure-semantic-low": "apply-pure-semantic-low.js",
 }
 
 

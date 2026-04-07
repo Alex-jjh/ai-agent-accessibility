@@ -6,7 +6,7 @@ import type { ExperimentConfig } from './types.js';
 import type { VariantLevel } from '../variants/types.js';
 
 const VALID_WCAG = new Set(['A', 'AA', 'AAA']);
-const VALID_VARIANTS = new Set(['low', 'medium-low', 'base', 'high']);
+const VALID_VARIANTS = new Set(['low', 'medium-low', 'base', 'high', 'pure-semantic-low']);
 const VALID_OBS = new Set(['text-only', 'vision', 'vision-only', 'cua']);
 const VALID_FMT = new Set(['json', 'csv']);
 

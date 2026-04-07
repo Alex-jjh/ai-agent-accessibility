@@ -1,7 +1,7 @@
 // Module 2: Variant Generator — Type definitions for DOM variant manipulation
 
 /** Accessibility variant levels applied to WebArena apps */
-export type VariantLevel = 'low' | 'medium-low' | 'base' | 'high';
+export type VariantLevel = 'low' | 'medium-low' | 'base' | 'high' | 'pure-semantic-low';
 
 /** A single DOM change recorded during variant manipulation */
 export interface DomChange {
