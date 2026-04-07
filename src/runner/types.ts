@@ -61,6 +61,10 @@ export interface ActionTrace {
   durationMs: number;
   failureType?: string;
   failureConfidence?: number;
+  /** Bridge process stderr log — captures variant injection status, login status,
+   *  SoM overlay info, and any errors from the Python BrowserGym bridge.
+   *  Added for experiment reproducibility (ISSUE-BR-7). */
+  bridgeLog?: string;
 }
 
 /** Outcome of a task across multiple agent attempts */

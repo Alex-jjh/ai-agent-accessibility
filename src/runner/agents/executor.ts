@@ -65,6 +65,8 @@ export interface BridgeProcess {
   sendAction(action: string): void;
   readObservation(): Promise<BrowserGymObservation | null>;
   close(): Promise<void>;
+  /** Get accumulated stderr output from the bridge process (ISSUE-BR-7). */
+  getStderrLog(): string;
 }
 
 /**
@@ -440,6 +442,8 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
     observationMode: agentConfig.observationMode,
   });
 
+  let bridgeLog = ''; // ISSUE-BR-7: will be populated from bridge stderr
+
   try {
     // Get initial observation from env.reset()
     let obs = await bridge.readObservation();
@@ -574,6 +578,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
       if (stepResult === 'error' && !resultDetail?.includes('retry')) break;
     }
   } finally {
+    bridgeLog = bridge.getStderrLog(); // ISSUE-BR-7: capture before close
     await bridge.close();
   }
 
@@ -598,6 +603,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
     totalSteps: steps.length,
     totalTokens,
     durationMs,
+    bridgeLog: bridgeLog || undefined, // ISSUE-BR-7: include bridge stderr in trace
   };
 }
 
@@ -615,6 +621,7 @@ function defaultBridgeSpawner(scriptPath: string, taskConfig: BridgeTaskConfig):
   const lineBuffer: string[] = [];
   let lineResolve: ((value: string | null) => void) | null = null;
   let closed = false;
+  const stderrChunks: string[] = []; // ISSUE-BR-7: capture bridge stderr for trace
 
   rl.on('line', (line: string) => {
     if (lineResolve) {
@@ -636,7 +643,9 @@ function defaultBridgeSpawner(scriptPath: string, taskConfig: BridgeTaskConfig):
   });
 
   child.stderr?.on('data', (data: Buffer) => {
-    console.warn(`[BrowserGym bridge stderr] ${data.toString().trim()}`);
+    const text = data.toString().trim();
+    console.warn(`[BrowserGym bridge stderr] ${text}`);
+    stderrChunks.push(text); // ISSUE-BR-7: buffer for trace
   });
 
   function nextLine(): Promise<string | null> {
@@ -660,8 +669,9 @@ function defaultBridgeSpawner(scriptPath: string, taskConfig: BridgeTaskConfig):
       // Kill the child process and return null so the executor can
       // record the error and move to the next case.
       const BRIDGE_READ_TIMEOUT_MS = 120_000; // 2 minutes
+      let timer: ReturnType<typeof setTimeout>;
       const timeoutPromise = new Promise<null>((resolve) => {
-        setTimeout(() => {
+        timer = setTimeout(() => {
           console.warn(`[BrowserGym bridge] readObservation timeout after ${BRIDGE_READ_TIMEOUT_MS / 1000}s — killing bridge`);
           try {
             child.kill('SIGKILL');
@@ -672,6 +682,7 @@ function defaultBridgeSpawner(scriptPath: string, taskConfig: BridgeTaskConfig):
       });
 
       const line = await Promise.race([nextLine(), timeoutPromise]);
+      clearTimeout(timer!); // ISSUE-BR-1 fix: prevent dangling timer leak
       if (line === null) return null;
       try {
         return JSON.parse(line) as BrowserGymObservation;
@@ -687,6 +698,12 @@ function defaultBridgeSpawner(scriptPath: string, taskConfig: BridgeTaskConfig):
         child.kill('SIGTERM');
       }
       rl.close();
+    },
+
+    getStderrLog(): string {
+      // ISSUE-BR-7: return accumulated stderr, cap at 50KB to avoid trace bloat
+      const full = stderrChunks.join('\n');
+      return full.length > 50_000 ? full.slice(-50_000) : full;
     },
   };
 }

@@ -1039,3 +1039,253 @@ Magento's async init pipeline overwrites DOM changes after they're applied.
 | `src/runner/agents/executor.ts` | Wall-clock timeout (600s), bridge read timeout (120s) |
 | `config-pilot4.yaml` | 240 cases config |
 | `scripts/launch-pilot4.sh` | Nohup launcher with LiteLLM pre-flight checks |
+
+---
+
+## 2026-04-07: BrowserGym Bridge Code Review (Pre-Pilot 4 Analysis)
+
+### Context
+
+Comprehensive code review of `browsergym_bridge.py` (800+ lines), `executor.ts`
+(450+ lines), and all related files. Cross-referenced with BrowserGym known issues
+from web research. Conducted while Pilot 4 is running (~52/240 complete).
+
+Goal: identify any remaining bugs that could affect Pilot 4 data validity before
+the canonical dataset analysis begins.
+
+### Bug Catalog (Bridge Review)
+
+#### ISSUE-BR-4: MutationObserver sentinel wrong for medium-low/high variants (P0)
+
+- **File:** `src/runner/browsergym_bridge.py`, Plan D deferred script
+- **Root cause:** The MutationObserver guard uses `nav a[href]` as a sentinel to
+  detect if Magento restored original DOM structure. This only works for the `low`
+  variant (which replaces `<nav>` with `<div>`). For `medium-low` and `high` variants,
+  `<nav>` elements are NOT replaced — they're still present in the DOM. The sentinel
+  check always finds `nav a[href]`, causing the Observer to continuously re-apply
+  patches on every DOM mutation.
+- **Impact (high variant):** `body.appendChild(skipLink)` in `apply-high.js` creates
+  duplicate skip-links on every MutationObserver trigger. These accumulate in the DOM,
+  inflating the a11y tree token count. This makes `high` variant token counts
+  artificially higher than `base`, potentially distorting the high vs base comparison.
+- **Impact (medium-low):** Patches are idempotent but waste CPU on continuous
+  re-application. No data corruption but unnecessary overhead.
+- **Verification needed:** Compare Pilot 4 `high` vs `base` average token counts.
+  If `high` is significantly higher, this bug is confirmed as affecting data.
+- **Fix:** Replace `nav a[href]` sentinel with `data-variant-revert` marker check:
+  ```javascript
+  var hasMarkers = document.querySelector("[data-variant-revert]") !== null;
+  if (!hasMarkers && document.documentElement.getAttribute("data-variant-patched")) {
+    document.documentElement.removeAttribute("data-variant-patched");
+    applyPatches();
+  }
+  ```
+- **Priority:** Fix before next pilot run. Analyze Pilot 4 data for impact.
+
+#### ISSUE-BR-1: readObservation timeout timer never cleared (P1)
+
+- **File:** `src/runner/agents/executor.ts`, `defaultBridgeSpawner.readObservation()`
+- **Root cause:** The 120s timeout uses `Promise.race([nextLine(), timeoutPromise])`.
+  When `nextLine()` resolves first (normal case), the `setTimeout` inside
+  `timeoutPromise` is never cleared. Over a 240-case experiment with ~15 steps
+  average = ~3600 dangling timers, each holding a closure over `child` process.
+- **Impact:** Memory leak growing linearly with experiment size. Not a crash risk
+  but contributes to GC pressure on 12+ hour runs.
+- **Fix:** Add `clearTimeout(timer!)` after `Promise.race` resolves.
+  ```typescript
+  let timer: ReturnType<typeof setTimeout>;
+  const timeoutPromise = new Promise<null>((resolve) => {
+    timer = setTimeout(() => { /* ... */ }, BRIDGE_READ_TIMEOUT_MS);
+  });
+  const line = await Promise.race([nextLine(), timeoutPromise]);
+  clearTimeout(timer!);
+  ```
+- **Priority:** Fix in next code push. One-line change.
+
+#### ISSUE-BR-7: Bridge stderr not captured in trace data (P1)
+
+- **File:** `src/runner/agents/executor.ts`, `defaultBridgeSpawner`
+- **Root cause:** All bridge stderr output (variant injection status, login status,
+  SoM overlay counts, error messages) is logged to executor console via
+  `console.warn()` but never captured in `ActionTrace` or `ActionTraceStep` data.
+- **Impact:** Cannot verify variant injection success/failure from trace files alone.
+  Must rely on nohup log output. Critical for paper reproducibility — reviewers
+  need evidence that variant injection worked for each case.
+- **Fix:** Capture bridge stderr in a buffer and include as `bridgeLog` field in
+  `ActionTrace`, or at minimum include variant injection status in trace metadata.
+- **Priority:** Fix before next pilot run.
+
+#### ISSUE-BR-6: context.route intercepts ALL requests (P2 — downgraded from P1)
+
+- **File:** `src/runner/browsergym_bridge.py`, Plan D `_intercept_html`
+- **Root cause:** `context.route("**/*")` registers handler for every request.
+  Non-document requests are passed through via `route.continue_()`, but each
+  still goes through the Python handler function.
+- **Impact:** Actual impact is smaller than initially assessed. `route.continue_()`
+  for non-document requests is essentially a pass-through with microsecond-level
+  IPC overhead, not millisecond-level. Magento pages with 50-100 resources add
+  negligible total overhead.
+- **Fix (nice-to-have):** Use more specific route pattern or check Accept header.
+- **Priority:** Low. Clean up when convenient.
+
+#### ISSUE-BR-3: Setup noop steps consume agent step budget (P2 — documented, no fix needed)
+
+- **File:** `src/runner/browsergym_bridge.py`, `main()`
+- **Root cause:** Bridge calls `env.step("noop()")` 3-5 times during setup (shopping
+  login, DOM settle, variant injection, short obs retry). BrowserGym's internal step
+  counter increments, so agent effectively has 25-27 steps instead of 30.
+- **Impact:** Systematic bias but consistent across all variants. Does not affect
+  variant-level comparisons. Admin:4 low timeouts at step 30 may actually be step 25-27
+  in BrowserGym's internal count.
+- **Decision:** Document as known limitation. No code change needed — fixing would
+  require using `env.unwrapped._get_obs()` (private API) instead of `env.step("noop()")`.
+
+#### ISSUE-BR-5: Shopping login boolean logic (P2 — downgraded from P0)
+
+- **File:** `src/runner/browsergym_bridge.py`, post-reset shopping login
+- **Root cause:** `is_signed_in` check uses OR instead of AND:
+  `!includes("Sign In") || includes("Sign Out")`. On a page without either string
+  (still rendering), this evaluates to True, skipping login.
+- **Actual risk:** Low. Magento header renders quickly, and `page.wait_for_load_state()`
+  precedes this check. If login is skipped incorrectly, subsequent shopping operations
+  fail visibly (not silently). Pilot 4's ecom tasks (23/24/26) don't require login.
+- **Fix:** Change `||` to `&&`. Low priority.
+
+#### ISSUE-BR-2: extract_observation hardcodes terminated/truncated/reward (P2)
+
+- **File:** `src/runner/browsergym_bridge.py`, `extract_observation()`
+- **Root cause:** Initial observation always sends `terminated=False`. If `env.reset()`
+  returns a pre-terminated state, executor wouldn't see it.
+- **Actual risk:** Theoretical only. No WebArena task starts in a terminated state.
+- **Priority:** Document only.
+
+#### ISSUE-BR-8: flatten_axtree fallback truncates at 200 lines (P2)
+
+- **File:** `src/runner/browsergym_bridge.py`, `flatten_axtree()`
+- **Root cause:** Fallback path caps output at 200 lines.
+- **Actual risk:** Fallback only triggers when BrowserGym's `flatten_axtree_to_str`
+  import fails. In normal operation, the native function is used without truncation.
+- **Priority:** Document only.
+
+### Latent Regression Risks
+
+| Risk | Description | Mitigation |
+|------|-------------|------------|
+| RISK-1 | BrowserGym action timeout monkey-patch reverts on upgrade | Pin BrowserGym version; re-apply sed patch after reinstall |
+| RISK-2 | `id(page)` tracking for variant listeners may fail across GC | Low probability — page objects kept alive by BrowserGym |
+| RISK-3 | `env.unwrapped.page/context` are private APIs | Pin BrowserGym version; add try/except with clear error |
+| RISK-4 | HTTP login CSRF extraction regex fragile | Works for current Magento version; monitor if Docker image changes |
+
+### Action Plan
+
+| Priority | Issue | Action | When |
+|----------|-------|--------|------|
+| 1 | ISSUE-BR-4 | Verify via Pilot 4 token analysis, then fix sentinel | Before next pilot |
+| 2 | ISSUE-BR-1 | Add clearTimeout — one-line fix | Next code push |
+| 3 | ISSUE-BR-7 | Add bridgeLog to ActionTrace | Before next pilot |
+| 4 | ISSUE-BR-6 | Narrow route pattern | When convenient |
+| 5 | ISSUE-BR-3 | Document as known limitation | Done (this entry) |
+| 6 | ISSUE-BR-5 | Fix OR→AND | When convenient |
+| 7 | ISSUE-BR-2 | Document only | Done (this entry) |
+| 8 | ISSUE-BR-8 | Document only | Done (this entry) |
+
+
+---
+
+## 2026-04-08: Bug Fixes — ISSUE-BR-4, ISSUE-BR-1, ISSUE-BR-7
+
+### ISSUE-BR-4 Fix: MutationObserver sentinel (P0)
+
+**File:** `src/runner/browsergym_bridge.py`
+
+**Problem:** Plan D's MutationObserver guard used `nav a[href]` as sentinel to detect
+if Magento restored original DOM. This only works for `low` variant (which replaces
+`<nav>` with `<div>`). For `medium-low` and `high`, `<nav>` is still present, so the
+sentinel always triggers → continuous re-application → duplicate skip-links in high.
+
+**Fix:** Replaced `nav a[href]` sentinel with `[data-variant-revert]` marker check.
+All variant scripts (low, medium-low, high) set `data-variant-revert` attributes on
+modified elements. If these markers are absent, patches were overwritten by Magento.
+
+**Before:**
+```javascript
+var sentinel = document.querySelector("nav a[href], [role=\"navigation\"] a[href]");
+if (sentinel && document.documentElement.getAttribute("data-variant-patched")) {
+```
+
+**After:**
+```javascript
+var hasMarkers = document.querySelector("[data-variant-revert]") !== null;
+if (!hasMarkers && document.documentElement.getAttribute("data-variant-patched")) {
+```
+
+**Impact on Pilot 4 data:** Deep dive analysis (Investigation 6) showed high vs base
+token delta was only +0.1% on ecom:23 and -0.0% on ecom:24 (both 100% success tasks).
+The bug existed but had minimal measurable impact on Pilot 4 — skip-link accumulation
+was not significant enough to distort results. Fix prevents the issue in future runs.
+
+### ISSUE-BR-1 Fix: readObservation timer leak (P1)
+
+**File:** `src/runner/agents/executor.ts`
+
+**Problem:** `readObservation()` used `Promise.race([nextLine(), timeoutPromise])` but
+never cleared the 120s setTimeout when nextLine() resolved first. Over 240 cases × 15
+steps = ~3600 dangling timers holding closures over the child process.
+
+**Fix:** Added `clearTimeout(timer!)` after `Promise.race` resolves.
+
+**Before:**
+```typescript
+const timeoutPromise = new Promise<null>((resolve) => {
+  setTimeout(() => { ... }, BRIDGE_READ_TIMEOUT_MS);
+});
+const line = await Promise.race([nextLine(), timeoutPromise]);
+```
+
+**After:**
+```typescript
+let timer: ReturnType<typeof setTimeout>;
+const timeoutPromise = new Promise<null>((resolve) => {
+  timer = setTimeout(() => { ... }, BRIDGE_READ_TIMEOUT_MS);
+});
+const line = await Promise.race([nextLine(), timeoutPromise]);
+clearTimeout(timer!);
+```
+
+### ISSUE-BR-7 Fix: Bridge stderr captured in trace (P1)
+
+**Files:** `src/runner/types.ts`, `src/runner/agents/executor.ts`
+
+**Problem:** Bridge stderr output (variant injection status, login status, SoM overlay
+counts, errors) was logged to console but not captured in trace data. Cannot verify
+variant injection success/failure from trace files alone.
+
+**Fix:**
+1. Added `bridgeLog?: string` field to `ActionTrace` interface in `types.ts`
+2. Added `getStderrLog(): string` method to `BridgeProcess` interface
+3. `defaultBridgeSpawner` now buffers stderr chunks in `stderrChunks[]` array
+4. `executeAgentTask` calls `bridge.getStderrLog()` before `bridge.close()` and
+   includes it in the returned `ActionTrace`
+5. Stderr buffer capped at 50KB to prevent trace file bloat
+
+**Trace JSON now includes:**
+```json
+{
+  "taskId": "23",
+  "variant": "low",
+  "bridgeLog": "[bridge] Applied variant 'low': 431 DOM changes\n[bridge] Registered Plan D...",
+  ...
+}
+```
+
+### Files Changed
+
+| File | Changes |
+|------|---------|
+| `src/runner/browsergym_bridge.py` | ISSUE-BR-4: sentinel `nav a[href]` → `[data-variant-revert]` |
+| `src/runner/agents/executor.ts` | ISSUE-BR-1: clearTimeout; ISSUE-BR-7: stderr capture + getStderrLog |
+| `src/runner/types.ts` | ISSUE-BR-7: `bridgeLog?: string` field on ActionTrace |
+
+### Verification
+
+All three files pass diagnostics (0 errors, 0 warnings). TypeScript type check clean.
