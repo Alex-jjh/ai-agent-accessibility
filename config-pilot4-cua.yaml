@@ -1,0 +1,67 @@
+# Pilot 4 CUA — Coordinate-based pure-vision agent (parallel to Pilot 4)
+#
+# Same task/variant matrix as Pilot 4 but with CUA observation mode:
+#   6 tasks × 4 variants × 1 agent (CUA) × 5 reps = 120 runs
+#
+# CUA uses Anthropic Computer Use tool via direct Bedrock Converse API.
+# Zero DOM dependency: no a11y tree, no SoM overlays, pure pixel coordinates.
+# This is the "true vision" control condition — if CUA performance is
+# unaffected by accessibility degradation while text-only drops, the
+# causal arrow points definitively to the a11y tree.
+#
+# Key differences from Pilot 4:
+#   - observationMode: "cua" (not text-only or vision-only)
+#   - Bridge runs agent loop internally via boto3 (bypasses LiteLLM)
+#   - ~2x tokens per case vs text-only (~139K vs ~30K)
+#   - Estimated time: ~3-4 hours for 120 cases
+#
+# Variant injection (Plan D) still applies — DOM patches change semantic
+# structure but CUA agent only sees screenshots, not DOM.
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.49:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.49:7780"
+    reddit:
+      url: "http://10.0.1.49:9999"
+
+  tasksPerApp:
+    ecommerce_admin: ["4"]
+    ecommerce: ["23", "24", "26"]
+    reddit: ["29", "67"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["low", "medium-low", "base", "high"]
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+
+runner:
+  repetitions: 5
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "cua"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/pilot4-cua"
+  exportFormats: ["json", "csv"]
