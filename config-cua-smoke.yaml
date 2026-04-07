@@ -1,0 +1,40 @@
+# CUA (Computer Use Agent) smoke test — 1 task × 1 variant × 1 rep = 1 case
+# Verify coordinate-based vision agent via Bedrock Computer Use tool.
+# Uses ecommerce task 23 (review search) — simple, well-tested task.
+# CUA mode bypasses LiteLLM, calls Bedrock directly via boto3.
+
+webarena:
+  apps:
+    shopping:
+      url: "http://10.0.1.49:7770"
+  tasksPerApp:
+    shopping: ["23"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["base"]
+
+runner:
+  repetitions: 1
+  maxSteps: 15
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "cua"
+      llmBackend: "claude-sonnet"
+      maxSteps: 15
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/cua-smoke"
+  exportFormats: ["json", "csv"]
