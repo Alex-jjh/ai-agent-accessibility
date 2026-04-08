@@ -1639,3 +1639,224 @@ Sub-agent review found 4 issues, all fixed:
 | high | 18 | 18 | 100% |
 
 CUA experiment continues running in background. Pattern stable: low ~46% vs non-low 100%.
+
+---
+
+## 2026-04-08: Pilot 4 CUA Complete — 120/120 Cases
+
+### Results Summary
+
+Run ID: `6ad6b0f8-bf5c-44b2-bcb0-9d3d3d7dd261`
+Duration: 284.7 min | Records: 120 | Overall: 109/120 (90.8%)
+
+| Variant | CUA Success | CUA Rate | Text-Only Rate | SoM Rate |
+|---------|-------------|----------|----------------|----------|
+| low | 20/30 | 66.7% | 23.3% | 0.0% |
+| medium-low | 30/30 | 100.0% | 100.0% | 23.3% |
+| base | 29/30 | 96.7% | 86.7% | 20.0% |
+| high | 30/30 | 100.0% | 76.7% | 30.0% |
+
+Task × Variant matrix:
+
+| Task | low | ml | base | high |
+|------|-----|-----|------|------|
+| admin:4 | 5/5 (100%) | 5/5 | 4/5 (80%) | 5/5 |
+| ecom:23 | 5/5 (100%) | 5/5 | 5/5 | 5/5 |
+| ecom:24 | 4/5 (80%) | 5/5 | 5/5 | 5/5 |
+| ecom:26 | 4/5 (80%) | 5/5 | 5/5 | 5/5 |
+| reddit:29 | **0/5 (0%)** | 5/5 | 5/5 | 5/5 |
+| reddit:67 | 2/5 (40%) | 5/5 | 5/5 | 5/5 |
+
+Avg tokens: low 367K, ml 171K, base 178K, high 170K.
+
+**Primary stat**: Low vs base χ²=9.02, p=0.0027, Cramér's V=0.388. Significant.
+
+### Causal Decomposition (Three-Agent Comparison)
+
+Text-only 63.3pp drop at low decomposes into:
+- **~33.3pp (53%) pure semantic** (a11y tree degradation) — isolated by subtracting CUA effect
+- **~30.0pp (47%) cross-layer functional** (JS behavior breakage) — measured by CUA drop
+
+SoM overlay dependency: low_CUA (66.7%) − low_SoM (0%) = 66.7pp additional failure
+from DOM-dependent overlay infrastructure.
+
+### Failure Analysis (11 failures, all timeouts)
+
+| Count | Failure Mode | Cases | Cross-Layer? |
+|-------|-------------|-------|--------------|
+| 8 | Link→span navigation breakage | reddit:29 low ×5, reddit:67 low ×3 | YES |
+| 2 | Tab panel JS breakage | ecom:24 low ×1, ecom:26 low ×1 | YES |
+| 1 | UI complexity (coordinate precision) | admin:4 base ×1 | No |
+
+**100% of low-variant CUA failures are cross-layer confounds.** Zero pure-semantic failures.
+
+### reddit:29 Inversion — Key Finding
+
+| Agent | reddit:29 low | reddit:29 base |
+|-------|--------------|----------------|
+| Text-only | 4/5 (80%) | 5/5 (100%) |
+| CUA | **0/5 (0%)** | 5/5 (100%) |
+
+Text-only succeeds via `goto()` escape (bypasses DOM entirely). CUA must click visual
+elements — link→span conversion breaks Postmill's event delegation, trapping CUA in
+failed-click loops. All 5 traces show: click "Forums" → no navigation → URL typed into
+search box instead of address bar → stuck.
+
+This inversion strengthens the "Same Barrier" hypothesis: CUA's failure more accurately
+mirrors real screen reader user experience (no `goto()` escape hatch).
+
+### Detailed Analysis
+
+Full trace-level analysis of all 11 failures: `data/pilot4-cua-analysis.md`
+
+---
+
+## 2026-04-08: PSL Expanded Smoke — 6/6 Cases Complete
+
+### Results
+
+Run ID: `263059d5-f3b7-4694-acb6-73943a43e6cf`
+Duration: 7.9 min | Records: 6 | Overall: 5/6 (83.3%)
+
+| Task | PSL Result | Expected |
+|------|-----------|----------|
+| ecom:23 | ✅ (3 steps, 26K tokens) | Weak effect (content-reading) |
+| ecom:24 | ✅ (2 steps, 9K tokens) | Weak effect (content-reading) |
+| ecom:26 | ✅ (6 steps) | Weak effect (content-reading) |
+| admin:4 | ✅ (6 steps) | **Expected failure** — succeeded |
+| reddit:29 | ✅ (6 steps) | **Expected failure** — succeeded |
+| reddit:67 | ❌ F_COF | Same as base/high (context overflow) |
+
+### Root Cause: PSL Does Not Work
+
+**`aria-hidden="true"` does NOT hide elements from BrowserGym's a11y tree.** Elements
+appear as `link 'text', hidden=True` but retain bid, role, and name. Agent clicks them
+successfully via `click(bid)` — Playwright's `get_by_test_id(bid)` ignores aria-hidden.
+
+**`role="presentation"` on headings/landmarks is also ignored** — headings still show as
+`heading` role, landmarks (`banner`, `navigation`, `main`, `contentinfo`) all present.
+
+| Layer | aria-hidden="true" Effect |
+|-------|--------------------------|
+| Screen reader | Element completely hidden |
+| Chromium a11y API | Element marked hidden |
+| BrowserGym snapshot | Shows `hidden=True` but **retains bid/role/name** |
+| BrowserGym action | `click(bid)` works — **ignores aria-hidden** |
+
+### Key Insight: BrowserGym Serialization Divergence
+
+BrowserGym's a11y tree serialization is MORE permissive than real screen readers:
+- Real screen reader: `aria-hidden="true"` → element invisible, non-interactable
+- BrowserGym: `aria-hidden="true"` → element visible with `hidden=True` annotation, fully interactable
+
+This is a **quantifiable divergence** between AI agent perception and human AT user perception.
+Publishable as a finding that refines the "Same Barrier" hypothesis.
+
+### Detailed Analysis
+
+Full trace-level analysis: `data/psl-expanded-smoke-analysis.md`
+
+---
+
+## 2026-04-08: Cross-Layer Confound Analysis & Future Experiment Plan
+
+### Problem Statement
+
+The current low variant's 13 patches mix three types of changes:
+
+| Type | Impact | Examples | Count |
+|------|--------|---------|-------|
+| ✅ Pure semantic | Only a11y tree, no visual/functional | Remove alt, aria-label, lang, tabindex, heading role | ~6 |
+| ⚠️ Cross-layer | Visual change but function preserved | Remove `<label>` (text gone, input works), thead→div | ~3 |
+| 🔴 Functional breakage | Deletes actual functionality | link→span (deletes href), Shadow DOM wrapping | ~4 |
+
+CUA data proves the 🔴 patches cause 100% of CUA low-variant failures:
+- Patch 11 (F42: link→span): Breaks Postmill event delegation → reddit:29 CUA 0/5
+- Patch 5 (Shadow DOM) + Patch 2 (ARIA removal): Breaks Magento tab panel JS → ecom:24/26 CUA failures
+
+### Proposed Fix: Patch 11 (link→span) — The Biggest Problem
+
+**Current (breaks functionality):**
+```js
+// <a href="/page"> → <span onclick="window.location.href='/page'">
+// Deletes native navigation. onclick fails in SPA frameworks.
+```
+
+**Proposed fix (semantic-only):**
+```js
+// <a href="/page" role="presentation" tabindex="-1" aria-hidden="true">
+// Preserves href + visual + click. Only kills a11y semantics.
+```
+
+Note: `role="presentation"` is ignored on focusable `<a>` per W3C spec, but
+`aria-hidden="true"` works on focusable elements in Chromium (verified).
+However, PSL experiment showed BrowserGym still exposes these as clickable.
+
+### Proposed Experiment Plan
+
+**Phase 1: low-functional variant (1-2 days)**
+- Copy current low, only fix Patch 11 (link→span → preserve href)
+- Run CUA 30 cases (low-functional × 6 tasks × 5 reps)
+- Expected: CUA ~95%+ (functional breakage removed)
+- Isolates: "how much of CUA failure is from link→span specifically"
+
+**Phase 2: Screen-Reader-Faithful (SRF) serialization (1 day)**
+- Add one-line filter in bridge: remove `hidden=True` nodes from a11y tree before sending to agent
+- Re-run PSL 6 cases with SRF mode
+- Expected: PSL + SRF should cause agent failures (elements genuinely invisible)
+- Isolates: BrowserGym serialization divergence from real screen reader behavior
+
+**Phase 3: Full three-dimensional matrix (optional, 3-5 days)**
+- 3 agents × (base + low-semantic + low-functional + low-full) × 6 tasks × 5 reps
+- Complete causal decomposition: semantic / functional / visual pathways quantified
+
+### SRF (Screen-Reader-Faithful) Serialization — Design
+
+Two approaches, both valuable:
+
+**Approach A: Bridge-level filtering**
+```python
+# In browsergym_bridge.py, after flattening a11y tree:
+# Remove hidden=True nodes to simulate real screen reader behavior
+nodes = [n for n in axtree_nodes if not n.get('hidden', False)]
+```
+- Pro: PSL patches will work, causal isolation achieved
+- Con: No longer "standard BrowserGym" — reviewer may question
+- Position: Additional experimental condition, not replacement
+
+**Approach B: Report divergence as finding**
+- PSL failure = agent insensitive to ARIA semantics = BrowserGym serialization too permissive
+- Position: Discussion section finding
+- Contribution: Quantitative divergence analysis between BrowserGym and real screen readers
+
+**Recommendation: Do both.** Report PSL divergence finding in Discussion. Add SRF condition
+to demonstrate that fixing serialization restores the Same Barrier at ARIA level.
+
+### Chromium ARIA Behavior (Verified)
+
+W3C spec compliance confirmed via `scripts/smoke-psl-a11y-tree.py`:
+- `role="presentation"` on focusable elements (`<a>`, `<button>`): **IGNORED** per spec
+  ("If an element is focusable, user agents MUST ignore the presentation role")
+- `aria-hidden="true"` on focusable elements: **RESPECTED** by Chromium
+  (spec says "SHOULD NOT" but not "MUST NOT" → Chromium honors it)
+- Correct PSL strategy: focusable → `aria-hidden="true"`, non-focusable → `role="presentation"`
+
+### ROI Comparison
+
+| Path | Work | Certainty | Paper Value |
+|------|------|-----------|-------------|
+| Continue tuning PSL patches for BrowserGym | High | Low (more divergences likely) | Medium |
+| SRF one-line filter + re-run PSL | Low (1 line + 30 cases) | High (directly simulates SR) | High (new contribution) |
+
+SRF path adds a contribution: "BrowserGym a11y tree serialization vs real screen reader
+behavior — quantitative divergence analysis."
+
+### Files Referenced
+
+| File | Content |
+|------|---------|
+| `data/pilot4-cua-analysis.md` | Full CUA 120-case trace analysis |
+| `data/psl-expanded-smoke-analysis.md` | PSL 6-case trace analysis with BrowserGym divergence |
+| `scripts/smoke-psl-a11y-tree.py` | Chromium ARIA behavior verification |
+| `src/variants/patches/inject/apply-pure-semantic-low.js` | PSL patch implementation |
+

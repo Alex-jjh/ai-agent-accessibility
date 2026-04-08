@@ -87,21 +87,47 @@ CUA (Computer Use Agent) integration completed (2026-04-07):
 - Two rounds of code review: 11 issues found, all fixed
 - Pilot 4 CUA running: 6 tasks × 4 variants × 5 reps = 120 cases
 
-CUA known issue — low variant cross-layer visual effects:
-- Patch 3 (label removal): form label TEXT disappears from visual rendering
-- Patch 5 (Shadow DOM): elements may lose external CSS styles
-- Patch 9 (table→div): table layout may break visually
-- If CUA shows a11y gradient, need to distinguish: semantic-only vs visual confound
-- Tasks ecom:23/24/26 (review reading) are less affected than admin:4 (form-heavy)
+Pilot 4 CUA completed (2026-04-08): 120/120 cases, 109/120 (90.8%).
+- CUA: low 66.7% → ml 100% → base 96.7% → high 100%
+- Low vs base: χ²=9.02, p=0.0027, V=0.388
+- Causal decomposition: text-only 63.3pp drop = ~33.3pp semantic + ~30.0pp cross-layer
+- reddit:29 INVERSION: CUA 0/5 vs text-only 4/5 at low (link→span breaks navigation)
+- All 10 low-variant CUA failures are cross-layer confounds (0 pure-semantic)
+- admin:4 base 1 failure = UI complexity (coordinate precision), not a11y-related
+- Detailed analysis: data/pilot4-cua-analysis.md
 
-Next steps — Task expansion (incremental):
-- Current: 6 tasks across 2 sites (ecommerce + reddit). Goal: 12+ tasks across 3 sites.
-- Expansion strategy: smoke test per task → verify → add to matrix
-- Priority 1: GitLab tasks (new site, Vue.js DOM, different structure)
-- Priority 2: Form submission tasks (ARIA label + form association coverage)
-- Priority 3: Dropdown/select tasks (combobox/listbox role)
-- Each new task: base smoke → low variant smoke → add to full matrix
-- GitLab variant patches may need site-specific tuning (Vue.js rendering)
+PSL expanded smoke completed (2026-04-08): 6 cases, 5/6 (83.3%).
+- PSL does NOT work: aria-hidden="true" shows as `hidden=True` in BrowserGym but
+  elements retain bid/role/name and are fully clickable via click(bid)
+- role="presentation" on headings/landmarks also ignored in BrowserGym snapshot
+- BrowserGym serialization divergence from real screen readers = publishable finding
+- Detailed analysis: data/psl-expanded-smoke-analysis.md
+
+Cross-layer confound identified — low variant patches classified:
+- ✅ Pure semantic (~6 patches): alt, aria-label, lang, tabindex, heading role
+- ⚠️ Cross-layer (~3 patches): label removal, thead→div
+- 🔴 Functional breakage (~4 patches): link→span (deletes href), Shadow DOM
+
+Architecture diagrams generated (2026-04-08):
+- 4 figures in figures/ (matplotlib, 300dpi PNG):
+  - figure1_system_architecture.png: system overview with 3-layer injection mechanism
+  - figure2_axtree_pipeline.png: a11y tree processing from Chrome to agent observation
+  - figure3_variant_injection.png: variant patch detail per level + agent impact matrix
+  - figure4_layer_model.png: five-layer architecture (L0-L4) with bid lifecycle
+- figure4_layer_model_spec.md: detailed text spec for hand-drawing the layer diagram
+- Five-layer model documented: L0 Server (untouched) → L1 DOM (all patches target here)
+  → L2 Blink AX Tree (auto-derived) → L3 BrowserGym (serialization + bid + SoM)
+  → L4 Agent (observation + action)
+- bid lifecycle: born in L3, written to L1, read via L2, serialized in L3, used by L4, resolved back to L1
+- Phantom bid mechanism: variant patch replaces DOM node → bid attr lost → SoM label persists
+  in screenshot → agent clicks stale bid → "Could not find element" → 20+ retry loop
+
+Next steps — Causal isolation experiments:
+- Phase 1: Fix Patch 11 (link→span → preserve href), run CUA 30 cases
+- Phase 2: SRF (Screen-Reader-Faithful) serialization — filter hidden=True nodes
+  in bridge, re-run PSL 6 cases. One-line change, high ROI.
+- Phase 3 (optional): Full 3-agent × 4-variant decomposition matrix
+- Task expansion deferred until causal isolation resolved
 
 ## WebArena Task ID Mapping (CRITICAL)
 
@@ -190,6 +216,17 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
   ObservationMode: 'text-only' | 'vision' | 'vision-only' | 'cua'
   CUA bridge read timeout: wallClockTimeoutMs + 30s (default 630s, vs 120s for others).
   Screenshot eviction: sliding window keeps last 5 turns to avoid 20MB Bedrock limit.
+  CUA RESULTS: 109/120 (90.8%). Low 66.7% vs base 96.7%. Causal decomposition:
+  text-only 63.3pp drop = ~33pp semantic + ~30pp cross-layer functional.
+  reddit:29 inversion (CUA 0/5 vs text-only 4/5) = link→span functional breakage.
+- PSL (Pure-Semantic-Low) variant: DOES NOT WORK with default BrowserGym serialization.
+  aria-hidden="true" → BrowserGym shows `hidden=True` but elements remain clickable.
+  role="presentation" → ignored on headings/landmarks in BrowserGym snapshot.
+  Root cause: BrowserGym serialization is more permissive than real screen readers.
+  Solution: SRF (Screen-Reader-Faithful) mode — filter hidden=True nodes in bridge.
+- Low variant cross-layer confound: Patch 11 (link→span) deletes href functionality,
+  not just semantics. CUA data proves 100% of low CUA failures are functional breakage.
+  Fix: preserve <a href> but add aria-hidden="true" (semantic-only degradation).
 - Variant levels: low (0.0–0.25), medium-low (0.25–0.50), base (0.40–0.70), high (0.75–1.0)
 - Medium-Low variant models real-world pseudo-compliance (ARIA present, handlers missing)
 - Low variant operators grounded in Ma11y [ISSTA 2024] WCAG failure techniques:
