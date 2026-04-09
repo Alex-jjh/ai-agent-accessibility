@@ -2,300 +2,196 @@
 
 Empirical research platform studying the relationship between web accessibility and AI agent task success. Tests the **"Same Barrier" hypothesis**: AI agents and screen reader users face structurally equivalent barriers because both depend on the browser Accessibility Tree.
 
-Targets CHI 2027 / ASSETS 2027 submission.
+**Target**: CHI 2027 / ASSETS 2027
+
+## Key Finding
+
+Degrading web accessibility from baseline to low causes text-only agent success to drop from 86.7% to 23.3% (p<0.000001, Cramér's V=0.637). This is the first controlled empirical evidence that web accessibility predicts AI agent task success, replicated across five experimental rounds (N=240 in the full experiment).
+
+## How It Works
+
+We hold the agent constant and programmatically manipulate web accessibility at the DOM level, then measure how each agent type is affected.
+
+### Five-Layer Architecture
+
+```
+L4: Agent          Three agent types observe and act differently
+L3: BrowserGym     Serializes AX Tree to text, draws SoM overlays, manages bid mapping
+L2: Blink AX Tree  Chrome auto-derives from DOM (we never modify this directly)
+L1: DOM            ★ THE ONLY LAYER WE MODIFY — all variant patches target here
+L0: Server         WebArena apps (Magento, Postmill, GitLab) — untouched
+```
+
+We only modify the DOM. The AX Tree changes are automatic consequences. Three delivery mechanisms (page.evaluate, page.on("load"), Plan D context.route) are just different ways to get the same JavaScript to the DOM layer — Plan D is the persistence mechanism that survives page navigations.
+
+### Accessibility Variants
+
+Four levels applied via client-side DOM manipulation:
+
+| Variant | What it does | Example patches |
+|---------|-------------|-----------------|
+| **Low** | Aggressively degrade accessibility | Strip all ARIA attrs, replace `<nav>`→`<div>`, `<a>`→`<span>`, Shadow DOM wrapping, focus traps |
+| **Medium-Low** | Fake accessibility (pseudo-compliance) | ARIA roles present but keyboard handlers removed, form labels stripped |
+| **Base** | Original website, no changes | Control condition |
+| **High** | Enhance accessibility | Add aria-labels, skip-nav link, landmark roles, form labels, image alt text |
+
+Same website, same content, same tasks — only DOM semantic quality varies.
+
+### Three Agent Types
+
+| Agent | Observes | Acts | Layers Used | Pilot 4 Low |
+|-------|----------|------|-------------|-------------|
+| **Text-Only** | AX Tree serialized as text (`[42] link "Home"`) | `click("bid")` via BrowserGym | L1→L2→L3→L4 (full chain) | 23.3% |
+| **SoM Vision** | Screenshot with bid number overlays | `click("bid")` — same as Text-Only | L1→L2→L3→L4 (same chain, different L3 output) | 0.0% |
+| **CUA** | Raw screenshot (no bid, no AX Tree) | `mouse.click(x, y)` via Playwright | L1→L4 direct (skips L2+L3) | 66.7% |
+
+Text-Only and SoM share the same pipeline through L1→L2→L3; they differ only in how L3 encodes the output (text vs image+overlay). CUA bypasses L2 and L3 entirely — it's the "pure vision" control condition.
+
+### bid Lifecycle
+
+BrowserGym assigns a numeric identifier (bid) to each interactive DOM element. This bid is:
+1. Born in L3 (BrowserGym), written back to L1 (DOM) as `browsergym_set_of_marks="42"`
+2. Read by Chrome into L2 (AX Tree) as a node property
+3. Serialized by L3 into text (`[42] link "Home"`) or drawn as SoM overlay labels
+4. Used by agents to act: `click("42")` → BrowserGym finds DOM element → Playwright clicks it
+
+When variant patches replace a DOM element (e.g., `<a>` → `<span>`), the old node with its bid is deleted. The SoM overlay label persists in the screenshot as a stale bitmap — this is the **phantom bid** phenomenon that causes SoM agents to fail at 0% under low accessibility.
+
+## Pilot Results (N=240+120)
+
+### Pilot 4: Text-Only + SoM (N=240)
+
+| Variant | Text-Only | SoM Vision |
+|---------|-----------|------------|
+| Low | 23.3% | 0.0% |
+| Medium-Low | 100.0% | 23.3% |
+| Base | 86.7% | 20.0% |
+| High | 76.7% | 30.0% |
+
+Primary stat: Low vs Base χ²=24.31, p<0.000001, Cramér's V=0.637
+
+### Pilot 4 CUA (N=120)
+
+| Variant | CUA |
+|---------|-----|
+| Low | 66.7% |
+| Medium-Low | 100.0% |
+| Base | 96.7% |
+| High | 100.0% |
+
+Causal decomposition: Text-only 63.3pp drop = ~33pp semantic (invisible to CUA) + ~30pp functional breakage (affects all agents)
 
 ## Research Design
 
-**Track A — Controlled Experiments**: 4 WebArena self-hosted apps × 4 accessibility variant levels (Low → High) × multiple agent configurations. Measures how degrading or enhancing accessibility affects agent task success.
+**Track A — Controlled Experiments**: WebArena apps × 4 accessibility variants × 3 agent types × 5 repetitions. Environment-centric evaluation paradigm — we vary the environment, not the agent.
 
-**Track B — Ecological Survey**: 50+ real-world websites captured as HAR archives and replayed for reproducible scanning and agent testing.
+**Track B — Ecological Survey**: 200+ real-world websites captured as HAR archives for landscape measurement and ecological validation.
 
 ## Architecture
 
-Six modules, TypeScript for modules 1–5, Python for module 6:
+Six modules (TypeScript for 1–5, Python for 6):
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Configuration Layer                         │
-│              YAML/JSON config · Manifest generator               │
-└──────────────────────────┬──────────────────────────────────────┘
-                           │
-  ┌────────────┬───────────┼───────────┬──────────────┐
-  ▼            ▼           ▼           ▼              ▼
-┌──────┐  ┌────────┐  ┌────────┐  ┌──────────┐  ┌──────────┐
-│Scan- │  │Variant │  │Agent   │  │Failure   │  │HAR       │
-│ner   │  │Genera- │  │Runner  │  │Classi-   │  │Recorder  │
-│(M1)  │  │tor(M2) │  │(M3)    │  │fier(M4)  │  │(M5)      │
-└──┬───┘  └───┬────┘  └───┬────┘  └────┬─────┘  └────┬─────┘
-   │          │            │            │              │
-   └──────────┴────────────┴────────────┴──────────────┘
-                           │
-                    JSON Store + CSV Export
-                           │
-                           ▼
-                ┌─────────────────────┐
-                │  Analysis Engine    │
-                │  (M6 · Python)     │
-                │  CLMM · GEE · SHAP │
-                └─────────────────────┘
+src/scanner/        Tier 1 (axe-core + Lighthouse) + Tier 2 (7 CDP metrics)
+src/variants/       DOM patch engine for 4 accessibility levels
+src/runner/         Agent executor, LLM backend, experiment scheduler
+  browsergym_bridge.py   BrowserGym bridge (AX Tree, SoM overlay, bid mapping)
+  cua_bridge.py          CUA agent loop (boto3 Bedrock, coordinate actions)
+src/classifier/     Auto-classifier (12 failure types across 5 domains)
+src/recorder/       HAR capture and replay for Track B
+src/config/         YAML/JSON config loader with validation
+src/export/         Manifest, CSV export, JSON store
+analysis/           Python: CLMM, GEE, Random Forest + SHAP, semantic density
+figures/            Architecture diagrams (matplotlib, 300dpi PNG)
 ```
 
-Modules communicate via TypeScript interfaces and JSON files — no runtime RPC. The Python Analysis Engine consumes CSV exports only.
+## Variant Injection (Plan D)
 
-## Modules
+All variant patches are pure browser JavaScript that modify the live DOM via standard APIs (`querySelector`, `replaceWith`, `removeAttribute`). Three delivery mechanisms ensure patches persist:
 
-### Module 1: Scanner (`src/scanner/`)
+1. **page.evaluate** — one-shot after `env.reset()`
+2. **page.on("load")** — re-inject on same-page navigation
+3. **context.route("**/*")** (Plan D) — intercept HTTP responses at the network level, inject `<script>` into HTML with deferred execution (window.load + 500ms + MutationObserver guard)
 
-Accessibility measurement with two tiers:
+Plan D is the primary persistence mechanism. It catches all HTML responses including agent-triggered `goto()` navigations. Verified: 33/33 goto traces show persistent degradation in Pilot 4.
 
-- **Tier 1**: axe-core violations + Lighthouse accessibility score (standard automated tools)
-- **Tier 2**: 7 novel functional metrics via Playwright + CDP:
-  - Semantic HTML ratio
-  - Accessible name coverage
-  - Keyboard navigability (with trap detection)
-  - ARIA correctness
-  - Pseudo-compliance detection (role present, handler absent)
-  - Form labeling completeness
-  - Landmark coverage
-- **A11y Tree Stability**: polls at configurable intervals, SHA-256 hash comparison, proceeds on timeout
-- **Composite Score**: supplementary weighted aggregate (primary analysis uses criterion-level vectors)
-- **Serialization**: round-trip JSON serialize/deserialize with property-based testing
-- **Concurrent scanning**: configurable parallelism with isolated browser contexts
+## Failure Taxonomy
 
-### Module 2: Variant Generator (`src/variants/`)
+12 failure types across 5 domains:
 
-Creates four accessibility levels for WebArena apps via DOM manipulation:
+| Domain | Types |
+|--------|-------|
+| Accessibility | Content invisibility, Structural infeasibility, Token inflation, Phantom bid (SoM), Keyboard trap, Pseudo-compliance trap, Shadow DOM invisible |
+| Model | Context overflow, Reasoning error, Harmful affordance trap |
+| Platform | Action serialization error |
+| Environmental | Anti-bot block, Network timeout |
 
-| Level | Composite Score Range | Strategy |
-|-------|----------------------|----------|
-| Low | 0.00 – 0.25 | Strip semantics, remove ARIA, disable keyboard handlers, Shadow DOM wrapping |
-| Medium-Low | 0.25 – 0.50 | Pseudo-compliance: ARIA roles present but handlers removed (models real-world inaccessible state) |
-| Base | 0.40 – 0.70 | Unmodified DOM (no-op) |
-| High | 0.75 – 1.00 | Add missing labels, skip-nav, landmarks, fix axe-core auto-remediable violations |
-
-All manipulations are recorded as reversible diffs with DOM hash verification.
-
-### Module 3: Agent Runner (`src/runner/`)
-
-Executes AI agents against target websites via BrowserGym:
-
-- **Agent Executor**: BrowserGym subprocess bridge, action trace logging, step limit enforcement
-- **LLM Backend**: LiteLLM proxy adapter supporting Claude and GPT-4o with exponential backoff retry
-- **Experiment Matrix Scheduler**: Fisher-Yates randomized execution, configurable repetitions, resume support
-- **Concurrency**: parallel test case execution with browser context isolation and resource monitoring
-- **WebArena Integration**: Docker app connectivity verification, state reset between runs
-
-### Module 4: Failure Classifier (`src/classifier/`)
-
-Attributes agent failures to an 11-type taxonomy across 4 domains:
-
-| Domain | Failure Types |
-|--------|--------------|
-| Accessibility | Element not found (F_ENF), Wrong element actuation (F_WEA), Keyboard trap (F_KBT), Pseudo-compliance trap (F_PCT), Shadow DOM invisible (F_SDI) |
-| Model | Hallucination (F_HAL), Context overflow (F_COF), Reasoning error (F_REA) |
-| Environmental | Anti-bot block (F_ABB), Network timeout (F_NET) |
-| Task | Task ambiguity (F_AMB) |
-
-Supports dual reporting modes (conservative: accessibility-only, inclusive: all), confidence scoring, and low-confidence flagging for manual review. Includes Cohen's kappa inter-rater reliability computation.
-
-### Module 5: HAR Recorder (`src/recorder/`)
-
-Captures and replays HTTP archives for Track B:
-
-- **Capture**: Playwright-based HAR recording with dynamic content wait, concurrent capture, metadata sidecar (geo, sector, language)
-- **Replay**: `routeFromHAR` serving with 404 fallback, functional vs non-functional request classification, coverage gap metric, low-fidelity flagging (>20% functional gap)
-
-### Module 6: Analysis Engine (`analysis/`)
-
-Python statistical analysis consuming CSV exports:
-
-- **Primary Analysis**: Mixed-effects logistic regression (CLMM via pymer4 or GEE fallback) for Track A; GEE with criterion-level feature vectors for Track B; interaction effect testing (Text-Only vs Vision agent gradient)
-- **Secondary Analysis**: Random Forest with SHAP values ranking WCAG criteria by predictive importance; partial dependence plots
-- **Visualization**: Heatmaps, SHAP beeswarm plots, interaction effect plots, failure taxonomy Sankey diagrams
-
-See [`analysis/README.md`](analysis/README.md) for setup details and CLMM implementation decision tree.
-
-### Cross-Cutting: Data Export (`src/export/`)
-
-- **Manifest Generator**: software versions, full config, test case outcomes for reproducibility
-- **CSV Exporter**: R/Python-ready exports with PII anonymization and optional site identity anonymization
-- **JSON Store**: structured filesystem layout (`data/track-a/runs/`, `data/track-b/har/`, `data/exports/`)
+Pilot 4 finding: accessibility-attributed failures dominate the low variant (78%), model-attributed failures dominate non-low variants (100%). Clean separation supports the claim that accessibility degradation introduces a mechanistically distinct failure pathway.
 
 ## Prerequisites
 
-- **Node.js** ≥ 18
-- **Python** ≥ 3.10 (for Analysis Engine)
-- **Playwright browsers**: installed via `npx playwright install`
-- **LiteLLM proxy** running at `localhost:4000` (for agent execution)
-- **WebArena Docker apps** (for Track A): Reddit, GitLab, CMS, E-commerce
+- Node.js >= 18
+- Python >= 3.10 (for analysis)
+- Playwright browsers: `npx playwright install`
+- LiteLLM proxy at localhost:4000 (for Text-Only/SoM agents)
+- AWS Bedrock access (for CUA agent via boto3)
+- WebArena Docker apps (Magento, Postmill, GitLab)
 
 ## Setup
 
-### TypeScript Platform (Modules 1–5)
-
 ```bash
+# TypeScript platform
 npm install
 npx playwright install
-```
 
-### Python Analysis Engine (Module 6)
-
-```bash
+# Python analysis
 cd analysis
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-See [`analysis/README.md`](analysis/README.md) for pymer4/R dependency details.
+## Running Experiments
 
-## Usage
+Experiments are configured via YAML and run on EC2 via nohup (SSM sessions disconnect after ~20 min):
 
-### Configuration
+```bash
+# Run a pilot experiment
+bash scripts/launch-pilot4.sh
 
-Create a YAML or JSON config file. Only `webarena.apps` is required — all other fields have documented defaults:
-
-```yaml
-webarena:
-  apps:
-    reddit:
-      url: "http://localhost:9999"
-    gitlab:
-      url: "http://localhost:8023"
-    cms:
-      url: "http://localhost:7770"
-    ecommerce:
-      url: "http://localhost:7780"
-
-scanner:
-  wcagLevels: ["A", "AA"]
-  concurrency: 5
-
-runner:
-  repetitions: 3
-  maxSteps: 30
-  concurrency: 3
-  agentConfigs:
-    - observationMode: "text-only"
-      llmBackend: "claude-opus"
-    - observationMode: "vision"
-      llmBackend: "gpt-4o"
-
-output:
-  dataDir: "./data"
-  exportFormats: ["json", "csv"]
-```
-
-### Running Experiments
-
-```typescript
-import { runTrackA, runTrackB } from './src/index.js';
-import { chromium } from 'playwright';
-
-const browser = await chromium.launch();
-
-// Track A: Controlled WebArena experiments
-const trackAResult = await runTrackA({
-  configPath: './config.yaml',
-  browser,
-});
-
-// Track B: Ecological survey via HAR replay
-const trackBResult = await runTrackB({
-  configPath: './config.yaml',
-  urls: ['https://example.com', 'https://example.org'],
-  browser,
-});
-
-await browser.close();
+# Or directly
+nohup npx tsx scripts/run-pilot3.ts --config config-pilot4.yaml > pilot4.log 2>&1 &
 ```
 
 ## Testing
 
-### TypeScript Tests
-
 ```bash
-# Run all tests
-npm test
+# TypeScript (334 tests)
+npm test        # vitest
+npm run lint    # tsc --noEmit
 
-# Type check
-npm run lint
+# Python (67 tests)
+cd analysis && python -m pytest -v
 ```
 
-318 tests across 23 test files covering all TypeScript modules.
+## Key Documentation
 
-### Python Tests
+- `docs/platform-engineering-log.md` — Full bug/fix/regression history
+- `docs/ma11y-operator-mapping.md` — Ma11y operator audit + novel extensions
+- `docs/design-variant-injection.md` — Variant injection design evolution
+- `figures/figure4_layer_model_spec.md` — Five-layer architecture detailed spec
+- `data/*.md` — Per-pilot analysis reports
 
-```bash
-cd analysis
-.venv/bin/python -m pytest -v   # Windows: .venv\Scripts\python -m pytest -v
-```
+## Contributions
 
-56 tests covering statistical models and visualization.
-
-## Project Structure
-
-```
-├── src/
-│   ├── index.ts                    # End-to-end pipeline (Track A + Track B)
-│   ├── scanner/
-│   │   ├── tier1/scan.ts           # axe-core + Lighthouse
-│   │   ├── tier2/scan.ts           # 7 CDP-based functional metrics
-│   │   ├── snapshot/stability.ts   # A11y Tree stability detection
-│   │   ├── composite.ts            # Supplementary composite score
-│   │   ├── serialization.ts        # Scan result round-trip serialization
-│   │   ├── concurrent.ts           # Parallel URL scanning
-│   │   └── types.ts
-│   ├── variants/
-│   │   ├── patches/                # DOM patch engine (Low/Med-Low/Base/High)
-│   │   ├── validation/             # Variant score range validation
-│   │   └── types.ts
-│   ├── runner/
-│   │   ├── agents/executor.ts      # BrowserGym agent executor
-│   │   ├── backends/llm.ts         # LiteLLM adapter with retry
-│   │   ├── scheduler.ts            # Experiment matrix scheduler
-│   │   ├── concurrency.ts          # Parallel execution with isolation
-│   │   ├── webarena.ts             # Docker app integration
-│   │   ├── serialization.ts        # Action trace round-trip serialization
-│   │   └── types.ts
-│   ├── classifier/
-│   │   ├── taxonomy/classify.ts    # 11-type auto-classifier
-│   │   ├── review/                 # Manual review + Cohen's kappa
-│   │   └── types.ts
-│   ├── recorder/
-│   │   ├── capture/capture.ts      # HAR recording
-│   │   ├── replay/replay.ts        # HAR replay with coverage gap
-│   │   └── types.ts
-│   ├── config/
-│   │   ├── loader.ts               # YAML/JSON config loader + validator
-│   │   └── types.ts
-│   └── export/
-│       ├── manifest.ts             # Experiment manifest generator
-│       ├── csv.ts                  # CSV export with PII scrubbing
-│       └── store.ts                # Filesystem JSON store
-├── analysis/
-│   ├── models/
-│   │   ├── primary.py              # CLMM + GEE (Req 13)
-│   │   └── secondary.py            # Random Forest + SHAP (Req 14)
-│   ├── viz/
-│   │   └── figures.py              # Paper-ready figures
-│   ├── requirements.txt
-│   └── README.md
-├── docs/
-│   └── browsergym-notes.md         # BrowserGym API findings
-├── package.json
-└── tsconfig.json
-```
-
-## Key Design Decisions
-
-- **Criterion-level feature vectors** are the primary independent variables — Composite Score is supplementary for interpretability only
-- **Vision agent is a control condition**: expected to show weak/null accessibility gradient (bypasses A11y Tree), confirming the causal mechanism
-- **Medium-Low variant** models real-world pseudo-compliance (ARIA present, handlers missing) — the most common inaccessible state
-- **`Promise.allSettled()`** for parallel operations — one tool's failure never blocks another
-- **All metrics normalized to 0.0–1.0** inclusive
-- **Deterministic variants**: same input DOM + variant level = same output
-- **Resume support**: experiment scheduler persists completed cases to disk, can resume interrupted runs
+| Type | Contribution |
+|------|-------------|
+| Empirical | First controlled evidence that web accessibility predicts AI agent task success (p<0.000001, replicated 5x) |
+| Paradigmatic | Environment-centric evaluation paradigm for web agents |
+| Methodological | Failure taxonomy, multi-tier measurement, Plan D variant injection |
+| Conceptual | "Same Barrier" hypothesis bridging accessibility and AI agent research |
+| Novel Finding | DOM semantic quality affects vision agents through SoM overlay infrastructure (phantom bids) |
+| Theoretical | Duality framework: same DOM change causes failure (phantom bids) OR success (forced strategy simplification) |
 
 ## License
 
