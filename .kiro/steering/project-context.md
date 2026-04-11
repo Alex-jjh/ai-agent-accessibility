@@ -157,13 +157,37 @@ When adding new tasks to the experiment, follow this incremental validation proc
 
 ### Step 3: Full experiment run
 - Only after smoke validation passes for all variants
-- Config: new task(s) × 4 variants × 5 reps × text-only (+ optionally CUA)
+- Config: task-X × 4 variants × 5 reps × text-only (+ optionally SoM, CUA)
+- Naming: task-X-full (e.g., task-5-full, task-23-full)
 - Use experiment-run-and-upload.sh for auto S3 upload on completion
-- Download locally, run analysis, compare with existing task results
+- Download locally, run per-task analysis, verify results make sense
+- This is the FINAL data for task X — no need to re-run later in a batch
 
-### Step 4: Integrate into main experiment
-- Add validated tasks to the primary config (config-pilot5.yaml or similar)
-- Update task count in steering and proposal
+### Step 4: Data integration (analysis time, not experiment time)
+- Per-task data directories: data/task-5-full/, data/task-23-full/, etc.
+- At analysis time, merge all task-*-full/ traces into a single CSV:
+  `python analysis/merge_tasks.py data/task-*-full/ > data/combined-experiment.csv`
+- CLMM/GEE treats task as random effect — doesn't matter if data was collected
+  in one batch or 20 separate runs, as long as conditions are consistent
+- No need to re-run all tasks together in a single "full experiment" batch
+
+### Consistency requirements (CRITICAL for cross-task data merging)
+Data from different task runs can ONLY be merged if these conditions are identical:
+- LLM model version: same Bedrock model ID (e.g., us.anthropic.claude-sonnet-4-20250514-v1:0)
+- Variant patch scripts: same apply-low.js / apply-medium-low.js / apply-high.js
+- BrowserGym version: same pip package version
+- Bridge code: same browsergym_bridge.py and cua_bridge.py
+
+If ANY of these change mid-experiment (e.g., you fix the link→span cross-layer confound
+in apply-low.js), you MUST:
+1. Record the change with a batch marker (e.g., "batch-v1" vs "batch-v2")
+2. Either: re-run affected tasks with the new code, OR
+3. Analyze batches separately and report as distinct experimental conditions
+4. NEVER silently merge data from different patch versions
+
+Practical approach: freeze variant scripts before starting task expansion.
+Make all patch fixes first, then run tasks. If a fix is needed mid-expansion,
+tag the batch boundary in a manifest file and document it.
 
 ## Weekly Account Rotation Workflow
 
