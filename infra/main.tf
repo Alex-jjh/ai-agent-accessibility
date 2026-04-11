@@ -31,7 +31,7 @@ variable "aws_region" {
 
 variable "instance_type" {
   type    = string
-  default = "r6i.2xlarge"
+  default = "r6i.4xlarge"
 }
 
 variable "project_name" {

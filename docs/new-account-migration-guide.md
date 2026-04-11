@@ -10,7 +10,7 @@
 
 - 获取新的 burner 账户（`https://iad.merlon.amazon.dev/burner-accounts`）
 - 账户需要以下权限/服务：
-  - EC2（r6i.2xlarge + t3a.xlarge）
+  - EC2（r6i.4xlarge + t3a.2xlarge）
   - S3
   - IAM（创建 role/policy/instance-profile）
   - VPC（创建 VPC/Subnet/NAT/IGW/VPC Endpoints）
@@ -45,7 +45,7 @@
 |--------|--------|----------|
 | `provider.aws.profile` | `"a11y-pilot"` | 改为新账户的 AWS CLI profile 名称。如果不使用 profile 而是用环境变量认证，可以删除此行 |
 | `variable.aws_region.default` | `"us-east-2"` | **必须保持 `us-east-2`**，因为 WebArena AMI 只在此 region 可用。如果要换 region，需要先将 AMI 复制到目标 region（见 §3.1） |
-| `variable.instance_type.default` | `"r6i.2xlarge"` | 可根据预算调整。最低建议 `r6i.xlarge`（4 vCPU, 32GB），实验运行需要大量内存 |
+| `variable.instance_type.default` | `"r6i.4xlarge"` | 可根据预算调整。最低建议 `r6i.xlarge`（4 vCPU, 32GB），实验运行需要大量内存 |
 | `variable.github_repo.default` | `"https://github.com/Alex-jjh/ai-agent-accessibility.git"` | 改为你的 repo URL。如果是私有 repo，需要在 user-data.sh 中配置 git 认证 |
 
 #### `infra/webarena.tf`
@@ -53,14 +53,14 @@
 | 配置项 | 当前值 | 修改说明 |
 |--------|--------|----------|
 | `aws_instance.webarena.ami` | `"ami-08a862bf98e3bd7aa"` | WebArena 预装 AMI，**仅在 us-east-2 可用**。换 region 需要先 `aws ec2 copy-image` 到目标 region |
-| `aws_instance.webarena.instance_type` | `"t3a.xlarge"` | 可调整。WebArena Docker 容器（特别是 GitLab）需要至少 4GB RAM |
+| `aws_instance.webarena.instance_type` | `"t3a.2xlarge"` | 可调整。WebArena Docker 容器（特别是 GitLab）需要至少 4GB RAM |
 | `root_block_device.volume_size` | `1000` | WebArena Docker 镜像需要约 800GB。不建议减小 |
 
 #### `infra/terraform.tfvars.example` → 创建 `infra/terraform.tfvars`
 
 ```hcl
 aws_region    = "us-east-2"           # 保持不变（AMI 限制）
-instance_type = "r6i.2xlarge"         # 按需调整
+instance_type = "r6i.4xlarge"         # 按需调整
 project_name  = "a11y-platform"       # 按需修改，影响所有资源命名
 github_repo   = "https://github.com/<YOUR_USER>/<YOUR_REPO>.git"
 ```
@@ -272,8 +272,8 @@ terraform output
 | IAM Role: Platform | `aws_iam_role` | SSM + Bedrock + S3 权限 |
 | IAM Role: WebArena | `aws_iam_role` | SSM 权限 |
 | S3 Bucket | `aws_s3_bucket` | 实验数据存储 |
-| EC2: Platform | `aws_instance` | r6i.2xlarge, 100GB, Amazon Linux 2023 |
-| EC2: WebArena | `aws_instance` | t3a.xlarge, 1TB, WebArena AMI (Ubuntu) |
+| EC2: Platform | `aws_instance` | r6i.4xlarge, 100GB, Amazon Linux 2023 |
+| EC2: WebArena | `aws_instance` | t3a.2xlarge, 1TB, WebArena AMI (Ubuntu) |
 
 ### 3.3 WebArena 配置（SSM 连接到 WebArena EC2）
 
@@ -412,17 +412,19 @@ find data/regression -name "trace-attempt-*.json" | wc -l
 
 ## 5. 成本估算
 
-| 资源 | 每小时 | 每天（24h） | 说明 |
-|------|--------|------------|------|
-| r6i.2xlarge (Platform) | ~$0.50 | ~$12.00 | 8 vCPU, 64GB RAM |
-| t3a.xlarge (WebArena) | ~$0.15 | ~$3.60 | 4 vCPU, 16GB RAM |
-| NAT Gateway | ~$0.045 | ~$1.08 | + 数据传输费 |
-| VPC Endpoints (4 Interface) | ~$0.04 | ~$0.96 | SSM×3 + Bedrock |
-| S3 | 忽略不计 | — | |
-| Bedrock LLM 调用 | 变动 | ~$10-50/pilot | 取决于实验规模 |
-| **合计** | ~$0.75 | **~$18 + LLM** | |
+| 资源 | 每小时 | 每天（24h） | 每周（7天） | 说明 |
+|------|--------|------------|------------|------|
+| r6i.4xlarge (Platform) | ~$1.01 | ~$24.19 | ~$169.34 | 16 vCPU, 128GB RAM |
+| t3a.2xlarge (WebArena) | ~$0.30 | ~$7.22 | ~$50.54 | 8 vCPU, 32GB RAM |
+| NAT Gateway | ~$0.045 | ~$1.08 | ~$7.56 | + 数据传输费 |
+| VPC Endpoints (4 Interface) | ~$0.04 | ~$0.96 | ~$6.72 | SSM×3 + Bedrock |
+| EBS (100GB gp3 + 1000GB gp3) | ~$0.012 | ~$0.29 | ~$2.00 | Platform + WebArena 磁盘 |
+| S3 | 忽略不计 | — | — | |
+| Bedrock LLM 调用 | 变动 | ~$10-50/pilot | ~$30-150 | 取决于实验规模 |
+| **合计（不含 LLM）** | **~$1.41** | **~$33.74** | **~$236.16** |
+| **合计（含 LLM 估算）** | — | — | **~$270-390** | |
 
-**省钱建议**：不跑实验时 stop EC2 instances（`aws ec2 stop-instances`），NAT Gateway 和 VPC Endpoints 仍会计费。
+**省钱建议**：不跑实验时 stop EC2 instances（`aws ec2 stop-instances`），EBS 仍计费但 EC2 计算费停止。NAT Gateway 和 VPC Endpoints 7×24 计费，如果长时间不用可以 terraform destroy 再重建。
 
 ---
 
