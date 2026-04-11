@@ -108,6 +108,16 @@ Cross-layer confound identified — low variant patches classified:
 - ⚠️ Cross-layer (~3 patches): label removal, thead→div
 - 🔴 Functional breakage (~4 patches): link→span (deletes href), Shadow DOM
 
+Three-layer independence framework established (2026-04-09):
+- DOM semantic layer, JS behavior layer, Visual/CSS layer are independent
+- Normal users perceive via visual+JS; screen readers and AI agents via DOM semantic
+- Low variant breaks DOM semantic layer → all agent types affected
+- ARIA annotation layer divergence: BrowserGym agents have "superpower" over real
+  screen readers at ARIA level (aria-hidden elements remain clickable)
+- Experimental results are conservative lower bound of true accessibility impact
+- BrowserGym serialization fidelity gap affects ALL BrowserGym benchmarks
+  (WebArena, VisualWebArena, WorkArena) — systematic overestimation of agent robustness
+
 Architecture diagrams generated (2026-04-08):
 - 4 figures in figures/ (matplotlib, 300dpi PNG):
   - figure1_system_architecture.png: system overview with 3-layer injection mechanism
@@ -122,17 +132,34 @@ Architecture diagrams generated (2026-04-08):
 - Phantom bid mechanism: variant patch replaces DOM node → bid attr lost → SoM label persists
   in screenshot → agent clicks stale bid → "Could not find element" → 20+ retry loop
 
-Next steps — Task expansion with incremental validation:
-- Phase 0 (ongoing): Fix low variant cross-layer confound
-  - Fix Patch 11 (link→span → preserve href), run CUA 30 cases
-  - SRF (Screen-Reader-Faithful) serialization — filter hidden=True nodes in bridge
-- Phase 1: Incremental task addition workflow (see Task Expansion Workflow below)
-  - Add 1-3 new tasks at a time from WebArena task pool
-  - Smoke test each task × 4 variants (1 rep, text-only) to verify DOM observations
-  - Read traces to confirm variant patches produce expected a11y tree changes
-  - Run full experiment (5 reps × 2-3 agents) only after smoke validation passes
-- Phase 2: Scale to 15-20 tasks across all 4 WebArena apps
-- Phase 3 (optional): Full 3-agent × 4-variant decomposition matrix
+Next steps — CHI 2027 submission (September deadline):
+
+Priority 1 (MUST for paper):
+- Task expansion: 6 → 15-20 tasks across 3+ WebArena apps (April-May)
+  Follow incremental validation workflow (smoke → full per task)
+- Paper writing: Track A only for CHI submission (N=360 existing + expanded tasks)
+  Track B, Design Guidelines, Developer Interview → separate papers
+
+Priority 2 (SHOULD — strengthens paper):
+- low-functional-fix variant: restore href in link→span, re-run CUA+text 60 cases
+  Isolates functional breakage from semantic degradation more cleanly
+- Multi-model replication: GPT-4o targeted replication (72 cases)
+  Reviewer will likely request this in revision
+
+Priority 3 (COULD — independent contributions):
+- SRF serialization: filter hidden=True nodes, re-run PSL → confirms Same Barrier at ARIA level
+- Track B: HAR landscape survey (200+ public sites) → ecological validation paper
+- Dual-Audience Design Guidelines: 5-8 evidence-backed guidelines → W4A/ASSETS paper
+- Front-end developer interview study: 10-15 semi-structured interviews → Design Guidelines paper
+- Framework accessibility audit: Top 10 frontend frameworks × standard pages × axe-core
+
+Timeline:
+  Apr-May: Task expansion + experiments (Bedrock rate limit is bottleneck)
+  May-Jun: Related Work + Methodology finalized
+  Jun-Jul: Results + Discussion (summer, concentrated writing)
+  Jul-Aug: Brennan review + revision
+  Aug: Complete draft
+  Sep: LaTeX formatting + CHI 2027 submission
 
 ## Task Expansion Workflow
 
@@ -394,6 +421,18 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
   role="presentation" → ignored on headings/landmarks in BrowserGym snapshot.
   Root cause: BrowserGym serialization is more permissive than real screen readers.
   Solution: SRF (Screen-Reader-Faithful) mode — filter hidden=True nodes in bridge.
+- DOM Projection Theory: HTML/DOM is the single source of truth ("first principle").
+  Every agent observation pathway is a lossy projection of the DOM:
+    CDP a11y tree (loses visual layout, adds computed roles),
+    Screenshot/SoM (loses DOM semantics, adds pixel info + bid overlays),
+    Screen reader (loses visual, filters aria-hidden, adds virtual navigation).
+  Three-agent experiment = differential analysis across three projection pathways.
+  63.3pp (text-only) - 30.0pp (CUA) = 33.3pp attributable to a11y tree projection.
+- BrowserGym serialization divergence is NOT limited to aria-hidden:
+  Suspected gaps: AccName computation differences (Igalia 2023), live region changes
+  lost (static snapshots), virtual cursor/type-navigation absent, Shadow DOM boundary
+  penetration, table row/column semantics flattened. aria-hidden is confirmed;
+  others are high-probability but untested — each is a potential SRF sub-project.
 - Low variant cross-layer confound: Patch 11 (link→span) deletes href functionality,
   not just semantics. CUA data proves 100% of low CUA failures are functional breakage.
   Fix: preserve <a href> but add aria-hidden="true" (semantic-only degradation).
@@ -447,6 +486,32 @@ figures/         — Architecture diagrams (matplotlib-generated PNGs + source s
 - `docs/pilot2-trace-deep-dive.md` — Pilot 2 trace analysis
 - `docs/screening-analysis.md` — Task screening results
 - `figures/figure4_layer_model_spec.md` — Five-layer architecture text spec
+
+## Paper Narrative (CHI 2027)
+
+Core thesis: Web accessibility degradation causally reduces AI agent task success.
+
+Key framing decisions:
+- CHI paper = Track A only (controlled causal experiment). Clean story, no scope bloat.
+- Track B, Design Guidelines, Developer Interviews = separate follow-up papers.
+- BrowserGym serialization divergence framed as nuance to "Same Barrier" hypothesis,
+  NOT as "BrowserGym has a bug". The finding that agents still fail catastrophically
+  even with ARIA-level superpowers STRENGTHENS the DOM structural barrier argument.
+- Low variant ecological validity defended via: HTTP Archive data (div+span=40%),
+  Ma11y F42 precedent (ISSTA 2024), "outcome equivalence" argument (SPA div-onclick
+  produces same DOM state as our link→span manipulation).
+- Three-agent causal decomposition follows epidemiological attributable fraction
+  (Levin 1953 → Donders 1868 → O'Connell & Ferguson 2022).
+- Environment-centric paradigm: inverts existing agent-centric benchmarks.
+  WebArena etc. fix environment, vary agent. We fix agent, vary environment.
+  This is an independent methodological contribution.
+
+Key statistics:
+  N=360 (240 text-only/SoM + 120 CUA)
+  Text-only: low 23.3% vs base 86.7% (p<0.000001, V=0.637)
+  CUA: low 66.7% vs base 96.7% (p=0.0027, V=0.388)
+  Causal decomposition: 63.3pp - 30.0pp = 33.3pp a11y tree pathway
+  Token inflation: low 366K vs base 178K = 2.15x
 
 ## Spec Reference
 
