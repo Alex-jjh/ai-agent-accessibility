@@ -189,6 +189,48 @@ Practical approach: freeze variant scripts before starting task expansion.
 Make all patch fixes first, then run tasks. If a fix is needed mid-expansion,
 tag the batch boundary in a manifest file and document it.
 
+### Handling variant bugs discovered during task expansion
+New tasks will inevitably expose variant patch bugs (every Pilot 2→3→4 expansion did).
+Classify the bug before deciding how to handle it:
+
+**Type 1: Selector/coverage bug (does NOT invalidate existing data)**
+- Symptom: patch doesn't fire on a new page type (e.g., querySelector misses GitLab's
+  DOM structure, or Magento admin uses different class names than storefront)
+- Fix: broaden the selector or add a new querySelector target
+- Impact: the patch's semantic intent is unchanged — it still "removes all ARIA attrs"
+  or "replaces headings with divs", just on more elements
+- Action: fix the selector, re-smoke the current task, proceed. Existing task data is valid
+  because those pages were already correctly patched.
+- Example: Pilot 3 added F42/F77/F55 operators — these were new selectors, not changes
+  to existing patch semantics. Pilot 2 data remained valid.
+
+**Type 2: Semantic/behavioral change (INVALIDATES data collected before the fix)**
+- Symptom: the patch's definition changes (e.g., link→span with href deletion changed to
+  link with aria-hidden="true" to fix cross-layer confound)
+- Fix: changes what the variant MEANS, not just where it applies
+- Impact: the low variant before and after the fix are different experimental conditions
+- Action: mark a batch boundary. Options:
+  a) Re-run ALL previously completed tasks with the new patch (clean but expensive)
+  b) Analyze pre-fix and post-fix data as separate batches (report both)
+  c) Discard pre-fix data for the affected variant only (wasteful but clean)
+- Example: Pilot 3b→4 Plan D change was Type 2 for goto-dependent tasks (ecom:23 went
+  from 80% to 0% at low). All Pilot 3b data was analyzed separately, not merged with Pilot 4.
+
+**Decision flowchart when smoke test reveals a bug:**
+1. Does the fix change what the variant DOES (its semantic definition)?
+   - YES → Type 2. Stop expansion. Fix first. Decide on batch strategy.
+   - NO → continue to 2.
+2. Does the fix change which DOM elements are affected on ALREADY-TESTED pages?
+   - YES → re-smoke those tasks to verify no behavioral change. If results match, keep data.
+   - NO → Type 1. Fix, re-smoke current task only, proceed.
+
+**Historical precedent (bugs discovered during expansion):**
+- Pilot 2→3: Added 3 new Ma11y operators (F42, F77, F55) = Type 1 (new selectors)
+- Pilot 3a→3b: Discovered goto() escape vulnerability = Type 2 (variant persistence changed)
+- Pilot 3b→4: Implemented Plan D = Type 2 (injection mechanism fundamentally different)
+- Pilot 4→CUA: Discovered cross-layer confound in link→span = Type 2 (patch semantics)
+- PSL smoke: Discovered BrowserGym serialization divergence = not a patch bug, platform finding
+
 ## Weekly Account Rotation Workflow
 
 Burner accounts expire after 7 days. Deployment is automated:
