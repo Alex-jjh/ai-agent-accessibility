@@ -468,6 +468,10 @@ src/config/      — YAML/JSON config loader with validation and defaults
 src/export/      — Manifest, CSV export, JSON store
 analysis/        — Python: CLMM, GEE, Random Forest + SHAP, semantic density
 docs/            — Engineering log, analysis reports, literature comparisons
+  docs/analysis/ — Experiment analysis reports (moved from data/*.md, git tracked)
+                   Write all new analysis reports here, NOT in data/.
+                   Naming: <experiment>-<type>.md (e.g., pilot4-full-analysis.md,
+                   task-5-deep-dive.md, pilot5-cross-task-stats.md)
 scripts/         — Launch scripts, smoke tests, analysis tools, deployment automation
   deploy-new-account.sh — One-command deployment to new burner account
   experiment-upload.sh  — Package + upload experiment data to S3 (run on EC2)
@@ -485,7 +489,12 @@ figures/         — Architecture diagrams (matplotlib-generated PNGs + source s
 - `docs/aegis-taxonomy-comparison.md` — Failure taxonomy comparison with Aegis
 - `docs/pilot2-trace-deep-dive.md` — Pilot 2 trace analysis
 - `docs/screening-analysis.md` — Task screening results
+- `docs/analysis/` — All experiment analysis reports (git tracked):
+  - pilot4-full-analysis.md, pilot4-cua-analysis.md, pilot4-deep-dives.md, etc.
+  - Write NEW analysis reports here (not in data/)
 - `figures/figure4_layer_model_spec.md` — Five-layer architecture text spec
+- `analysis/` — Python analysis code (CLMM, GEE, SHAP, semantic density) — git tracked
+- `data/` — Raw experiment traces (JSON, CSV) — NOT git tracked, synced via S3
 
 ## Paper Narrative (CHI 2027)
 
