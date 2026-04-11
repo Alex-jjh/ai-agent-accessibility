@@ -1,6 +1,7 @@
 node_modules
 test-tmp
 data
+dist
 
 # Python
 __pycache__/
