@@ -4,7 +4,7 @@
 webarena:
   apps:
     reddit:
-      url: "http://10.0.1.49:9999"
+      url: "http://10.0.1.50:9999"
   tasksPerApp:
     reddit: ["67"]
 

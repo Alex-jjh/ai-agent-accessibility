@@ -318,6 +318,7 @@ resource "aws_instance" "platform" {
   instance_type          = var.instance_type
   vpc_security_group_ids = [aws_security_group.instance.id]
   subnet_id              = aws_subnet.private.id
+  private_ip             = "10.0.1.51"                        # Fixed IP
   iam_instance_profile   = aws_iam_instance_profile.instance.name
 
   # NO key pair needed — access via SSM

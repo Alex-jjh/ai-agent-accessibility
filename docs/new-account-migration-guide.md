@@ -108,7 +108,8 @@ aws_secret_access_key = <SECRET>
 
 ### 2.3 实验配置文件（WebArena URL）
 
-部署后，WebArena EC2 会获得新的 private IP（通过 `terraform output webarena_private_ip` 查看）。以下所有 YAML 配置文件中的 `10.0.1.49` 需要替换为新 IP：
+部署后，WebArena EC2 的 private IP 已固定为 `10.0.1.50`（在 Terraform 中通过 `private_ip` 参数指定）。
+Platform EC2 固定为 `10.0.1.51`。所有 config YAML 文件已使用 `10.0.1.50`，**换号部署时无需修改任何 config 文件**。
 
 | 文件 | 需要修改的字段 |
 |------|---------------|

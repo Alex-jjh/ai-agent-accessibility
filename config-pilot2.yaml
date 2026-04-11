@@ -13,11 +13,11 @@
 webarena:
   apps:
     ecommerce:
-      url: "http://10.0.1.49:7770"
+      url: "http://10.0.1.50:7770"
     ecommerce_admin:
-      url: "http://10.0.1.49:7780"
+      url: "http://10.0.1.50:7780"
     reddit:
-      url: "http://10.0.1.49:9999"
+      url: "http://10.0.1.50:9999"
 
   # Screened task IDs — verified on 2026-04-03/04
   # ecommerce_admin: tasks 4 (report query), 14 (review search)

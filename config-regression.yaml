@@ -5,11 +5,11 @@
 webarena:
   apps:
     ecommerce:
-      url: "http://10.0.1.49:7770"
+      url: "http://10.0.1.50:7770"
     ecommerce_admin:
-      url: "http://10.0.1.49:7780"
+      url: "http://10.0.1.50:7780"
     reddit:
-      url: "http://10.0.1.49:9999"
+      url: "http://10.0.1.50:9999"
     # wikipedia excluded: all tasks require map service (port 3000) which is not deployed
   # Task IDs from webarena/test.raw.json — interleaved, NOT contiguous ranges.
   # Wikipedia excluded: all 16 tasks require map service (not deployed).

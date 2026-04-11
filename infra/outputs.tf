@@ -1,3 +1,8 @@
+output "aws_region" {
+  description = "AWS region"
+  value       = var.aws_region
+}
+
 output "instance_id" {
   description = "Platform EC2 instance ID"
   value       = aws_instance.platform.id

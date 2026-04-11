@@ -6,7 +6,7 @@
 webarena:
   apps:
     shopping:
-      url: "http://10.0.1.49:7770"
+      url: "http://10.0.1.50:7770"
   tasksPerApp:
     shopping: ["23"]
 
