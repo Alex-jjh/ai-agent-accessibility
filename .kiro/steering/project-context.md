@@ -122,12 +122,109 @@ Architecture diagrams generated (2026-04-08):
 - Phantom bid mechanism: variant patch replaces DOM node → bid attr lost → SoM label persists
   in screenshot → agent clicks stale bid → "Could not find element" → 20+ retry loop
 
-Next steps — Causal isolation experiments:
-- Phase 1: Fix Patch 11 (link→span → preserve href), run CUA 30 cases
-- Phase 2: SRF (Screen-Reader-Faithful) serialization — filter hidden=True nodes
-  in bridge, re-run PSL 6 cases. One-line change, high ROI.
+Next steps — Task expansion with incremental validation:
+- Phase 0 (ongoing): Fix low variant cross-layer confound
+  - Fix Patch 11 (link→span → preserve href), run CUA 30 cases
+  - SRF (Screen-Reader-Faithful) serialization — filter hidden=True nodes in bridge
+- Phase 1: Incremental task addition workflow (see Task Expansion Workflow below)
+  - Add 1-3 new tasks at a time from WebArena task pool
+  - Smoke test each task × 4 variants (1 rep, text-only) to verify DOM observations
+  - Read traces to confirm variant patches produce expected a11y tree changes
+  - Run full experiment (5 reps × 2-3 agents) only after smoke validation passes
+- Phase 2: Scale to 15-20 tasks across all 4 WebArena apps
 - Phase 3 (optional): Full 3-agent × 4-variant decomposition matrix
-- Task expansion deferred until causal isolation resolved
+
+## Task Expansion Workflow
+
+When adding new tasks to the experiment, follow this incremental validation process:
+
+### Step 1: Select candidate tasks
+- Check test.raw.json for tasks on the target app (use task-site-mapping.json)
+- Prefer tasks with eval_type: string_match or program_html (avoid llm_eval)
+- Prefer tasks that exercise different page types (product pages, search, forms, lists)
+
+### Step 2: Smoke test — variant DOM observation
+- Create a smoke config with the new task(s), all 4 variants, 1 rep, text-only only
+- Run on EC2: `npx tsx scripts/run-pilot3.ts --config config-smoke-newtask.yaml`
+- Download traces and READ THEM — verify for each variant:
+  - low: ARIA attrs removed, headings→div, links→span in a11y tree
+  - medium-low: role="button" present but no keyboard handlers
+  - base: original DOM, no patches
+  - high: aria-label added, landmarks present, skip-link exists
+- Check: does the task's critical information survive each variant?
+  (e.g., if task asks "what is the price?" — is the price still visible in low?)
+- Annotate task feasibility per variant (feasible / infeasible / ambiguous)
+
+### Step 3: Full experiment run
+- Only after smoke validation passes for all variants
+- Config: new task(s) × 4 variants × 5 reps × text-only (+ optionally CUA)
+- Use experiment-run-and-upload.sh for auto S3 upload on completion
+- Download locally, run analysis, compare with existing task results
+
+### Step 4: Integrate into main experiment
+- Add validated tasks to the primary config (config-pilot5.yaml or similar)
+- Update task count in steering and proposal
+
+## Weekly Account Rotation Workflow
+
+Burner accounts expire after 7 days. Deployment is automated:
+
+### Before account expires (day 5-6):
+1. Upload experiment data: `bash scripts/experiment-upload.sh <name> ./data/<dir>`
+2. Or use auto-upload wrapper in launch scripts
+3. Download to local: `bash scripts/experiment-download.sh --latest <name>`
+
+### New account setup (day 1):
+1. Get new burner account from https://iad.merlon.amazon.dev/burner-accounts
+2. Configure credentials:
+   `ada credentials update --account=<ID> --provider=conduit --role=IibsAdminAccess-DO-NOT-DELETE --once --profile=a11y-pilot`
+3. Enable Bedrock model access in console (Claude Sonnet 4, Haiku 3.5, Nova Pro, Llama 4)
+4. Run: `bash scripts/deploy-new-account.sh` (terraform apply + SSM wait, ~5 min)
+5. SSM into Platform EC2, run `bash scripts/bootstrap-platform.sh`
+6. Start LiteLLM, run smoke test to verify
+
+### What does NOT change between accounts:
+- WebArena private IP: fixed at 10.0.1.50 (Terraform `private_ip` parameter)
+- Platform private IP: fixed at 10.0.1.51
+- All config YAML files: no changes needed
+- All source code: git clone from repo
+- Region: always us-east-2
+
+### What DOES change:
+- EC2 instance IDs (update in steering if needed for reference)
+- S3 bucket name (auto-detected by scripts)
+- IAM role ARNs (managed by Terraform, transparent to code)
+
+## Experiment Data Pipeline
+
+Data flows: EC2 → S3 → Local machine
+
+### On EC2 (after experiment):
+- Manual: `bash scripts/experiment-upload.sh pilot5 ./data/pilot5`
+  → Creates s3://bucket/experiments/pilot5-20260411-143022.tar.gz + manifest
+- Auto: Use `scripts/experiment-run-and-upload.sh` wrapper in launch scripts
+  → Uploads automatically when experiment finishes (success or failure)
+
+### On local machine:
+- List: `bash scripts/experiment-download.sh --list`
+- Download latest: `bash scripts/experiment-download.sh --latest pilot5`
+  → Downloads, extracts to data/pilot5/
+- Download specific: `bash scripts/experiment-download.sh pilot5-20260411-143022`
+
+### S3 layout:
+```
+s3://a11y-platform-data-XXXX/
+  experiments/
+    pilot4-full-20260407-120000.tar.gz
+    pilot4-full-20260407-120000-manifest.txt
+    pilot5-smoke-20260412-090000.tar.gz
+    pilot5-20260412-180000.tar.gz
+```
+
+### Naming convention:
+- Experiment name: descriptive, no timestamp (e.g., pilot5, pilot5-cua, smoke-newtask)
+- Archive name: experiment-name + timestamp (auto-generated by upload script)
+- Local directory: experiment name only (timestamp stripped on download)
 
 ## WebArena Task ID Mapping (CRITICAL)
 
@@ -153,23 +250,30 @@ Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
   in foreground WILL be killed when the session drops. Use:
   `bash scripts/launch-pilot3b.sh` (nohup wrapper with PID tracking)
   or: `nohup npx tsx scripts/run-pilot3.ts --config X.yaml > log 2>&1 &`
+- For auto S3 upload after experiment, use the wrapper:
+  `bash scripts/experiment-run-and-upload.sh <name> <data-dir> <command>`
+- Burner accounts auto-close after 7 days. Use `scripts/deploy-new-account.sh`
+  for one-command deployment to new accounts.
 - Burner accounts auto-close if EC2 has public access (0.0.0.0/0 inbound SG)
 - ALWAYS use private subnet + SSM Session Manager (no SSH, no public IP)
 - Use `terraform apply` from infra/ — it handles all security correctly
 - NEVER manually create EC2 via AWS console
 - Connect via: `aws ssm start-session --target <instance-id>`
-- Platform EC2 (runs code): `i-0288f77960077b755`
-- WebArena EC2 (runs Docker): `i-0c916d784df56d796`
-- See docs/deployment.md for full guide including all known issues
+- Fixed IPs (no config changes needed between accounts):
+  - WebArena EC2: 10.0.1.50 (r6i.2xlarge, 8 vCPU, 64GB)
+  - Platform EC2: 10.0.1.51 (r6i.4xlarge, 16 vCPU, 128GB)
+- Instance IDs change per account — get from `terraform output`
+- See docs/deployment.md and docs/new-account-migration-guide.md for full guide
 
 ## EC2 Reproducibility Rules (CRITICAL)
 
 - NEVER make manual edits on EC2 that aren't tracked in the repo
 - All config, scripts, and code changes MUST go through git (edit locally → push → pull on EC2)
-- EC2 instances are ephemeral — may be redeployed on different machines at any time
+- EC2 instances are ephemeral — redeployed weekly on new burner accounts
 - The only exception is one-time env setup (BrowserGym timeout sed patch, pip installs)
   which MUST be documented in scripts/ec2-setup.sh so they can be re-applied
-- Data files (experiment results, screening data) are synced via S3, not stored only on EC2
+- Experiment data lifecycle: EC2 → S3 (experiment-upload.sh) → local (experiment-download.sh)
+  Never store data only on EC2 — it will be destroyed when the account expires.
 - `task-site-mapping.json` (repo root) is committed — do NOT regenerate on EC2 unless
   the webarena package version changes
 - ALWAYS download experiment data to local workspace and read actual trace files
@@ -259,17 +363,24 @@ src/config/      — YAML/JSON config loader with validation and defaults
 src/export/      — Manifest, CSV export, JSON store
 analysis/        — Python: CLMM, GEE, Random Forest + SHAP, semantic density
 docs/            — Engineering log, analysis reports, literature comparisons
-scripts/         — Launch scripts, smoke tests, analysis tools
+scripts/         — Launch scripts, smoke tests, analysis tools, deployment automation
+  deploy-new-account.sh — One-command deployment to new burner account
+  experiment-upload.sh  — Package + upload experiment data to S3 (run on EC2)
+  experiment-download.sh — Download + extract experiment data from S3 (run locally)
+  experiment-run-and-upload.sh — Wrapper: run experiment then auto-upload
   smoke-cua-*.   — CUA API verification scripts (LiteLLM + Bedrock direct)
+figures/         — Architecture diagrams (matplotlib-generated PNGs + source scripts)
 ```
 
 ## Key Documentation Files
 
 - `docs/platform-engineering-log.md` — Full bug/fix/regression history
+- `docs/new-account-migration-guide.md` — Complete guide for deploying to new AWS accounts
 - `docs/ma11y-operator-mapping.md` — Ma11y operator audit + novel extensions
 - `docs/aegis-taxonomy-comparison.md` — Failure taxonomy comparison with Aegis
 - `docs/pilot2-trace-deep-dive.md` — Pilot 2 trace analysis
 - `docs/screening-analysis.md` — Task screening results
+- `figures/figure4_layer_model_spec.md` — Five-layer architecture text spec
 
 ## Spec Reference
 
