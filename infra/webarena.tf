@@ -35,7 +35,7 @@ resource "aws_iam_instance_profile" "webarena" {
 
 resource "aws_instance" "webarena" {
   ami                    = "ami-08a862bf98e3bd7aa" # WebArena pre-installed AMI (us-east-2)
-  instance_type          = "t3a.2xlarge"
+  instance_type          = "r6i.2xlarge"
   vpc_security_group_ids = [aws_security_group.instance.id]  # Same SG as platform
   subnet_id              = aws_subnet.private.id              # Same private subnet
   iam_instance_profile   = aws_iam_instance_profile.webarena.name

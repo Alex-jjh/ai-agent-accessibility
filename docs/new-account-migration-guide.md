@@ -10,7 +10,7 @@
 
 - 获取新的 burner 账户（`https://iad.merlon.amazon.dev/burner-accounts`）
 - 账户需要以下权限/服务：
-  - EC2（r6i.4xlarge + t3a.2xlarge）
+  - EC2（r6i.4xlarge + r6i.2xlarge）
   - S3
   - IAM（创建 role/policy/instance-profile）
   - VPC（创建 VPC/Subnet/NAT/IGW/VPC Endpoints）
@@ -53,7 +53,7 @@
 | 配置项 | 当前值 | 修改说明 |
 |--------|--------|----------|
 | `aws_instance.webarena.ami` | `"ami-08a862bf98e3bd7aa"` | WebArena 预装 AMI，**仅在 us-east-2 可用**。换 region 需要先 `aws ec2 copy-image` 到目标 region |
-| `aws_instance.webarena.instance_type` | `"t3a.2xlarge"` | 可调整。WebArena Docker 容器（特别是 GitLab）需要至少 4GB RAM |
+| `aws_instance.webarena.instance_type` | `"r6i.2xlarge"` | 可调整。WebArena Docker 容器（特别是 GitLab）需要至少 4GB RAM |
 | `root_block_device.volume_size` | `1000` | WebArena Docker 镜像需要约 800GB。不建议减小 |
 
 #### `infra/terraform.tfvars.example` → 创建 `infra/terraform.tfvars`
@@ -273,7 +273,7 @@ terraform output
 | IAM Role: WebArena | `aws_iam_role` | SSM 权限 |
 | S3 Bucket | `aws_s3_bucket` | 实验数据存储 |
 | EC2: Platform | `aws_instance` | r6i.4xlarge, 100GB, Amazon Linux 2023 |
-| EC2: WebArena | `aws_instance` | t3a.2xlarge, 1TB, WebArena AMI (Ubuntu) |
+| EC2: WebArena | `aws_instance` | r6i.2xlarge, 1TB, WebArena AMI (Ubuntu) |
 
 ### 3.3 WebArena 配置（SSM 连接到 WebArena EC2）
 
@@ -415,14 +415,14 @@ find data/regression -name "trace-attempt-*.json" | wc -l
 | 资源 | 每小时 | 每天（24h） | 每周（7天） | 说明 |
 |------|--------|------------|------------|------|
 | r6i.4xlarge (Platform) | ~$1.01 | ~$24.19 | ~$169.34 | 16 vCPU, 128GB RAM |
-| t3a.2xlarge (WebArena) | ~$0.30 | ~$7.22 | ~$50.54 | 8 vCPU, 32GB RAM |
+| r6i.2xlarge (WebArena) | ~$0.50 | ~$12.10 | ~$84.67 | 8 vCPU, 64GB RAM |
 | NAT Gateway | ~$0.045 | ~$1.08 | ~$7.56 | + 数据传输费 |
 | VPC Endpoints (4 Interface) | ~$0.04 | ~$0.96 | ~$6.72 | SSM×3 + Bedrock |
 | EBS (100GB gp3 + 1000GB gp3) | ~$0.012 | ~$0.29 | ~$2.00 | Platform + WebArena 磁盘 |
 | S3 | 忽略不计 | — | — | |
 | Bedrock LLM 调用 | 变动 | ~$10-50/pilot | ~$30-150 | 取决于实验规模 |
-| **合计（不含 LLM）** | **~$1.41** | **~$33.74** | **~$236.16** |
-| **合计（含 LLM 估算）** | — | — | **~$270-390** | |
+| **合计（不含 LLM）** | **~$1.57** | **~$37.62** | **~$263.35** |
+| **合计（含 LLM 估算）** | — | — | **~$300-420** | |
 
 **省钱建议**：不跑实验时 stop EC2 instances（`aws ec2 stop-instances`），EBS 仍计费但 EC2 计算费停止。NAT Gateway 和 VPC Endpoints 7×24 计费，如果长时间不用可以 terraform destroy 再重建。
 
