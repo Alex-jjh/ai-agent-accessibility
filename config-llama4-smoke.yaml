@@ -1,0 +1,52 @@
+# Llama 4 Maverick Smoke Test — Verify open-source model works via LiteLLM/Bedrock
+#
+# 2 tasks × 2 variants × 1 rep × text-only = 4 cases
+# Quick test: does Llama 4 produce valid actions through BrowserGym?
+#
+# Run on EC2:
+#   npx tsx scripts/run-pilot3.ts --config config-llama4-smoke.yaml
+
+webarena:
+  apps:
+    ecommerce_admin:
+      url: "http://10.0.1.50:7780"
+    reddit:
+      url: "http://10.0.1.50:9999"
+
+  tasksPerApp:
+    ecommerce_admin: ["41"]
+    reddit: ["29"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["base", "low"]
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+
+runner:
+  repetitions: 1
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "llama4"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/llama4-smoke"
+  exportFormats: ["json", "csv"]
