@@ -142,8 +142,11 @@ Task expansion plan finalized (2026-04-12): 6 → 13 tasks across 4 apps.
 - Detailed plan: docs/analysis/task-expansion-plan.md
 
 Execution phases:
-  Phase 1: GitLab smoke (132, 293, 308) — highest risk, Vue.js + MutationObserver
-  Phase 2: Admin + Shopping smoke (41, 94, 198, 124) — verified environments
+  Phase 1: GitLab smoke (132, 293, 308) — ✅ PASSED 2026-04-12
+    10/12 (83.3%). Step function replicated: low 33.3% → ml/base/high 100%.
+    Two failure pathways confirmed on Vue.js: structural infeasibility + token inflation.
+    No Type 2 bugs. Token inflation 1.57× (vs Pilot 4 Magento 2.15×).
+  Phase 2: Admin + Shopping smoke (41, 94, 198, 124) — 🟡 IN PROGRESS
   Phase 3: Full runs per task (4 variants × 5 reps × text-only = 20 cases each)
   Phase 4 (optional): CUA runs for new tasks
 
