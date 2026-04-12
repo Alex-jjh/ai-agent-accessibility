@@ -12,6 +12,8 @@ import type {
 const MODEL_TOKEN_LIMITS: Record<string, number> = {
   'claude': 200_000,
   'gpt-4o': 128_000,
+  'llama': 128_000,
+  'nova': 300_000,
 };
 
 /** Minimum confidence threshold — below this the classification is flagged for review */
