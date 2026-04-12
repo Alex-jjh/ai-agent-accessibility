@@ -532,8 +532,8 @@ figures/         — Architecture diagrams (matplotlib-generated PNGs + source s
 - `docs/screening-analysis.md` — Task screening results
 - `docs/analysis/` — All experiment analysis reports (git tracked):
   - pilot4-full-analysis.md, pilot4-cua-analysis.md, pilot4-deep-dives.md, etc.
-  - task-expansion-plan.md — Task expansion from 6→13 tasks (selection rationale + execution plan)
   - Write NEW analysis reports here (not in data/)
+- `docs/task-expansion-plan.md` — Task expansion from 6→13 tasks (selection rationale + execution plan)
 - `figures/figure4_layer_model_spec.md` — Five-layer architecture text spec
 - `analysis/` — Python analysis code (CLMM, GEE, SHAP, semantic density) — git tracked
 - `data/` — Raw experiment traces (JSON, CSV) — NOT git tracked, synced via S3
