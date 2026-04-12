@@ -1,0 +1,52 @@
+# Task 188 Smoke — Backup candidate replacing ecommerce:124
+#
+# Task: "Tell me the total cost of my latest cancelled order?"
+# Expected: must_include ["365.42"]
+# Requires shopping login (HTTP login fix applied in bridge).
+#
+# 1 task × 4 variants × 1 rep × text-only = 4 cases
+#
+# Run on EC2:
+#   npx tsx scripts/run-pilot3.ts --config config-task188-smoke.yaml
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.50:7770"
+
+  tasksPerApp:
+    ecommerce: ["188"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["low", "medium-low", "base", "high"]
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+
+runner:
+  repetitions: 1
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/task188-smoke"
+  exportFormats: ["json", "csv"]
