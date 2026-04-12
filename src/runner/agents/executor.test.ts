@@ -64,6 +64,9 @@ function createMockBridge(observations: BrowserGymObservation[]): {
     async close(): Promise<void> {
       // no-op
     },
+    getStderrLog(): string {
+      return '';
+    },
   };
 
   return { bridge, sentActions };
@@ -520,6 +523,7 @@ describe('executeAgentTask', () => {
       sendAction: vi.fn(),
       readObservation: async () => null,
       close: async () => {},
+      getStderrLog: () => '',
     };
     const bridgeSpawner: BridgeSpawner = () => bridge;
 

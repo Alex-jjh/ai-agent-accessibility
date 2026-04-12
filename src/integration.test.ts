@@ -30,6 +30,7 @@ const testConfig: ExperimentConfig = {
       'medium-low': { min: 0.25, max: 0.5 },
       base: { min: 0.4, max: 0.7 },
       high: { min: 0.75, max: 1.0 },
+      'pure-semantic-low': { min: 0, max: 0.25 },
     },
   },
   runner: { agentConfigs: [agentConfig], repetitions: 1, maxSteps: 10, concurrency: 1 },
