@@ -315,6 +315,17 @@ curl -s http://$PRIVATE_IP:7780 | head -5   # Shopping Admin
 curl -s http://$PRIVATE_IP:9999 | head -5   # Reddit
 curl -s http://$PRIVATE_IP:8023 | head -5   # GitLab（可能需要等 10-15 分钟）
 curl -s http://$PRIVATE_IP:8888 | head -5   # Wikipedia
+
+# 4. 验证 GitLab 可用性（task expansion 新增 app，必须确认）
+# GitLab 启动最慢（~10-15 min），等待直到返回 200
+for i in $(seq 1 30); do
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://$PRIVATE_IP:8023)
+  echo "Attempt $i: GitLab status=$STATUS"
+  [ "$STATUS" = "200" ] || [ "$STATUS" = "302" ] && break
+  sleep 30
+done
+# 验证 GitLab 登录页面可达
+curl -s http://$PRIVATE_IP:8023/users/sign_in | grep -o "Sign in" | head -1
 ```
 
 ### 3.4 Platform 配置（SSM 连接到 Platform EC2）
@@ -377,6 +388,10 @@ curl -s http://$WEBARENA_IP:9999 | head -5
 
 # 9. 运行 smoke test
 npx tsx scripts/run-pilot3.ts --config config-reinject-smoke.yaml --dry-run
+
+# 10. 验证 GitLab 连通性（task expansion 需要 GitLab）
+curl -s http://$WEBARENA_IP:8023/users/sign_in | grep -o "Sign in"
+# 如果 GitLab 还没启动完，等待后重试（GitLab 需要 10-15 分钟冷启动）
 ```
 
 ### 3.5 验证部署

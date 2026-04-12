@@ -132,10 +132,28 @@ Architecture diagrams generated (2026-04-08):
 - Phantom bid mechanism: variant patch replaces DOM node → bid attr lost → SoM label persists
   in screenshot → agent clicks stale bid → "Could not find element" → 20+ retry loop
 
+Task expansion plan finalized (2026-04-12): 6 → 13 tasks across 4 apps.
+- 7 new tasks selected: gitlab 132/293/308, admin 41/94/198, shopping 124
+- GitLab added as 4th app (Vue.js DOM — critical for generalizability)
+- 11 unique intent templates across 13 tasks (23/24/26 share template 222)
+- Navigation depth: 4 shallow + 6 medium + 3 deep (was all shallow/medium)
+- All string_match eval, info retrieval only, no state mutation
+- Backup candidates: gitlab 349, shopping 188
+- Detailed plan: docs/analysis/task-expansion-plan.md
+
+Execution phases:
+  Phase 1: GitLab smoke (132, 293, 308) — highest risk, Vue.js + MutationObserver
+  Phase 2: Admin + Shopping smoke (41, 94, 198, 124) — verified environments
+  Phase 3: Full runs per task (4 variants × 5 reps × text-only = 20 cases each)
+  Phase 4 (optional): CUA runs for new tasks
+
+Projected total: ~640 cases (existing 360 + new 140 text-only + 140 CUA optional)
+
 Next steps — CHI 2027 submission (September deadline):
 
 Priority 1 (MUST for paper):
-- Task expansion: 6 → 15-20 tasks across 3+ WebArena apps (April-May)
+- Task expansion: 6 → 13 tasks across 4 WebArena apps (April-May)
+  Phase 1 GitLab first (variant injection on Vue.js is unknown risk)
   Follow incremental validation workflow (smoke → full per task)
 - Paper writing: Track A only for CHI submission (N=360 existing + expanded tasks)
   Track B, Design Guidelines, Developer Interview → separate papers
@@ -154,7 +172,9 @@ Priority 3 (COULD — independent contributions):
 - Framework accessibility audit: Top 10 frontend frameworks × standard pages × axe-core
 
 Timeline:
-  Apr-May: Task expansion + experiments (Bedrock rate limit is bottleneck)
+  Apr 12-13: New AWS account deployment + GitLab smoke test
+  Apr 14-20: Task expansion full runs (7 new tasks × 20 cases each = 140 cases)
+  Apr-May: Optional CUA runs + any re-runs needed
   May-Jun: Related Work + Methodology finalized
   Jun-Jul: Results + Discussion (summer, concentrated writing)
   Jul-Aug: Brennan review + revision
@@ -336,6 +356,27 @@ map            (:3000):                  128 tasks — NOT DEPLOYED, excluded
 NEVER assume contiguous ranges (e.g. "reddit=100-199" is WRONG).
 Always use explicit tasksPerApp in YAML config, or verify against test.raw.json.
 
+### Experiment Task Set (13 tasks, 11 templates, 4 apps)
+
+Existing (Pilot 4):
+  4   shopping_admin  template=279  Top-3 bestsellers Jan 2023       nav=medium
+  23  shopping        template=222  Reviewers: fingerprint resistant  nav=shallow
+  24  shopping        template=222  Reviewers: unfair price           nav=shallow
+  26  shopping        template=222  Reviewers: customer service       nav=shallow
+  29  reddit          template=33   Count downvoted comments          nav=medium
+  67  reddit          template=17   Book names from top 10 posts      nav=shallow
+
+New (task expansion, pending smoke validation):
+  132 gitlab          template=322  Commits by kilian on 3/5/2023     nav=medium
+  293 gitlab          template=329  Clone SSH command for repo        nav=medium
+  308 gitlab          template=323  Top contributor to primer/design  nav=deep
+  41  shopping_admin  template=285  Top 1 search term in store        nav=medium
+  94  shopping_admin  template=274  Invoice 000000001 grand total     nav=deep
+  198 shopping_admin  template=366  Customer name of cancelled order  nav=deep
+  124 shopping        template=159  Price range of wireless earphone  nav=medium
+
+Backup: 349 (gitlab, repo members), 188 (shopping, cancelled order cost)
+
 ## Deployment Rules (CRITICAL)
 
 - ALWAYS run experiments via nohup or the launch-*.sh scripts on EC2.
@@ -491,6 +532,7 @@ figures/         — Architecture diagrams (matplotlib-generated PNGs + source s
 - `docs/screening-analysis.md` — Task screening results
 - `docs/analysis/` — All experiment analysis reports (git tracked):
   - pilot4-full-analysis.md, pilot4-cua-analysis.md, pilot4-deep-dives.md, etc.
+  - task-expansion-plan.md — Task expansion from 6→13 tasks (selection rationale + execution plan)
   - Write NEW analysis reports here (not in data/)
 - `figures/figure4_layer_model_spec.md` — Five-layer architecture text spec
 - `analysis/` — Python analysis code (CLMM, GEE, SHAP, semantic density) — git tracked
@@ -515,12 +557,18 @@ Key framing decisions:
   WebArena etc. fix environment, vary agent. We fix agent, vary environment.
   This is an independent methodological contribution.
 
-Key statistics:
+Key statistics (Pilot 4, 6 tasks):
   N=360 (240 text-only/SoM + 120 CUA)
   Text-only: low 23.3% vs base 86.7% (p<0.000001, V=0.637)
   CUA: low 66.7% vs base 96.7% (p=0.0027, V=0.388)
   Causal decomposition: 63.3pp - 30.0pp = 33.3pp a11y tree pathway
   Token inflation: low 366K vs base 178K = 2.15x
+
+Target statistics (after task expansion, 13 tasks):
+  N=~640 (360 existing + 140 new text-only + 140 new CUA optional)
+  4 apps (shopping_admin, shopping, reddit, gitlab)
+  11 unique intent templates, 13 tasks
+  Navigation depth: shallow (4), medium (6), deep (3)
 
 ## Spec Reference
 
