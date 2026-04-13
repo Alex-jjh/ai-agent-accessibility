@@ -134,10 +134,9 @@ export const SITES: SiteConfig[] = [
     ],
   },
 
-  // ── China Platforms (6) ──
-  // Login wall handling: only scan publicly accessible pages.
-  // Taobao search/detail require login; Zhihu search pops login; Weibo search/detail require login.
-  // Douyin web is unusable → replaced with Meituan.
+  // ── China Platforms (7) ──
+  // All pages will be scanned via local HTML snapshots (manual Chrome save).
+  // Automated scan covers home pages; search/detail pages saved manually.
   {
     name: 'jd',
     category: 'china',
@@ -181,6 +180,15 @@ export const SITES: SiteConfig[] = [
       { label: 'home', url: 'https://www.meituan.com/' },
       { label: 'search', url: 'https://www.meituan.com/s/火锅' },
       { label: 'detail', url: 'https://www.meituan.com/', requiresAuth: true },
+    ],
+  },
+  {
+    name: 'xiaohongshu',
+    category: 'china',
+    pages: [
+      { label: 'home', url: 'https://www.xiaohongshu.com/explore' },
+      { label: 'search', url: 'https://www.xiaohongshu.com/search_result?keyword=旅行', requiresAuth: true },
+      { label: 'detail', url: 'https://www.xiaohongshu.com/explore/note', requiresAuth: true },
     ],
   },
   {
