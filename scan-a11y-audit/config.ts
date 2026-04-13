@@ -74,7 +74,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.ebay.com/' },
       { label: 'search', url: 'https://www.ebay.com/sch/i.html?_nkw=laptop' },
-      { label: 'detail', url: 'https://www.ebay.com/itm/123456789' },
+      { label: 'detail', url: 'https://www.ebay.com/itm/326753162722' },
     ],
   },
   {
@@ -83,7 +83,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.walmart.com/' },
       { label: 'search', url: 'https://www.walmart.com/search?q=headphones' },
-      { label: 'detail', url: 'https://www.walmart.com/ip/123456789' },
+      { label: 'detail', url: 'https://www.walmart.com/ip/334289127' },
     ],
   },
   {
@@ -92,7 +92,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.target.com/' },
       { label: 'search', url: 'https://www.target.com/s?searchTerm=keyboard' },
-      { label: 'detail', url: 'https://www.target.com/p/-/A-12345678' },
+      { label: 'detail', url: 'https://www.target.com/p/garmin-vivoactive-6/-/A-94724491' },
     ],
   },
   {
@@ -101,7 +101,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.etsy.com/' },
       { label: 'search', url: 'https://www.etsy.com/search?q=handmade+jewelry' },
-      { label: 'detail', url: 'https://www.etsy.com/listing/1234567890' },
+      { label: 'detail', url: 'https://www.etsy.com/listing/694574786/etsy-listing-template-product-listing' },
     ],
   },
   {
@@ -110,7 +110,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.bestbuy.com/' },
       { label: 'search', url: 'https://www.bestbuy.com/site/searchpage.jsp?st=monitor' },
-      { label: 'detail', url: 'https://www.bestbuy.com/site/6534424.p' },
+      { label: 'detail', url: 'https://www.bestbuy.com/site/apple-airpods-4-white/6447384.p' },
     ],
   },
   {
@@ -119,16 +119,16 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.aliexpress.com/' },
       { label: 'search', url: 'https://www.aliexpress.com/wholesale?SearchText=usb+cable' },
-      { label: 'detail', url: 'https://www.aliexpress.com/item/1005001234567890.html' },
+      { label: 'detail', url: 'https://www.aliexpress.com/item/1005002964689678.html' },
     ],
   },
   {
     name: 'shein',
     category: 'ecommerce',
     pages: [
-      { label: 'home', url: 'https://www.shein.com/' },
-      { label: 'search', url: 'https://www.shein.com/pdsearch/dress/' },
-      { label: 'detail', url: 'https://www.shein.com/product-p-12345678.html' },
+      { label: 'home', url: 'https://us.shein.com/' },
+      { label: 'search', url: 'https://us.shein.com/pdsearch/dress/' },
+      { label: 'detail', url: 'https://us.shein.com/Women-Dresses-c-1727.html' },
     ],
   },
 
@@ -148,7 +148,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.taobao.com/' },
       { label: 'search', url: 'https://s.taobao.com/search?q=耳机' },
-      { label: 'detail', url: 'https://item.taobao.com/item.htm?id=123456789' },
+      { label: 'detail', url: 'https://item.taobao.com/item.htm?id=679533100521' },
     ],
   },
   {
@@ -175,7 +175,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.douyin.com/' },
       { label: 'search', url: 'https://www.douyin.com/search/coding' },
-      { label: 'detail', url: 'https://www.douyin.com/video/7123456789012345678' },
+      { label: 'detail', url: 'https://www.douyin.com/video/7293015718498498857' },
     ],
   },
   {
@@ -184,7 +184,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://weibo.com/' },
       { label: 'search', url: 'https://s.weibo.com/weibo?q=AI' },
-      { label: 'detail', url: 'https://weibo.com/1234567890/abcdefg' },
+      { label: 'detail', url: 'https://weibo.com/2803301701/5765840498557012' },
     ],
   },
 
@@ -297,7 +297,7 @@ export const SITES: SiteConfig[] = [
     category: 'government',
     pages: [
       { label: 'home', url: 'https://www.usa.gov/' },
-      { label: 'search', url: 'https://www.usa.gov/search?query=benefits' },
+      { label: 'search', url: 'https://www.usa.gov/benefit-finder' },
       { label: 'detail', url: 'https://www.usa.gov/disability-services' },
     ],
   },
