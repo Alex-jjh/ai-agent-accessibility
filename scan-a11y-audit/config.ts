@@ -20,6 +20,8 @@
 export interface SitePage {
   label: string;
   url: string;
+  /** If true, page requires login — will be skipped in headless scan */
+  requiresAuth?: boolean;
 }
 
 export interface LoginConfig {
@@ -133,6 +135,9 @@ export const SITES: SiteConfig[] = [
   },
 
   // ── China Platforms (6) ──
+  // Login wall handling: only scan publicly accessible pages.
+  // Taobao search/detail require login; Zhihu search pops login; Weibo search/detail require login.
+  // Douyin web is unusable → replaced with Xiaohongshu.
   {
     name: 'jd',
     category: 'china',
@@ -147,8 +152,8 @@ export const SITES: SiteConfig[] = [
     category: 'china',
     pages: [
       { label: 'home', url: 'https://www.taobao.com/' },
-      { label: 'search', url: 'https://s.taobao.com/search?q=耳机' },
-      { label: 'detail', url: 'https://item.taobao.com/item.htm?id=679533100521' },
+      { label: 'search', url: 'https://s.taobao.com/search?q=耳机', requiresAuth: true },
+      { label: 'detail', url: 'https://item.taobao.com/item.htm?id=679533100521', requiresAuth: true },
     ],
   },
   {
@@ -165,17 +170,17 @@ export const SITES: SiteConfig[] = [
     category: 'china',
     pages: [
       { label: 'home', url: 'https://www.zhihu.com/' },
-      { label: 'search', url: 'https://www.zhihu.com/search?type=content&q=accessibility' },
-      { label: 'detail', url: 'https://www.zhihu.com/question/19550227' },
+      { label: 'search', url: 'https://www.zhihu.com/search?type=content&q=accessibility', requiresAuth: true },
+      { label: 'detail', url: 'https://www.zhihu.com/question/19550227', requiresAuth: true },
     ],
   },
   {
-    name: 'douyin',
+    name: 'xiaohongshu',
     category: 'china',
     pages: [
-      { label: 'home', url: 'https://www.douyin.com/' },
-      { label: 'search', url: 'https://www.douyin.com/search/coding' },
-      { label: 'detail', url: 'https://www.douyin.com/video/7293015718498498857' },
+      { label: 'home', url: 'https://www.xiaohongshu.com/explore' },
+      { label: 'search', url: 'https://www.xiaohongshu.com/search_result?keyword=旅行' },
+      { label: 'detail', url: 'https://www.xiaohongshu.com/explore', requiresAuth: true },
     ],
   },
   {
@@ -183,8 +188,8 @@ export const SITES: SiteConfig[] = [
     category: 'china',
     pages: [
       { label: 'home', url: 'https://weibo.com/' },
-      { label: 'search', url: 'https://s.weibo.com/weibo?q=AI' },
-      { label: 'detail', url: 'https://weibo.com/2803301701/5765840498557012' },
+      { label: 'search', url: 'https://s.weibo.com/weibo?q=AI', requiresAuth: true },
+      { label: 'detail', url: 'https://weibo.com/2803301701/5765840498557012', requiresAuth: true },
     ],
   },
 

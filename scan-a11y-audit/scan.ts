@@ -241,6 +241,22 @@ async function scanSite(site: SiteConfig, browser: Browser): Promise<SiteResult>
   }
 
   for (const sp of site.pages) {
+    // Skip pages that require authentication (login walls)
+    if (sp.requiresAuth) {
+      console.log(`  → ${sp.label}: ${sp.url} [SKIPPED — requires auth]`);
+      pages.push({
+        label: sp.label,
+        url: sp.url,
+        actualUrl: '',
+        scanTime: new Date().toISOString(),
+        loadTimeMs: 0,
+        axe: { violations: [], passes: 0, incomplete: 0, inapplicable: 0 },
+        custom: {} as CustomCheckResults,
+        error: 'Skipped: requires authentication',
+      });
+      continue;
+    }
+
     console.log(`  → ${sp.label}: ${sp.url}`);
     const page = await context.newPage();
     try {
