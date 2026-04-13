@@ -146,11 +146,21 @@ Execution phases:
     10/12 (83.3%). Step function replicated: low 33.3% → ml/base/high 100%.
     Two failure pathways confirmed on Vue.js: structural infeasibility + token inflation.
     No Type 2 bugs. Token inflation 1.57× (vs Pilot 4 Magento 2.15×).
-  Phase 2: Admin + Shopping smoke (41, 94, 198, 124) — 🟡 IN PROGRESS
-  Phase 3: Full runs per task (4 variants × 5 reps × text-only = 20 cases each)
-  Phase 4 (optional): CUA runs for new tasks
+  Phase 2: Admin + Shopping smoke (41, 94, 198, 124) — ✅ PASSED 2026-04-12
+    11/16 (68.8%). ecommerce:124 DROPPED (stale ground truth — base fails).
+    Replaced with ecommerce:188 (4/4 smoke, control task — low also succeeds).
+  Phase 3: Claude expansion full run — ✅ COMPLETED 2026-04-13
+    140 cases (7 new tasks × 4 variants × 5 reps × text-only).
+    Results: low 51.4% → ml 100% → base 100% → high 100%. Perfect step function.
+    Deep dive: admin:198 low F_SIF (KnockoutJS grid invisible), gitlab:293 low F_SIF
+    (search autocomplete ARIA destroyed), gitlab:308 low F_SIF (Contributors chart invisible),
+    admin:94 low 3/5 (stochastic URL construction workaround, 60% success).
+  Phase 4: Llama 4 cross-model replication — ✅ COMPLETED 2026-04-13
+    260 cases (13 tasks × 4 variants × 5 reps × text-only, Llama 4 Maverick).
+    Overall: 159/260 (61.2%). Gradient: low 36.9% → ml 61.5% → base 70.8% → high 75.4%.
+    Key findings — see "Cross-Model Replication" section below.
 
-Projected total: ~640 cases (existing 360 + new 140 text-only + 140 CUA optional)
+Actual total: N=760 (Pilot 4: 240 text/SoM + 120 CUA + Expansion: 140 Claude + 260 Llama 4)
 
 Ecological validity audit completed (2026-04-13):
 - scan-a11y-audit/ tool built: Playwright + axe-core scanner for 30 real-world websites
@@ -186,8 +196,8 @@ Priority 1 (MUST for paper):
 Priority 2 (SHOULD — strengthens paper):
 - low-functional-fix variant: restore href in link→span, re-run CUA+text 60 cases
   Isolates functional breakage from semantic degradation more cleanly
-- Multi-model replication: GPT-4o targeted replication (72 cases)
-  Reviewer will likely request this in revision
+- Multi-model replication: ✅ DONE — Llama 4 Maverick 260 cases (2026-04-13)
+  Cross-model a11y effect confirmed. See "Cross-Model Replication" section.
 
 Priority 3 (COULD — independent contributions):
 - SRF serialization: filter hidden=True nodes, re-run PSL → confirms Same Barrier at ARIA level
@@ -395,16 +405,16 @@ Existing (Pilot 4):
   29  reddit          template=33   Count downvoted comments          nav=medium
   67  reddit          template=17   Book names from top 10 posts      nav=shallow
 
-New (task expansion, pending smoke validation):
+New (task expansion, validated):
   132 gitlab          template=322  Commits by kilian on 3/5/2023     nav=medium
   293 gitlab          template=329  Clone SSH command for repo        nav=medium
   308 gitlab          template=323  Top contributor to primer/design  nav=deep
   41  shopping_admin  template=285  Top 1 search term in store        nav=medium
   94  shopping_admin  template=274  Invoice 000000001 grand total     nav=deep
   198 shopping_admin  template=366  Customer name of cancelled order  nav=deep
-  124 shopping        template=159  Price range of wireless earphone  nav=medium
+  188 shopping        template=159  Cancelled order cost              nav=shallow
 
-Backup: 349 (gitlab, repo members), 188 (shopping, cancelled order cost)
+Backup: 349 (gitlab, repo members), 124 (DROPPED — stale ground truth)
 
 ## Deployment Rules (CRITICAL)
 
@@ -568,6 +578,11 @@ scan-a11y-audit/  — Ecological validity audit (axe-core scan of 30+ real websi
 - `docs/screening-analysis.md` — Task screening results
 - `docs/analysis/` — All experiment analysis reports (git tracked):
   - pilot4-full-analysis.md, pilot4-cua-analysis.md, pilot4-deep-dives.md, etc.
+  - expansion-claude-trace-deep-dive.md — Claude expansion low-variant failure attribution
+  - expansion-llama4-reddit29-deep-dive.md — Forced simplification cross-model replication
+  - expansion-llama4-admin4-deep-dive.md — Llama 4 combobox trap (model capability)
+  - expansion-llama4-admin198-deep-dive.md — Model capability floor effect
+  - expansion-llama4-ecom24-26-deep-dive.md — Answer formatting + comprehension gaps
   - Write NEW analysis reports here (not in data/)
 - `docs/task-expansion-plan.md` — Task expansion from 6→13 tasks (selection rationale + execution plan)
 - `figures/figure4_layer_model_spec.md` — Five-layer architecture text spec
@@ -600,11 +615,87 @@ Key statistics (Pilot 4, 6 tasks):
   Causal decomposition: 63.3pp - 30.0pp = 33.3pp a11y tree pathway
   Token inflation: low 366K vs base 178K = 2.15x
 
-Target statistics (after task expansion, 13 tasks):
-  N=~640 (360 existing + 140 new text-only + 140 new CUA optional)
-  4 apps (shopping_admin, shopping, reddit, gitlab)
-  11 unique intent templates, 13 tasks
-  Navigation depth: shallow (4), medium (6), deep (3)
+Key statistics (Claude expansion, 7 new tasks):
+  N=140 (text-only). low 51.4% → ml 100% → base 100% → high 100%.
+  Perfect step function on new tasks. Cross-app generalizability confirmed (GitLab Vue.js).
+
+Key statistics (Llama 4 expansion, 13 tasks):
+  N=260 (text-only). Overall 61.2%. low 36.9% → ml 61.5% → base 70.8% → high 75.4%.
+  Monotonic gradient (not step function — more gradual for weaker model).
+  Cross-model a11y effect confirmed: both models show low < base, but Llama 4 is
+  weaker at ALL variants and shows a more gradual dose-response curve.
+
+Combined experiment total: N=760 (360 Pilot 4 + 140 Claude expansion + 260 Llama 4)
+
+## Cross-Model Replication (Llama 4 Maverick, 2026-04-13)
+
+Llama 4 Maverick (Meta, open-source, 400B MoE) via AWS Bedrock. 260 cases.
+Confirms a11y effect generalizes across model families (closed Anthropic + open Meta).
+
+### Key Findings
+
+1. **A11y gradient confirmed**: low 36.9% → ml 61.5% → base 70.8% → high 75.4%.
+   Direction matches Claude but curve is more gradual (not step function).
+   Llama 4 is weaker at ALL variants — base 70.8% vs Claude 92.3%.
+
+2. **Forced simplification cross-model replication** (reddit:29):
+   Llama 4: low 40% > ml 0% = base 0% (INVERTED — low is best).
+   Claude: low 80%, ml/base 100% (normal direction).
+   Same mechanism: link→span prevents clicking into 168K-char post detail pages,
+   forcing agent onto goto() + user profile strategy (15K chars, tractable).
+   Weaker model benefits MORE from action space constraint.
+   Detailed analysis: docs/analysis/expansion-llama4-reddit29-deep-dive.md
+
+3. **Model capability floor effect** (admin:198):
+   Llama 4: base 40% → high 80% (+40pp from enhanced a11y).
+   Claude: base 100% → high 100% (+0pp — already at ceiling).
+   Weaker models benefit MORE from accessibility enhancement.
+   Root cause: Llama 4 struggles with 190K-char orders table (picks first cancelled
+   order instead of most recent). Enhanced ARIA helps parse table structure.
+   Detailed analysis: docs/analysis/expansion-llama4-admin198-deep-dive.md
+
+4. **Model-specific failures (not a11y effects)**:
+   - admin:4: Llama 4 1/20 (5%) vs Claude 19/20 (95%). Cannot operate native
+     <select> combobox (52 failed attempts). Claude bypasses combobox entirely.
+     Detailed analysis: docs/analysis/expansion-llama4-admin4-deep-dive.md
+   - ecom:24: Llama 4 sends "" instead of "N/A" for negative results → 0% at ml/base/high.
+     Claude sends "0" → 100%. Pure answer formatting deficiency.
+   - ecom:26: Llama 4 finds 1/3 reviewers at ml (0%), stochastically 2/3 at base (80%).
+     Claude finds 3/3 deterministically (100%). Review comprehension gap.
+     Detailed analysis: docs/analysis/expansion-llama4-ecom24-26-deep-dive.md
+
+5. **Tasks where both models agree** (a11y effect is model-independent):
+   - ecom:23: both 0% at low, 100% at ml/base/high (content invisibility)
+   - gitlab:293/308: both 0% at low, 100% at ml/base/high (structural infeasibility)
+   - admin:41/188: both 100% at ALL variants (control tasks, low also succeeds)
+   - admin:94: both ~60% at low (stochastic URL workaround), 100% at ml/base/high
+
+6. **Paper narrative implications**:
+   - "Effect generalizes across closed-source (Claude) and open-source (Llama) models"
+   - "Weaker models are more vulnerable to a11y degradation AND benefit more from enhancement"
+   - "Forced simplification is a general agent-environment property, not model-specific"
+   - Model capability × environment quality = multiplicative interaction
+   - performance = task demand (ADeLe) × environment quality (ours) × agent capability
+
+### Llama 4 Task × Variant Matrix (text-only, N=260)
+
+| Task | low | ml | base | high | Notes |
+|------|-----|----|------|------|-------|
+| admin:4 | 0% | 0% | 0% | 20% | Model capability (combobox trap) |
+| admin:41 | 100% | 100% | 100% | 100% | Control task |
+| admin:94 | 60% | 100% | 100% | 100% | Stochastic URL workaround at low |
+| admin:198 | 0% | 40% | 40% | 80% | Model capability floor |
+| ecom:23 | 0% | 100% | 100% | 100% | Content invisibility at low |
+| ecom:24 | 20%* | 0% | 0% | 0% | Answer formatting bug ("" vs "N/A") |
+| ecom:26 | 0% | 0% | 80% | 60% | Review comprehension threshold |
+| ecom:188 | 100% | 100% | 100% | 100% | Control task |
+| reddit:29 | 40% | 0% | 0% | 20% | **Forced simplification inversion** |
+| reddit:67 | 60% | 80% | 100% | 100% | Gradual gradient |
+| gitlab:132 | 100% | 100% | 100% | 100% | Control task |
+| gitlab:293 | 0% | 80% | 100% | 100% | Structural infeasibility at low |
+| gitlab:308 | 0% | 100% | 100% | 100% | Structural infeasibility at low |
+
+*ecom:24 low "success" is vacuous truth (can't access reviews, "cannot complete" matches "N/A")
 
 ## Spec Reference
 

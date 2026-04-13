@@ -39,7 +39,8 @@ Must verify variant injection works before committing to full runs.
 | **41** | 285 | string_match | Medium (3) | List the top 1 search terms in my store | Marketing → Search Terms (different admin section from task 4). |
 | **94** | 274 | string_match | Deep (4) | Grand total of invoice 000000001 | Sales → Invoices → detail. Table semantics (th→td patch). |
 | **198** | 366 | string_match | Deep (4-5) | Customer name of most recent cancelled order | Sales → Orders → filter Canceled → read. Table filtering. |
-| **124** | 159 | string_match | Medium (3) | Price range of wireless earphone | Search box → results → extract prices. Label removal affects search. |
+| **124** | 159 | string_match | Medium (3) | Price range of wireless earphone | **DROPPED** — stale ground truth, base fails. |
+| **188** | 214 | string_match | Shallow (1) | Cancelled order cost | Replacement for 124. Control task (low also succeeds). |
 
 ### Phase 3 — Reddit (no new tasks needed)
 
@@ -87,29 +88,30 @@ independence. Reddit coverage is sufficient at 2 tasks.
 Time estimate: 140 text-only cases × ~3 min = ~7 hours. With CUA: ~14 hours total.
 Fits within one burner account cycle if started promptly after deployment.
 
-## Execution Order
+## Execution Status (Updated 2026-04-13)
 
-1. Deploy new AWS account (terraform + bootstrap)
-2. Verify WebArena services (all 5 Docker containers including GitLab)
-3. Phase 1: GitLab smoke (132, 293, 308 × 4 variants × 1 rep × text-only = 12 cases)
-   - READ TRACES — verify variant injection on Vue.js DOM
-   - If Type 2 bug found: fix first, then re-smoke
-4. Phase 2: Admin + Shopping smoke (41, 94, 198, 124 × 4 variants × 1 rep = 16 cases)
-5. Full runs per task (4 variants × 5 reps × text-only = 20 cases each)
-6. Optional: CUA runs for new tasks (same config but observationMode=cua)
+All phases COMPLETE. Final experiment size: N=760.
 
-## Consistency Requirements
+1. ✅ Phase 1: GitLab smoke — PASSED (10/12, step function on Vue.js)
+2. ✅ Phase 2: Admin + Shopping smoke — PASSED (11/16, ecom:124 dropped → replaced with 188)
+3. ✅ Phase 3: Claude expansion full run — 140 cases, low 51.4% → ml/base/high 100%
+4. ✅ Phase 4: Llama 4 cross-model replication — 260 cases, 159/260 (61.2%)
 
-Before starting expansion, FREEZE:
-- apply-low.js, apply-medium-low.js, apply-high.js (variant patches)
-- browsergym_bridge.py, cua_bridge.py (bridge code)
-- Bedrock model ID: us.anthropic.claude-sonnet-4-20250514-v1:0
+### Final Experiment Size
 
-If any of these change mid-expansion, mark batch boundary per steering rules.
+| Config | Tasks | Variants | Reps | Agents | Model | Cases |
+|--------|-------|----------|------|--------|-------|-------|
+| Pilot 4 | 6 | 4 | 5 | text-only + SoM | Claude Sonnet | 240 |
+| Pilot 4 CUA | 6 | 4 | 5 | CUA | Claude Sonnet | 120 |
+| Claude expansion | 7 | 4 | 5 | text-only | Claude Sonnet | 140 |
+| Llama 4 expansion | 13 | 4 | 5 | text-only | Llama 4 Maverick | 260 |
+| **Total** | — | — | — | — | — | **760** |
 
 ## Limitations to Acknowledge in Paper
 
 - Task set is information retrieval only; form interaction not tested
 - Reddit limited to 2 templates (pool exhaustion, not selection bias)
 - Tasks 23/24/26 share template 222 (sensitivity analysis: exclude 2, check stability)
-- GitLab tasks not yet validated (pending Phase 1 smoke)
+- ecom:124 dropped due to stale ground truth (replaced with 188)
+- Llama 4 has model-specific failures on admin:4 (combobox), ecom:24 (answer format),
+  ecom:26 (review comprehension) — these are model artifacts, not a11y effects
