@@ -152,6 +152,28 @@ Execution phases:
 
 Projected total: ~640 cases (existing 360 + new 140 text-only + 140 CUA optional)
 
+Ecological validity audit completed (2026-04-13):
+- scan-a11y-audit/ tool built: Playwright + axe-core scanner for 30 real-world websites
+  + 4 WebArena Docker instances (34 total sites scanned)
+- 34 sites across 6 categories: ecommerce (8), china (6), saas (6), media (5),
+  government (5), webarena (4)
+- 7 sites scanned via local HTML snapshots (manual Chrome DevTools save) due to
+  login walls / bot detection: taobao, zhihu, weibo, xiaohongshu, walmart, ebay, bestbuy
+- Three-layer severity framework: L1 decorative, L2 annotation, L3 structural
+- Key findings:
+  - L3 structural violations present on 83.3% (25/30) of real-world sites, avg 37.4 nodes/site
+  - P7 landmark→div: 82% prevalence (most common)
+  - P5 heading→div: 62% prevalence
+  - P1 img alt: 38% prevalence
+  - P11 link→span: 12% detected (conservative lower bound; true prevalence ~40-60%
+    due to JS event delegation)
+  - WebArena base ≈ real-world L1/L2 level, L3-clean → validates experimental design
+- Data: scan-a11y-audit/results/ (34 JSON files + prevalence_matrix.csv)
+- Analysis: 5 tables (patch prevalence, full matrix, severity distribution,
+  WebArena vs real-world, per-site heatmap)
+- Paper placement: Table 3 (severity) in §4/§7 main text; Table 1 (per-patch) in
+  supplementary; Table 4 (WebArena comparison) in §7 Discussion
+
 Next steps — CHI 2027 submission (September deadline):
 
 Priority 1 (MUST for paper):
@@ -170,6 +192,10 @@ Priority 2 (SHOULD — strengthens paper):
 Priority 3 (COULD — independent contributions):
 - SRF serialization: filter hidden=True nodes, re-run PSL → confirms Same Barrier at ARIA level
 - Track B: HAR landscape survey (200+ public sites) → ecological validation paper
+  ✅ Ecological validity audit (30 real-world sites + 4 WebArena) DONE (2026-04-13).
+  L3 structural violations on 83.3% of sites validates that low variant patches
+  model real-world conditions. Provides data for CHI paper's ecological validity
+  argument (§7 Discussion). Full 200+ site survey remains optional future work.
 - Dual-Audience Design Guidelines: 5-8 evidence-backed guidelines → W4A/ASSETS paper
 - Front-end developer interview study: 10-15 semi-structured interviews → Design Guidelines paper
 - Framework accessibility audit: Top 10 frontend frameworks × standard pages × axe-core
@@ -523,6 +549,13 @@ scripts/         — Launch scripts, smoke tests, analysis tools, deployment aut
   experiment-run-and-upload.sh — Wrapper: run experiment then auto-upload
   smoke-cua-*.   — CUA API verification scripts (LiteLLM + Bedrock direct)
 figures/         — Architecture diagrams (matplotlib-generated PNGs + source scripts)
+scan-a11y-audit/  — Ecological validity audit (axe-core scan of 30+ real websites)
+  scan.ts         — Main scanner (Playwright + axe-core, --local mode for HTML snapshots)
+  config.ts       — 34 site configs with patch↔axe-core rule mapping
+  custom-checks.ts — Custom DOM checks (P11 div-as-link, Shadow DOM, etc.)
+  analysis.py     — Python analysis: 5 tables + CSV export + severity framework
+  html-snapshots/ — Manual HTML snapshots for login-walled sites
+  results/        — Scan results JSON (not git tracked, synced via S3)
 ```
 
 ## Key Documentation Files
