@@ -134,7 +134,7 @@ export const SITES: SiteConfig[] = [
     ],
   },
 
-  // ── China Platforms (7) ──
+  // ── China Platforms (6) ──
   // All pages will be scanned via local HTML snapshots (manual Chrome save).
   // Automated scan covers home pages; search/detail pages saved manually.
   {
@@ -171,15 +171,6 @@ export const SITES: SiteConfig[] = [
       { label: 'home', url: 'https://www.zhihu.com/' },
       { label: 'search', url: 'https://www.zhihu.com/search?type=content&q=accessibility', requiresAuth: true },
       { label: 'detail', url: 'https://www.zhihu.com/question/19550227', requiresAuth: true },
-    ],
-  },
-  {
-    name: 'meituan',
-    category: 'china',
-    pages: [
-      { label: 'home', url: 'https://www.meituan.com/' },
-      { label: 'search', url: 'https://www.meituan.com/s/火锅' },
-      { label: 'detail', url: 'https://www.meituan.com/', requiresAuth: true },
     ],
   },
   {
