@@ -372,7 +372,7 @@ async function scanLocalDir(localDir: string): Promise<void> {
       let error: string | undefined;
 
       try {
-        await page.goto(fileUrl, { waitUntil: 'load', timeout: 15_000 });
+        await page.goto(fileUrl, { waitUntil: 'domcontentloaded', timeout: 30_000 });
         await page.waitForTimeout(1000);
       } catch (e: any) {
         error = `Local file load failed: ${e.message?.slice(0, 200)}`;
