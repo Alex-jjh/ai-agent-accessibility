@@ -3,6 +3,11 @@ test-tmp
 data
 dist
 
+# Scan audit results (large JSON files, not tracked)
+scan-a11y-audit/results/*.json
+scan-a11y-audit/results/*.csv
+scan-a11y-audit/node_modules
+
 # Python
 __pycache__/
 *.py[cod]
