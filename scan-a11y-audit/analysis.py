@@ -47,6 +47,17 @@ SEVERITY_AGENT_IMPACT = {
     "L3_structural": "Fatal (low=23.3%)",
 }
 
+# Category override for local-snapshot sites (restore original category)
+SITE_CATEGORY_OVERRIDE = {
+    "taobao":       "china",
+    "zhihu":        "china",
+    "weibo":        "china",
+    "xiaohongshu":  "china",
+    "walmart":      "ecommerce",
+    "ebay":         "ecommerce",
+    "bestbuy":      "ecommerce",
+}
+
 # Patch → axe-core rule IDs mapping
 PATCH_AXE_RULES = {
     "P1: img alt":       ["image-alt"],
@@ -72,7 +83,11 @@ def load_results():
         if f.name.startswith("_"):
             continue
         data = json.loads(f.read_text(encoding="utf-8"))
-        sites[data["name"]] = data
+        # Override category for local-snapshot sites
+        name = data["name"]
+        if name in SITE_CATEGORY_OVERRIDE:
+            data["category"] = SITE_CATEGORY_OVERRIDE[name]
+        sites[name] = data
     return sites
 
 
