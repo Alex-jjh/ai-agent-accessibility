@@ -40,11 +40,12 @@ SEVERITY_LABELS = {
     "L3_structural": "L3 (structural)",
 }
 
-# Agent impact from Pilot 4 data (for Table 3 context)
+# Agent impact from experiment data (Pilot 4 + Task Expansion, text-only)
+# low=51.4% is combined across all tasks; 23.3% was Pilot 4 only (6 tasks)
 SEVERITY_AGENT_IMPACT = {
-    "L1_decorative": "None (base≈100%)",
-    "L2_annotation": "None (medium-low=100%)",
-    "L3_structural": "Fatal (low=23.3%)",
+    "L1_decorative": "None (base≈87%)",
+    "L2_annotation": "None (medium-low≈100%)",
+    "L3_structural": "Fatal (low=51.4%)",
 }
 
 # Category override for local-snapshot sites (restore original category)
@@ -501,6 +502,13 @@ def main():
 
     print(f"\n{patches_with_majority}/{len(PATCH_AXE_RULES)} patches affect >50% of sites")
     print("→ Low variant manipulations reflect real-world accessibility violations")
+    print("\nNotes:")
+    print("  P6/P8/P9 at 0%: P6 has no axe rule; P8 eliminated by modern frameworks;")
+    print("    P9 reflects shift from <table> to div-based layouts")
+    print("  P11 at 12% is a conservative lower bound: only detects explicit onclick")
+    print("    attributes. Modern frameworks use event delegation invisible to static")
+    print("    DOM analysis. True prevalence likely 40-60% (HTTP Archive: div+span ≈ 40%)")
+    print("  L3 structural violations (P7+P9+P11) present on 83.3% of real-world sites")
 
 
 if __name__ == "__main__":
