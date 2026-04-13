@@ -76,7 +76,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.ebay.com/' },
       { label: 'search', url: 'https://www.ebay.com/sch/i.html?_nkw=laptop' },
-      { label: 'detail', url: 'https://www.ebay.com/itm/326753162722' },
+      { label: 'detail', url: 'https://www.ebay.com/itm/315766130064' },
     ],
   },
   {
@@ -85,7 +85,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.walmart.com/' },
       { label: 'search', url: 'https://www.walmart.com/search?q=headphones' },
-      { label: 'detail', url: 'https://www.walmart.com/ip/334289127' },
+      { label: 'detail', url: 'https://www.walmart.com/reviews/product/1727381613' },
     ],
   },
   {
@@ -94,7 +94,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.target.com/' },
       { label: 'search', url: 'https://www.target.com/s?searchTerm=keyboard' },
-      { label: 'detail', url: 'https://www.target.com/p/garmin-vivoactive-6/-/A-94724491' },
+      { label: 'detail', url: 'https://www.target.com/p/samsung-galaxy-buds-3-fe-true-wireless-bluetooth-earbuds-active-noise-cancellation-powerful-sound-clear-calls-long-lasting-battery-black/-/A-101083195' },
     ],
   },
   {
@@ -103,7 +103,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.etsy.com/' },
       { label: 'search', url: 'https://www.etsy.com/search?q=handmade+jewelry' },
-      { label: 'detail', url: 'https://www.etsy.com/listing/694574786/etsy-listing-template-product-listing' },
+      { label: 'detail', url: 'https://www.etsy.com/listing/432540471/personalized-ceramic-mug-handmade' },
     ],
   },
   {
@@ -112,7 +112,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.bestbuy.com/' },
       { label: 'search', url: 'https://www.bestbuy.com/site/searchpage.jsp?st=monitor' },
-      { label: 'detail', url: 'https://www.bestbuy.com/site/apple-airpods-4-white/6447384.p' },
+      { label: 'detail', url: 'https://www.bestbuy.com/site/apple-airpods-4/6612252.p' },
     ],
   },
   {
@@ -121,7 +121,7 @@ export const SITES: SiteConfig[] = [
     pages: [
       { label: 'home', url: 'https://www.aliexpress.com/' },
       { label: 'search', url: 'https://www.aliexpress.com/wholesale?SearchText=usb+cable' },
-      { label: 'detail', url: 'https://www.aliexpress.com/item/1005002964689678.html' },
+      { label: 'detail', url: 'https://www.aliexpress.com/item/1005003819738607.html' },
     ],
   },
   {
@@ -137,7 +137,7 @@ export const SITES: SiteConfig[] = [
   // ── China Platforms (6) ──
   // Login wall handling: only scan publicly accessible pages.
   // Taobao search/detail require login; Zhihu search pops login; Weibo search/detail require login.
-  // Douyin web is unusable → replaced with Xiaohongshu.
+  // Douyin web is unusable → replaced with Meituan.
   {
     name: 'jd',
     category: 'china',
@@ -175,12 +175,12 @@ export const SITES: SiteConfig[] = [
     ],
   },
   {
-    name: 'xiaohongshu',
+    name: 'meituan',
     category: 'china',
     pages: [
-      { label: 'home', url: 'https://www.xiaohongshu.com/explore' },
-      { label: 'search', url: 'https://www.xiaohongshu.com/search_result?keyword=旅行' },
-      { label: 'detail', url: 'https://www.xiaohongshu.com/explore', requiresAuth: true },
+      { label: 'home', url: 'https://www.meituan.com/' },
+      { label: 'search', url: 'https://www.meituan.com/s/火锅' },
+      { label: 'detail', url: 'https://www.meituan.com/', requiresAuth: true },
     ],
   },
   {
@@ -302,7 +302,7 @@ export const SITES: SiteConfig[] = [
     category: 'government',
     pages: [
       { label: 'home', url: 'https://www.usa.gov/' },
-      { label: 'search', url: 'https://www.usa.gov/benefit-finder' },
+      { label: 'search', url: 'https://search.usa.gov/search?affiliate=usagov&query=benefits' },
       { label: 'detail', url: 'https://www.usa.gov/disability-services' },
     ],
   },
