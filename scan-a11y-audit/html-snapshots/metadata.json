@@ -1,12 +1,149 @@
 {
-  "_README": "Record metadata for each HTML snapshot. Key = siteName/filename.html",
-  "_example": {
-    "taobao/home.html": {
-      "originalUrl": "https://www.taobao.com/",
-      "savedAt": "2026-04-13T15:00:00+08:00",
-      "savedBy": "manual-chrome-devtools",
-      "authenticated": false,
-      "notes": "Homepage, unauthenticated"
-    }
+  "taobao/home.html": {
+    "originalUrl": "https://www.taobao.com/",
+    "savedAt": "2026-04-13T15:00:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Homepage, unauthenticated"
+  },
+  "taobao/search.html": {
+    "originalUrl": "https://s.taobao.com/search?q=耳机",
+    "savedAt": "2026-04-13T15:02:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": true,
+    "notes": "Search results page, authenticated"
+  },
+  "taobao/detail.html": {
+    "originalUrl": "https://item.taobao.com/item.htm",
+    "savedAt": "2026-04-13T15:04:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": true,
+    "notes": "Product detail page, authenticated"
+  },
+  "zhihu/home.html": {
+    "originalUrl": "https://www.zhihu.com/",
+    "savedAt": "2026-04-13T15:06:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Homepage, unauthenticated"
+  },
+  "zhihu/search.html": {
+    "originalUrl": "https://www.zhihu.com/search?type=content&q=accessibility",
+    "savedAt": "2026-04-13T15:08:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": true,
+    "notes": "Search results page, authenticated"
+  },
+  "zhihu/detail.html": {
+    "originalUrl": "https://www.zhihu.com/question/19550227",
+    "savedAt": "2026-04-13T15:10:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": true,
+    "notes": "Question detail page, authenticated"
+  },
+  "weibo/home.html": {
+    "originalUrl": "https://weibo.com/",
+    "savedAt": "2026-04-13T15:12:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Homepage, unauthenticated"
+  },
+  "weibo/search.html": {
+    "originalUrl": "https://s.weibo.com/weibo?q=AI",
+    "savedAt": "2026-04-13T15:14:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": true,
+    "notes": "Search results page, authenticated"
+  },
+  "weibo/detail.html": {
+    "originalUrl": "https://weibo.com/detail/post",
+    "savedAt": "2026-04-13T15:16:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": true,
+    "notes": "Post detail page, authenticated"
+  },
+  "xiaohongshu/home.html": {
+    "originalUrl": "https://www.xiaohongshu.com/explore",
+    "savedAt": "2026-04-13T15:18:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Explore/homepage"
+  },
+  "xiaohongshu/search.html": {
+    "originalUrl": "https://www.xiaohongshu.com/search_result?keyword=旅行",
+    "savedAt": "2026-04-13T15:20:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": true,
+    "notes": "Search results page, authenticated"
+  },
+  "xiaohongshu/detail.html": {
+    "originalUrl": "https://www.xiaohongshu.com/explore/note",
+    "savedAt": "2026-04-13T15:22:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": true,
+    "notes": "Note detail page, authenticated"
+  },
+  "walmart/home.html": {
+    "originalUrl": "https://www.walmart.com/",
+    "savedAt": "2026-04-13T15:24:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Homepage"
+  },
+  "walmart/search.html": {
+    "originalUrl": "https://www.walmart.com/search?q=headphones",
+    "savedAt": "2026-04-13T15:26:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Search results page"
+  },
+  "walmart/item.html": {
+    "originalUrl": "https://www.walmart.com/ip/product",
+    "savedAt": "2026-04-13T15:28:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Product detail page"
+  },
+  "ebay/home.html": {
+    "originalUrl": "https://www.ebay.com/",
+    "savedAt": "2026-04-13T15:30:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Homepage"
+  },
+  "ebay/search.html": {
+    "originalUrl": "https://www.ebay.com/sch/i.html?_nkw=laptop",
+    "savedAt": "2026-04-13T15:32:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Search results page"
+  },
+  "ebay/item.html": {
+    "originalUrl": "https://www.ebay.com/itm/315766130064",
+    "savedAt": "2026-04-13T15:34:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Item listing page"
+  },
+  "bestbuy/home.html": {
+    "originalUrl": "https://www.bestbuy.com/",
+    "savedAt": "2026-04-13T15:36:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Homepage"
+  },
+  "bestbuy/search.html": {
+    "originalUrl": "https://www.bestbuy.com/site/searchpage.jsp?st=monitor",
+    "savedAt": "2026-04-13T15:38:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Search results page"
+  },
+  "bestbuy/detail.html": {
+    "originalUrl": "https://www.bestbuy.com/site/apple-airpods-4/6612252.p",
+    "savedAt": "2026-04-13T15:40:00+08:00",
+    "savedBy": "manual-chrome-devtools",
+    "authenticated": false,
+    "notes": "Product detail page"
   }
 }

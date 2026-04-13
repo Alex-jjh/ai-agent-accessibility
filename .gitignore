@@ -7,9 +7,8 @@ dist
 scan-a11y-audit/results/*.json
 scan-a11y-audit/results/*.csv
 scan-a11y-audit/node_modules
-# HTML snapshots (large, not tracked — only metadata.json is tracked)
-scan-a11y-audit/html-snapshots/**/*.html
-scan-a11y-audit/html-snapshots/**/*_files/
+# HTML snapshots (large, tracked as audit evidence; metadata.json also tracked)
+# scan-a11y-audit/html-snapshots/**/*_files/  ← uncomment if Save Complete _files dirs appear
 
 # Python
 __pycache__/
