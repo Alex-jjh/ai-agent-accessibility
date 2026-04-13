@@ -1,0 +1,55 @@
+# Expansion CUA Full — 7 new tasks × 4 variants × 5 reps × CUA
+#
+# Full CUA run for expansion tasks. 140 cases, ~10-12 hours.
+# Fills the vision-cua gap in the experiment matrix for tasks 41/94/198/188/132/293/308.
+#
+# Run on EC2:
+#   nohup npx tsx scripts/run-pilot3.ts --config config-expansion-cua.yaml > expansion-cua.log 2>&1 &
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.50:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.50:7780"
+    gitlab:
+      url: "http://10.0.1.50:8023"
+
+  tasksPerApp:
+    gitlab: ["132", "293", "308"]
+    ecommerce_admin: ["41", "94", "198"]
+    ecommerce: ["188"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["low", "medium-low", "base", "high"]
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+
+runner:
+  repetitions: 5
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "cua"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/expansion-cua"
+  exportFormats: ["json", "csv"]

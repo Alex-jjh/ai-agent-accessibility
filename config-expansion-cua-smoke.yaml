@@ -1,0 +1,55 @@
+# Expansion CUA Smoke — 7 new tasks × 4 variants × 1 rep × CUA
+#
+# Smoke test for CUA agent on expansion tasks before full run.
+# 28 cases, ~2-3 hours (CUA is slower per case).
+#
+# Run on EC2:
+#   nohup npx tsx scripts/run-pilot3.ts --config config-expansion-cua-smoke.yaml > expansion-cua-smoke.log 2>&1 &
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.50:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.50:7780"
+    gitlab:
+      url: "http://10.0.1.50:8023"
+
+  tasksPerApp:
+    gitlab: ["132", "293", "308"]
+    ecommerce_admin: ["41", "94", "198"]
+    ecommerce: ["188"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["low", "medium-low", "base", "high"]
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+
+runner:
+  repetitions: 1
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "cua"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/expansion-cua-smoke"
+  exportFormats: ["json", "csv"]
