@@ -9,12 +9,13 @@
  *   npx tsx scan.ts --site amazon,jd       # scan multiple sites
  *   npx tsx scan.ts --resume               # skip sites with existing results
  *   npx tsx scan.ts --include-internal     # include WebArena sites (EC2 only)
+ *   npx tsx scan.ts --local ./html-snapshots # scan local HTML snapshots
  */
 
 import { chromium, type Page, type Browser, type BrowserContext } from 'playwright';
 import AxeBuilder from '@axe-core/playwright';
-import { writeFileSync, mkdirSync, existsSync } from 'fs';
-import { join } from 'path';
+import { writeFileSync, mkdirSync, existsSync, readFileSync, readdirSync } from 'fs';
+import { join, resolve, basename, dirname } from 'path';
 import { SITES, type SiteConfig, type SitePage, type LoginConfig } from './config.js';
 import { CUSTOM_CHECK_SCRIPT, type CustomCheckResults } from './custom-checks.js';
 
@@ -40,11 +41,13 @@ interface PageResult {
   };
   custom: CustomCheckResults;
   error?: string;
+  /** "live" for real-time scan, "local-snapshot" for HTML file scan */
+  source?: string;
 }
 
 interface SiteResult {
   name: string;
-  category: string;
+  category: string;  // site category or 'local-snapshot'
   scanDate: string;
   pages: PageResult[];
 }
@@ -58,11 +61,12 @@ const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 
 // ── Helpers ──
 
-function parseArgs(): { sites: string[]; resume: boolean; includeInternal: boolean } {
+function parseArgs(): { sites: string[]; resume: boolean; includeInternal: boolean; localDir: string | null } {
   const args = process.argv.slice(2);
   let sites: string[] = [];
   let resume = false;
   let includeInternal = false;
+  let localDir: string | null = null;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--site' && args[i + 1]) {
@@ -71,8 +75,12 @@ function parseArgs(): { sites: string[]; resume: boolean; includeInternal: boole
     }
     if (args[i] === '--resume') resume = true;
     if (args[i] === '--include-internal') includeInternal = true;
+    if (args[i] === '--local' && args[i + 1]) {
+      localDir = args[i + 1];
+      i++;
+    }
   }
-  return { sites, resume, includeInternal };
+  return { sites, resume, includeInternal, localDir };
 }
 
 async function scanPage(page: Page, sp: SitePage): Promise<PageResult> {
@@ -293,8 +301,162 @@ async function scanSite(site: SiteConfig, browser: Browser): Promise<SiteResult>
   };
 }
 
+// ── Local HTML snapshot scanning ──
+
+interface SnapshotMetadata {
+  [filePath: string]: {
+    originalUrl: string;
+    savedAt: string;
+    savedBy?: string;
+    authenticated?: boolean;
+    notes?: string;
+  };
+}
+
+async function scanLocalDir(localDir: string): Promise<void> {
+  const absDir = resolve(localDir);
+  if (!existsSync(absDir)) {
+    console.error(`Local directory not found: ${absDir}`);
+    process.exit(1);
+  }
+
+  // Load metadata if present
+  const metaPath = join(absDir, 'metadata.json');
+  let metadata: SnapshotMetadata = {};
+  if (existsSync(metaPath)) {
+    metadata = JSON.parse(readFileSync(metaPath, 'utf-8'));
+    console.log(`Loaded metadata for ${Object.keys(metadata).length} snapshots`);
+  }
+
+  // Discover site directories (each subdir = one site)
+  const siteDirs = readdirSync(absDir, { withFileTypes: true })
+    .filter(d => d.isDirectory())
+    .map(d => d.name);
+
+  if (siteDirs.length === 0) {
+    console.error(`No site directories found in ${absDir}`);
+    process.exit(1);
+  }
+
+  console.log(`Local mode: scanning ${siteDirs.length} sites from ${absDir}`);
+  mkdirSync(RESULTS_DIR, { recursive: true });
+
+  const browser = await chromium.launch({ headless: true, args: ['--no-sandbox'] });
+  let successCount = 0;
+
+  for (const siteName of siteDirs) {
+    const siteDir = join(absDir, siteName);
+    const htmlFiles = readdirSync(siteDir).filter(f => f.endsWith('.html'));
+
+    if (htmlFiles.length === 0) {
+      console.log(`  ⚠ No HTML files in ${siteName}/, skipping`);
+      continue;
+    }
+
+    console.log(`\n━━━ Scanning local: ${siteName} (${htmlFiles.length} pages) ━━━`);
+    const context = await browser.newContext({ javaScriptEnabled: true });
+    const pages: PageResult[] = [];
+
+    for (const htmlFile of htmlFiles) {
+      const label = basename(htmlFile, '.html');
+      const filePath = join(siteDir, htmlFile);
+      const fileUrl = `file://${resolve(filePath)}`;
+      const metaKey = `${siteName}/${htmlFile}`;
+      const meta = metadata[metaKey];
+
+      console.log(`  → ${label}: ${fileUrl}`);
+      if (meta) console.log(`    (original: ${meta.originalUrl}, saved: ${meta.savedAt})`);
+
+      const page = await context.newPage();
+      const start = Date.now();
+      let error: string | undefined;
+
+      try {
+        await page.goto(fileUrl, { waitUntil: 'load', timeout: 15_000 });
+        await page.waitForTimeout(1000);
+      } catch (e: any) {
+        error = `Local file load failed: ${e.message?.slice(0, 200)}`;
+      }
+
+      // axe-core scan
+      let axeResult;
+      try {
+        const results = await new AxeBuilder({ page })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice'])
+          .analyze();
+        axeResult = {
+          violations: results.violations.map(v => ({
+            id: v.id,
+            impact: v.impact ?? null,
+            description: v.description,
+            nodes: v.nodes.length,
+            tags: v.tags,
+          })),
+          passes: results.passes.length,
+          incomplete: results.incomplete.length,
+          inapplicable: results.inapplicable.length,
+        };
+      } catch (e: any) {
+        axeResult = { violations: [], passes: 0, incomplete: 0, inapplicable: 0 };
+        error = (error ? error + '; ' : '') + `axe-core error: ${e.message?.slice(0, 200)}`;
+      }
+
+      // Custom checks
+      let custom: CustomCheckResults;
+      try {
+        custom = await page.evaluate(CUSTOM_CHECK_SCRIPT) as CustomCheckResults;
+      } catch (e: any) {
+        custom = {} as CustomCheckResults;
+        error = (error ? error + '; ' : '') + `custom check error: ${e.message?.slice(0, 200)}`;
+      }
+
+      const vCount = axeResult.violations.reduce((sum, v) => sum + v.nodes, 0);
+      console.log(`    ✓ ${axeResult.violations.length} rules violated (${vCount} nodes), ${Date.now() - start}ms`);
+      if (error) console.log(`    ⚠ ${error}`);
+
+      pages.push({
+        label,
+        url: meta?.originalUrl ?? fileUrl,
+        actualUrl: fileUrl,
+        scanTime: new Date().toISOString(),
+        loadTimeMs: Date.now() - start,
+        axe: axeResult,
+        custom,
+        source: 'local-snapshot',
+        error,
+      });
+
+      await page.close();
+    }
+
+    await context.close();
+
+    const result: SiteResult = {
+      name: siteName,
+      category: 'local-snapshot',
+      scanDate: new Date().toISOString(),
+      pages,
+    };
+
+    const outPath = join(RESULTS_DIR, `${siteName}.json`);
+    writeFileSync(outPath, JSON.stringify(result, null, 2));
+    successCount++;
+  }
+
+  await browser.close();
+  console.log(`\n════════════════════════════════════════`);
+  console.log(`Local scan complete: ${successCount}/${siteDirs.length} sites`);
+  console.log(`Results saved to ${RESULTS_DIR}/`);
+}
+
 async function main() {
-  const { sites: filterSites, resume, includeInternal } = parseArgs();
+  const { sites: filterSites, resume, includeInternal, localDir } = parseArgs();
+
+  // Local HTML snapshot mode — completely separate path
+  if (localDir) {
+    await scanLocalDir(localDir);
+    return;
+  }
 
   mkdirSync(RESULTS_DIR, { recursive: true });
 

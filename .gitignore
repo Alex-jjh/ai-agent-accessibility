@@ -7,6 +7,9 @@ dist
 scan-a11y-audit/results/*.json
 scan-a11y-audit/results/*.csv
 scan-a11y-audit/node_modules
+# HTML snapshots (large, not tracked — only metadata.json is tracked)
+scan-a11y-audit/html-snapshots/**/*.html
+scan-a11y-audit/html-snapshots/**/*_files/
 
 # Python
 __pycache__/

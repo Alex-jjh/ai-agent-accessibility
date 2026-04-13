@@ -1,0 +1,12 @@
+{
+  "_README": "Record metadata for each HTML snapshot. Key = siteName/filename.html",
+  "_example": {
+    "taobao/home.html": {
+      "originalUrl": "https://www.taobao.com/",
+      "savedAt": "2026-04-13T15:00:00+08:00",
+      "savedBy": "manual-chrome-devtools",
+      "authenticated": false,
+      "notes": "Homepage, unauthenticated"
+    }
+  }
+}
