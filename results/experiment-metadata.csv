@@ -1,0 +1,7 @@
+experiment,agent_type,model,tasks,variants,reps,total_cases,expected_cases
+expansion-claude,text-only,claude-sonnet,"41,94,132,188,198,293,308","low,medium-low,base,high",5,140,140
+expansion-cua,cua,claude-sonnet,"41,94,132,188,198,293,308","low,medium-low,base,high",5,140,140
+expansion-llama4,text-only,llama4-maverick,"4,23,24,26,29,41,67,94,132,188,198,293,308","low,medium-low,base,high",5,260,260
+expansion-som,vision-only,claude-sonnet,"41,94,132,188,198,293,308","low,medium-low,base,high",5,140,140
+pilot4-cua,cua,claude-sonnet,"4,23,24,26,29,67","low,medium-low,base,high",5,120,120
+pilot4-full,"text-only,vision-only",claude-sonnet,"4,23,24,26,29,67","low,medium-low,base,high",5,240,240

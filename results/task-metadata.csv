@@ -1,0 +1,14 @@
+task_id,app,app_short,template_id,nav_depth,eval_type,low_feasible,ml_feasible
+4,ecommerce_admin,admin,279,medium,string_match,True,True
+23,ecommerce,ecom,222,shallow,string_match,False,True
+24,ecommerce,ecom,222,shallow,string_match,False,True
+26,ecommerce,ecom,222,shallow,string_match,False,True
+29,reddit,reddit,33,medium,string_match,True,True
+41,ecommerce_admin,admin,285,medium,string_match,True,True
+67,reddit,reddit,17,shallow,string_match,True,True
+94,ecommerce_admin,admin,274,deep,string_match,True,True
+132,gitlab,gitlab,322,medium,string_match,True,True
+188,ecommerce,ecom,159,shallow,string_match,True,True
+198,ecommerce_admin,admin,366,deep,string_match,False,True
+293,gitlab,gitlab,329,medium,string_match,False,True
+308,gitlab,gitlab,323,deep,string_match,False,True
