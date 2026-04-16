@@ -160,7 +160,20 @@ Execution phases:
     Overall: 159/260 (61.2%). Gradient: low 36.9% → ml 61.5% → base 70.8% → high 75.4%.
     Key findings — see "Cross-Model Replication" section below.
 
-Actual total: N=760 (Pilot 4: 240 text/SoM + 120 CUA + Expansion: 140 Claude + 260 Llama 4)
+  Phase 5: SoM expansion — ✅ COMPLETED 2026-04-14
+    140 cases (7 tasks × 4 variants × 5 reps × vision-only SoM).
+    Overall: 38/140 (27.1%). low 8.6% → ml 31.4% → base 34.3% → high 34.3%.
+    5 failure modes: phantom bid 48%, visual misread 22%, nav failure 16%,
+    exploration spiral 10%, form interaction 5%.
+    gitlab:293 0% ALL variants (Vue.js search fill failure).
+    ecom:188 forced simplification (low 20% > others 0%).
+  Phase 6: CUA expansion — ✅ COMPLETED 2026-04-14
+    140 cases (7 tasks × 4 variants × 5 reps × CUA coordinate-based).
+    Overall: 116/140 (82.9%). low 51.4% → ml 97.1% → base 91.4% → high 91.4%.
+    24 failures: 17 cross-layer functional (low), 6 UI complexity (admin:198), 1 step budget.
+    admin:198 anomaly: ml 80% > base 60% > high 40% (Columns dialog + screenshot timeout).
+
+Actual total: N=1,040 (Pilot 4: 240 text/SoM + 120 CUA + Expansion: 140 Claude + 260 Llama 4 + 140 SoM + 140 CUA)
 
 Ecological validity audit completed (2026-04-13):
 - scan-a11y-audit/ tool built: Playwright + axe-core scanner for 30 real-world websites
@@ -583,6 +596,11 @@ scan-a11y-audit/  — Ecological validity audit (axe-core scan of 30+ real websi
   - expansion-llama4-admin4-deep-dive.md — Llama 4 combobox trap (model capability)
   - expansion-llama4-admin198-deep-dive.md — Model capability floor effect
   - expansion-llama4-ecom24-26-deep-dive.md — Answer formatting + comprehension gaps
+  - expansion-som-smoke-deep-dive.md — SoM smoke 5 failure modes
+  - expansion-som-full-deep-dive.md — SoM full 102 failures classified
+  - expansion-cua-full-deep-dive.md — CUA full 24 failures analyzed
+  - expansion-vision-full-analysis.md — Combined SoM+CUA analysis (N=280)
+  - expansion-cross-agent-comparison.md — 4-agent comparison table
   - Write NEW analysis reports here (not in data/)
 - `docs/task-expansion-plan.md` — Task expansion from 6→13 tasks (selection rationale + execution plan)
 - `figures/figure4_layer_model_spec.md` — Five-layer architecture text spec
@@ -625,7 +643,7 @@ Key statistics (Llama 4 expansion, 13 tasks):
   Cross-model a11y effect confirmed: both models show low < base, but Llama 4 is
   weaker at ALL variants and shows a more gradual dose-response curve.
 
-Combined experiment total: N=760 (360 Pilot 4 + 140 Claude expansion + 260 Llama 4)
+Combined experiment total: N=1,040 (360 Pilot 4 + 140 Claude expansion + 260 Llama 4 + 140 SoM + 140 CUA)
 
 ## Cross-Model Replication (Llama 4 Maverick, 2026-04-13)
 
