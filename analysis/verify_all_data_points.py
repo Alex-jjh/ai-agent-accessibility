@@ -70,20 +70,20 @@ wiki_count = site_counts.get("wikipedia", 0)
 excluded_sites = map_count + wiki_count
 remaining_after_s1 = total_tasks - excluded_sites
 
-if map_count == 128:
+if map_count == 112:
     ok(f"map tasks: {map_count}")
 else:
-    error(f"map tasks: {map_count} (claimed 128)")
+    error(f"map tasks: {map_count} (expected 112)")
 
 if wiki_count == 16:
     ok(f"wikipedia tasks: {wiki_count}")
 else:
-    error(f"wikipedia tasks: {wiki_count} (claimed 16)")
+    error(f"wikipedia tasks: {wiki_count} (expected 16)")
 
-if remaining_after_s1 == 668:
-    ok(f"After Stage 1: {remaining_after_s1} (matches claim of 668)")
+if remaining_after_s1 == 684:
+    ok(f"After Stage 1: {remaining_after_s1}")
 else:
-    error(f"After Stage 1: {remaining_after_s1} (claimed 668)")
+    error(f"After Stage 1: {remaining_after_s1} (expected 684)")
 
 # Count eval types for deployed sites
 deployed_sites = {"shopping", "shopping_admin", "reddit", "gitlab"}
@@ -107,15 +107,14 @@ for t in deployed_tasks:
 print(f"  Primary eval types (deployed): {dict(primary_eval)}")
 
 string_match_count = sum(1 for t in deployed_tasks
-                         if "string_match" in t.get("eval", {}).get("eval_types", []))
-print(f"  Tasks with string_match: {string_match_count}")
+                         if t.get("eval", {}).get("eval_types", []) == ["string_match"])
+print(f"  Tasks with sole string_match: {string_match_count}")
 
-# Stage 2: string_match only
-non_sm = len(deployed_tasks) - string_match_count
-if non_sm == 340:
-    ok(f"Stage 2 excluded: {non_sm} (matches claim of 340)")
+# Stage 2: sole string_match
+if string_match_count == 231:
+    ok("Stage 2 output: 231 (sole string_match)")
 else:
-    warn(f"Stage 2 excluded: {non_sm} (claimed 340) — may differ due to multi-eval tasks")
+    error(f"Stage 2 output: {string_match_count} (expected 231)")
 
 # ============================================================
 # 2. Verify combined-experiment.csv integrity
@@ -223,10 +222,10 @@ p_ca = 2 * (1 - stats.norm.cdf(abs(Z_ca)))
 print(f"  Text-only Claude: low={succs[0]}/{tots[0]}, ml={succs[1]}/{tots[1]}, base={succs[2]}/{tots[2]}, high={succs[3]}/{tots[3]}")
 print(f"  Cochran-Armitage Z={Z_ca:.3f}, p={p_ca:.8f}")
 
-if abs(Z_ca - 5.893) < 0.1:
-    ok(f"CA Z={Z_ca:.3f} matches claimed 5.893")
+if abs(Z_ca - 6.635) < 0.1:
+    ok(f"CA Z={Z_ca:.3f} matches key-numbers.md (6.635)")
 else:
-    error(f"CA Z={Z_ca:.3f} does NOT match claimed 5.893")
+    error(f"CA Z={Z_ca:.3f} does NOT match key-numbers.md (6.635)")
 
 # 4b. Success rates from paper-decisions.md
 claimed = {
@@ -269,23 +268,23 @@ print(f"    Text-only: base {text_base:.1f}% - low {text_low:.1f}% = {text_drop:
 print(f"    CUA:       base {cua_base:.1f}% - low {cua_low:.1f}% = {cua_drop:.1f}pp")
 print(f"    Semantic:  {text_drop:.1f} - {cua_drop:.1f} = {semantic:.1f}pp")
 
-if abs(text_drop - 48.6) > 5:
-    warn(f"Text-only drop {text_drop:.1f}pp vs claimed ~48.6pp")
-if abs(cua_drop - 40.0) > 5:
-    warn(f"CUA drop {cua_drop:.1f}pp vs claimed ~40.0pp")
+if abs(text_drop - 55.4) > 5:
+    warn(f"Text-only drop {text_drop:.1f}pp vs key-numbers.md 55.4pp")
+if abs(cua_drop - 35.4) > 5:
+    warn(f"CUA drop {cua_drop:.1f}pp vs key-numbers.md 35.4pp")
 
 # ============================================================
 # 5. Verify task selection funnel numbers
 # ============================================================
 print("\n--- 5. Task Selection Funnel ---")
 
-# Count string_match tasks in deployed sites
-sm_tasks = [t for t in deployed_tasks if "string_match" in t.get("eval", {}).get("eval_types", [])]
-print(f"  string_match tasks (deployed): {len(sm_tasks)} (claimed 328)")
-if len(sm_tasks) == 328:
-    ok("Stage 2 output: 328")
+# Count sole string_match tasks in deployed sites
+sm_tasks = [t for t in deployed_tasks if t.get("eval", {}).get("eval_types", []) == ["string_match"]]
+print(f"  sole string_match tasks (deployed): {len(sm_tasks)}")
+if len(sm_tasks) == 231:
+    ok("Stage 2 output: 231")
 else:
-    warn(f"Stage 2 output: {len(sm_tasks)} (claimed 328)")
+    warn(f"Stage 2 output: {len(sm_tasks)} (expected 231)")
 
 # Verify our 13 tasks exist and have string_match
 our_tasks = {4, 23, 24, 26, 29, 41, 67, 94, 132, 188, 198, 293, 308}
