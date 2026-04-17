@@ -1,0 +1,4 @@
+comparison,agent_type,OR,OR_ci_lo,OR_ci_hi,cramers_v
+low_vs_base,cua,0.0923,0.0299,0.2844,0.4152
+low_vs_base,text-only,0.13,0.0733,0.2307,0.4554
+low_vs_base,vision-only,0.1263,0.0351,0.4543,0.3135

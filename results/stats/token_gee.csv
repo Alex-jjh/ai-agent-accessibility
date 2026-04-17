@@ -1,0 +1,9 @@
+model,term,coefficient,se,z,p_value
+Log-Token GEE (all),const,11.23943,0.20832,53.9532,0.0
+Log-Token GEE (all),variant_ordinal,-0.1492,0.06376,-2.34,0.019284061661405102
+Log-Token GEE (cua),const,12.13849,0.24034,50.5046,0.0
+Log-Token GEE (cua),variant_ordinal,-0.23803,0.07649,-3.112,0.0018583795688873466
+Log-Token GEE (text-only),const,11.11914,0.27676,40.176,0.0
+Log-Token GEE (text-only),variant_ordinal,-0.1791,0.08756,-2.0454,0.04081799457945505
+Log-Token GEE (vision-only),const,10.58094,0.20499,51.618,0.0
+Log-Token GEE (vision-only),variant_ordinal,-0.00056,0.08756,-0.0063,0.9949367289893134

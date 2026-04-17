@@ -1,0 +1,3 @@
+test,statistic,df,p_value,p_formatted,OR,OR_ci_lo,OR_ci_hi
+Breslow-Day,7.079,1.0,0.007799166026668969,0.0078,,,
+Mantel-Haenszel,0.0938,,1.3918644015120663e-11,<0.000001,0.0938,0.0472,0.1862

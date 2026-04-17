@@ -1,0 +1,9 @@
+test,predictor,beta,se,p
+agent_x_variant,const,-7.985613833529849e+22,0.0,0.0
+agent_x_variant,_variant,204.5172699670431,0.0,0.0
+agent_x_variant,_is_text,7.985612904662426e+22,0.0,0.0
+agent_x_variant,_interaction,-84.84975305789774,0.0,0.0
+model_x_variant,const,,,
+model_x_variant,_variant,,,
+model_x_variant,_is_claude,,,
+model_x_variant,_interaction,,,
