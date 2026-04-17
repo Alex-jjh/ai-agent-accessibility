@@ -29,12 +29,13 @@ Demoted to Results subsections (not top-level contributions):
 
 ## Key Framing Decisions
 
-### Causal Decomposition Numbers (expansion data)
-- Text-only low→base: +48.6pp (semantic + functional)
-- CUA low→base: +40.0pp (functional only)
-- Difference: ~8.6pp = pure A11y Tree semantic pathway
-- This is MORE CONSERVATIVE than Pilot 4 estimate (33pp) — good for defensibility
-- Reason: admin:198 CUA UI complexity confound lowers CUA base rate
+### Causal Decomposition Numbers (full 13-task data)
+- Text-only low→base: +55.4pp (semantic + functional)
+- CUA low→base: +35.4pp (functional only)
+- Difference: ~20.0pp = pure A11y Tree semantic pathway
+- NOTE: These numbers differ from expansion-only estimates (48.6pp/40.0pp)
+  because full 13-task data includes Pilot 4 tasks with different base rates
+- Cochran-Armitage Z=6.635, p<0.000001 (text-only Claude, 13 tasks)
 
 ### Base ≈ High (Asymmetric Effect)
 - Claude 13-task: base 93.8% vs high 89.2% (4.6pp, admin:4 reasoning error)
