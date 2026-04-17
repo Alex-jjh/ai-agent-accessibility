@@ -7,6 +7,25 @@
 - Grouping: task (13 levels), agent_type (3 levels), model (2 levels)
 - 5 repetitions per cell
 
+## Pre-Registration of Endpoints
+
+Primary and secondary endpoints were defined prior to statistical analysis
+(documented in this file and in the research proposal v6.2).
+
+**Primary endpoint**: Cochran-Armitage trend test on text-only Claude (13 tasks,
+4 ordered variants, binary success). This is the single pre-specified test that
+requires no multiple comparison correction.
+
+**Secondary endpoints** (exploratory, Bonferroni-corrected where applicable):
+- Cross-model replication (Llama 4 Cochran-Armitage)
+- Cross-architecture replication (CUA, SoM Cochran-Armitage)
+- GEE mixed-effects models (variant as continuous predictor)
+- Interaction effects (agent × variant, model × variant)
+- Sensitivity analyses (exclude infeasible tasks, exclude reddit:67)
+
+All other pairwise comparisons are exploratory and reported with both
+uncorrected and Bonferroni-corrected p-values.
+
 ## Analysis Hierarchy (from simple to complex)
 
 ### Level 1: Descriptive Statistics
