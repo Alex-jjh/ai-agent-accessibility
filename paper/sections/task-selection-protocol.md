@@ -7,15 +7,15 @@ graph TD
     A["WebArena v1.0 Task Pool<br/>(Zhou et al., 2024)<br/>812 tasks, 6 sites"] --> B{"Site deployed?"}
     B -->|No| X1["Excluded: map (112), wikipedia (16)<br/>= 128 tasks removed"]
     B -->|Yes| C["684 tasks<br/>4 sites: shopping, admin, reddit, gitlab"]
-    C --> D{"eval_type includes<br/>string_match?"}
-    D -->|No| X2["Excluded: no string_match eval<br/>= 443 tasks removed"]
-    D -->|Yes| E["241 tasks<br/>string_match capable"]
+    C --> D{"Sole eval_type =<br/>string_match?"}
+    D -->|No| X2["Excluded: mixed or non-string_match<br/>= 453 tasks removed"]
+    D -->|Yes| E["231 tasks<br/>sole string_match"]
     E --> F{"Information<br/>retrieval only?<br/>(manual review)"}
-    F -->|No| X3["Excluded: state mutation,<br/>file upload, cross-app<br/>~11 tasks removed"]
-    F -->|Yes| G["~230 tasks<br/>read-only, repeatable"]
+    F -->|No| X3["Excluded: state mutation<br/>~21 tasks removed"]
+    F -->|Yes| G["~210 tasks<br/>read-only, repeatable"]
     G --> H{"Ground truth<br/>stable?<br/>(manual verification)"}
-    H -->|No| X4["Excluded: time-dependent,<br/>stale answers"]
-    H -->|Yes| I["~220 candidate tasks"]
+    H -->|No| X4["Excluded: time-dependent"]
+    H -->|Yes| I["~209 candidate tasks"]
     I --> J["Stratified sampling:<br/>≥2 tasks per app,<br/>≥1 per nav depth,<br/>unique templates preferred"]
     J --> K["13 selected + 3 backups<br/>(349, 188, 77)"]
     K --> L{"Smoke test<br/>all 4 variants?"}
@@ -40,22 +40,22 @@ retaining 684 tasks across four applications: Magento storefront (shopping,
 We used WebArena Docker images with database snapshots frozen at deployment
 time to prevent ground truth drift.
 
-**Stage 2: Evaluation reliability.** We retained only tasks whose evaluation
-includes `string_match` (exact substring matching), excluding tasks that
-rely solely on `program_html`, `url_match`, or `llm_eval` evaluation.
-This eliminates dependency on external LLM judges and ensures deterministic,
-reproducible evaluation. 241 tasks remained.
+**Stage 2: Evaluation reliability.** We retained only tasks whose sole
+evaluation type is `string_match` (exact substring matching), excluding
+tasks with `program_html`, `url_match`, `llm_eval`, or mixed evaluation
+types. This eliminates dependency on external LLM judges and ensures
+deterministic, reproducible evaluation. 231 tasks remained.
 
 **Stage 3: Repeatability.** Through manual review, we excluded tasks
 requiring state mutation (e.g., creating posts, submitting forms),
 file uploads, or cross-application navigation, as these introduce
 non-deterministic server-side state that confounds repeated measurements.
-Approximately 230 tasks remained.
+Approximately 210 tasks remained.
 
 **Stage 4: Ground truth stability.** We excluded tasks with time-dependent
 answers (e.g., "most recent notification") or answers that did not match
 the current database snapshot, verified through manual inspection against
-the frozen Docker images. Approximately 220 candidate tasks remained.
+the frozen Docker images. Approximately 209 candidate tasks remained.
 
 **Stage 5: Stratified sampling.** From the remaining candidates, we selected
 13 tasks plus 3 backup candidates (tasks 349, 188, 77) to maximize

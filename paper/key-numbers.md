@@ -18,12 +18,12 @@ Last verified: 2026-04-14
 
 - WebArena v1.0 pool: **812** tasks
 - Stage 1 (site availability): **684** remaining (excluded map=112, wikipedia=16)
-- Stage 2 (string_match eval): **241** remaining
-- Stage 3 (info retrieval, manual): **~230** remaining
-- Stage 4 (ground truth stable, manual): **~220** remaining
+- Stage 2 (sole string_match eval): **231** remaining
+- Stage 3 (info retrieval, manual review): **~210** remaining
+- Stage 4 (ground truth stable, manual review): **~209** remaining
 - Stage 5 (stratified sampling): **13** selected + 3 backups
 - Stage 6 (smoke validation): **13** final (task 124 replaced by backup 188)
-- All 13 tasks: pure string_match eval (no mixed eval_types)
+- All 13 tasks: sole eval_type = string_match (no mixed eval_types)
 
 ## Primary Statistical Results
 

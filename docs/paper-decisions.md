@@ -77,3 +77,38 @@ Demoted to Results subsections (not top-level contributions):
 5. 🔲 Results section from stats CSV — NEXT WEEK
 6. ⏭️ low-functional-fix variant — REVISION STAGE
 7. ⏭️ Track B 100+ sites — SKIP (34 sufficient for CHI)
+
+
+## Review Round 3 Insights (2026-04-14, from colleague)
+
+### Composition Effect as Publishable Finding
+The semantic pathway magnitude depends on task composition:
+- Tasks with primarily semantic degradation (Pilot 4): 33.3pp
+- Tasks with functional breakage (Expansion): 8.6pp
+- Weighted average (all 13): 20.0pp
+
+Paper should frame this as a nuanced finding, not a weakness:
+"The magnitude of the semantic pathway depends on the task's primary
+failure mode. Tasks where low variant degrades mainly through semantic
+loss show larger semantic pathways (~33pp), while tasks with structural
+functional breakage show smaller semantic pathways (~9pp). The 20pp
+estimate represents a weighted average across realistic task composition."
+
+### Asymmetric Effect as Secondary Finding
+"Accessibility affects agents asymmetrically: degradation from base causes
+substantial performance loss (-55pp at low), while enhancement above base
+produces marginal gain (<5pp). This suggests well-designed baselines
+approach a ceiling for agent utility."
+
+### SoM "Hidden DOM Dependencies" Discussion Paragraph
+"A common assumption is that vision-only agents bypass DOM dependencies.
+Our SoM results refute this. Set-of-Mark labeling pipelines rely on DOM
+structure to identify interactive elements. When DOM semantics degrade,
+SoM produces phantom labels on non-interactive elements, leading to
+4.6% success at low variant despite unchanged visual rendering."
+
+### Verification Infrastructure
+- verify_all_data_points.py: run before any paper number update
+- key-numbers.md: single source of truth, all paper numbers reference this
+- Makefile `verify-numbers` target: CI-style verification
+- Correction log in key-numbers.md tracks all number changes with root cause
