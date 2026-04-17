@@ -6,7 +6,7 @@ Empirical research platform studying the relationship between web accessibility 
 
 ## Key Finding
 
-Degrading web accessibility from baseline to low causes text-only agent success to drop from 86.7% to 23.3% (p<0.000001, Cramér's V=0.637). This is the first controlled empirical evidence that web accessibility predicts AI agent task success, replicated across five experimental rounds (N=240 in the full experiment).
+Degrading web accessibility from baseline to low causes text-only agent success to drop from 93.8% to 38.5% (Cochran-Armitage Z=6.635, p<0.000001) across 13 tasks and 1,040 experimental cases. Three-agent causal decomposition reveals two comparable pathways: DOM semantic degradation contributes ~20pp and functional breakage ~35pp. The effect replicates across both closed-source (Claude Sonnet) and open-source (Llama 4 Maverick) models.
 
 ## How It Works
 

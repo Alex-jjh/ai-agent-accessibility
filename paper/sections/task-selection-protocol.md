@@ -41,16 +41,20 @@ We used WebArena Docker images with database snapshots frozen at deployment
 time to prevent ground truth drift.
 
 **Stage 2: Evaluation reliability.** We retained only tasks whose sole
-evaluation type is `string_match` (exact substring matching), excluding
-tasks with `program_html`, `url_match`, `llm_eval`, or mixed evaluation
-types. This eliminates dependency on external LLM judges and ensures
-deterministic, reproducible evaluation. 231 tasks remained.
+evaluation type is `string_match` (exact substring matching). Of the 684
+deployed tasks, 231 use string_match exclusively, 10 use string_match
+combined with url_match (excluded to avoid mixed evaluation), and 443 use
+only non-string_match types (program_html: 253, url_match+program_html: 129,
+url_match: 61). This eliminates dependency on external LLM judges and
+ensures deterministic, reproducible evaluation. 231 tasks remained.
 
 **Stage 3: Repeatability.** Through manual review, we excluded tasks
 requiring state mutation (e.g., creating posts, submitting forms),
 file uploads, or cross-application navigation, as these introduce
 non-deterministic server-side state that confounds repeated measurements.
-Approximately 210 tasks remained.
+Approximately 210 tasks remained. (Stages 3–4 involve subjective
+judgment; counts are approximate ±5 based on the primary reviewer's
+classification. Complete task-level annotations are in supplementary.)
 
 **Stage 4: Ground truth stability.** We excluded tasks with time-dependent
 answers (e.g., "most recent notification") or answers that did not match

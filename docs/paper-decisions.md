@@ -5,9 +5,9 @@ Consolidated from review discussions (April 14, 2026).
 ## Contributions (Final 4)
 
 1. **First controlled causal evidence** that web accessibility predicts AI agent task success
-   (N=1,040, Cochran-Armitage Z=5.893, p<0.000001)
+   (N=1,040, Cochran-Armitage Z=6.635, p<0.000001)
 2. **Three-agent causal decomposition** quantifying semantic vs functional pathways
-   (text-only 48.6pp - CUA 40.0pp = 8.6pp pure semantic contribution)
+   (text-only 55.4pp - CUA 35.4pp = 20.0pp pure semantic contribution)
 3. **Cross-model generalizability** across closed (Claude) and open (Llama 4) models
    (both p<0.001, effect direction consistent)
 4. **L1/L2/L3 severity framework + ecological validity** from 34-site audit
