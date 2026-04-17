@@ -12,6 +12,21 @@ Degrading web accessibility from baseline to low causes text-only agent success 
 
 We hold the agent constant and programmatically manipulate web accessibility at the DOM level, then measure how each agent type is affected.
 
+### Reproducing the Verification
+
+```bash
+# Setup (first time only)
+python3 -m venv analysis/.venv
+source analysis/.venv/bin/activate  # Windows: analysis\.venv\Scripts\activate
+pip install -r analysis/requirements.txt
+
+# Verify all paper numbers against raw data
+make verify-numbers
+
+# Full pipeline: export CSV → verify → run statistics
+make all
+```
+
 ### Five-Layer Architecture
 
 ```
