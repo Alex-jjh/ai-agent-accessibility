@@ -356,6 +356,66 @@ warn("WebArena commit hash (ac07c86) needs manual verification against Docker im
 ok(f"Task count {total_tasks} is consistent with WebArena v1.0")
 
 # ============================================================
+# 9. Verify paper tex files contain no forbidden old values
+# ============================================================
+print("\n--- 9. Paper TeX Forbidden Old Values ---")
+
+import re
+
+FORBIDDEN_OLD_VALUES = [
+    (r"N\s*=\s*240\b", "N=240 (old pilot-only sample size)"),
+    (r"N\s*=\s*360\b", "N=360 (old pilot-only sample size)"),
+    (r"86\.7\\?%", "86.7% (old text-only base)"),
+    (r"23\.3\\?%", "23.3% (old text-only low)"),
+    (r"\+76\.7", "+76.7 (old step function)"),
+    (r"\+?33\.3\s*pp", "33.3pp (old semantic pathway)"),
+    (r"\b30\.0\s*pp", "30.0pp (old functional breakage)"),
+    (r"\b63\.3\s*pp", "63.3pp (old text-only drop)"),
+    (r"\b48\.6\s*pp", "48.6pp (old expansion text-only drop)"),
+    (r"\b8\.6\s*pp", "8.6pp (old semantic pathway)"),
+    (r"\b40\.0\s*pp", "40.0pp (old CUA drop)"),
+    (r"chi\^2\s*=\s*24\.31", "chi^2=24.31 (old chi-square)"),
+    (r"V\s*=\s*0\.637", "V=0.637 (old Cramér's V)"),
+    (r"Pilot~?\{?\\?~?\}?4.*N\s*=\s*240", "Pilot 4 N=240 reference"),
+    (r"172K\s+vs\.?\s*135K", "172K vs 135K (old token inflation)"),
+    (r"6\s+tasks\s*[×x\$\\times]\s*4\s*[×x\$\\times]?\s*.*agent", "6 tasks experiment design (old)"),
+    (r"\bachiev\w*\s+0\\?%\s+success", "0% success (old SoM low)"),
+]
+
+PAPER_DIR = ROOT.parent / "paper"
+tex_files = []
+if PAPER_DIR.exists():
+    tex_files.append(PAPER_DIR / "main.tex")
+    sections_dir = PAPER_DIR / "sections"
+    if sections_dir.exists():
+        tex_files.extend(sorted(sections_dir.glob("*.tex")))
+
+if not tex_files:
+    warn("Paper directory not found at ../paper — skipping TeX verification")
+else:
+    found_forbidden = False
+    for tex_path in tex_files:
+        if not tex_path.exists():
+            continue
+        content = tex_path.read_text(encoding="utf-8")
+        rel_path = tex_path.relative_to(PAPER_DIR)
+        for pattern, description in FORBIDDEN_OLD_VALUES:
+            matches = list(re.finditer(pattern, content, re.IGNORECASE))
+            for m in matches:
+                # Find line number
+                line_num = content[:m.start()].count("\n") + 1
+                # Skip if inside a LaTeX comment
+                line_text = content.split("\n")[line_num - 1]
+                comment_pos = line_text.find("%")
+                col = m.start() - content.rfind("\n", 0, m.start()) - 1
+                if comment_pos >= 0 and col > comment_pos:
+                    continue
+                error(f"{rel_path}:{line_num}: forbidden old value '{m.group()}' — {description}")
+                found_forbidden = True
+    if not found_forbidden:
+        ok("No forbidden old values found in paper TeX files")
+
+# ============================================================
 # Summary
 # ============================================================
 print("\n" + "=" * 70)

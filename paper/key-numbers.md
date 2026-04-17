@@ -108,3 +108,89 @@ text/CUA comparison. The difference is task composition:
 - Expansion 7 tasks: CUA low=51.4% (high functional breakage on admin/gitlab sidebar)
 - Pilot 4 6 tasks: CUA low=66.7% (less functional breakage, more semantic-only)
 - Combined: weighted average produces 20pp semantic pathway
+
+## Authoritative Paper Values (whitelist for verify harness)
+
+These are the ONLY numerical claims that should appear in paper/*.tex files.
+Any value not on this list that looks like an experimental result is suspect.
+
+### Experiment Design
+- N=1,040 (total cases)
+- 13 tasks
+- 4 variants (low, medium-low, base, high)
+- 3 agent types (text-only, vision-only/SoM, CUA)
+- 2 models (Claude Sonnet, Llama 4 Maverick)
+- 5 repetitions per cell
+
+### Primary Endpoint
+- Cochran-Armitage Z=6.635, p<10^-6 (text-only Claude)
+- Cramér's V=0.585
+
+### Success Rates (text-only Claude)
+- low: 38.5%
+- medium-low: 100.0%
+- base: 93.8%
+- high: 89.2%
+
+### Success Rates (text-only Llama 4)
+- low: 36.9%
+- medium-low: 61.5%
+- base: 70.8%
+- high: 75.4%
+
+### Success Rates (CUA Claude)
+- low: 58.5%
+- medium-low: 98.5%
+- base: 93.8%
+- high: 95.4%
+
+### Success Rates (SoM Claude)
+- low: 4.6%
+- medium-low: 27.7%
+- base: 27.7%
+- high: 32.3%
+
+### Causal Decomposition (all 13 tasks, Claude)
+- Text-only drop: 55.4pp
+- CUA drop: 35.4pp
+- Semantic pathway: 20.0pp
+
+### Step Function
+- low → medium-low: +61.5pp (text-only Claude)
+
+### Token Inflation
+- low median: 97K
+- base median: 40K
+- extreme: 608K
+- Wilcoxon p<10^-6
+
+### Cross-Model
+- Claude low vs base: chi2=44.52, p<10^-6, V=0.585, OR=0.04
+- Llama 4 low vs base: chi2=14.98, p=0.000109, V=0.339, OR=0.24
+
+### Asymmetric Effect
+- base 93.8% vs high 89.2% (4.6pp, not significant)
+
+### Ecological Validity
+- 34 sites audited
+- 83.3% with L3 structural violations
+
+### Task Selection Funnel
+- 812 total WebArena tasks
+- 684 after Stage 1
+- 231 sole string_match (Stage 2)
+- 13 final tasks, 11 templates, 4 apps
+- 5 shallow / 5 medium / 3 deep
+
+### Forbidden Old Values (must NOT appear in paper)
+- N=240 (old pilot-only sample size)
+- N=360 (old pilot-only sample size)
+- 86.7% / 23.3% (old text-only base/low)
+- +76.7pp (old step function)
+- 33.3pp / 30.0pp (old causal decomposition)
+- 63.3pp / 48.6pp (old text-only drops)
+- 8.6pp / 40.0pp (old semantic/CUA pathway)
+- chi2=24.31 / V=0.637 (old chi-square test)
+- 172K vs 135K (old token inflation)
+- 6 tasks (old experiment design)
+- 0% SoM success (old pilot-4-only SoM)
