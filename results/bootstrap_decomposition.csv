@@ -1,0 +1,4 @@
+pathway,point_estimate,ci_lo,ci_hi,n_bootstrap
+text_only_drop,55.4,29.2,80.0,2000
+cua_drop,35.4,15.4,55.4,2000
+semantic_contribution,20.0,-13.8,52.3,2000

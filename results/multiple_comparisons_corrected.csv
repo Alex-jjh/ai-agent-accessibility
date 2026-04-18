@@ -1,0 +1,9 @@
+test,raw_p,holm_p,significant
+anthropic_vision-only_binary,1.304143742813525e-05,3.912431228440575e-05,True
+anthropic_vision-only_trend,0.0003783887465675,0.0003783887465675,True
+anthropic_cua_binary,2.339461071900986e-12,1.8715688575207888e-11,True
+anthropic_cua_trend,2.059415726840541e-08,1.2356494361043246e-07,True
+meta_text-only_binary,7.425154824749022e-06,2.9700619298996088e-05,True
+meta_text-only_trend,4.0418238340667045e-06,2.0209119170333523e-05,True
+claude_low_vs_base_chi2,2.83e-11,1.981e-10,True
+llama4_low_vs_base_chi2,0.000109,0.000218,True

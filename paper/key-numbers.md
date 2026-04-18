@@ -207,3 +207,35 @@ Any value not on this list that looks like an experimental result is suspect.
 - Cells with between-rep variance: **48/208 (23.1%)**
 - Claude text-only Low-vs-rest (majority vote): Z=4.005, **p=0.000062** (preserves)
 - Claude CUA Low-vs-rest (majority vote): Z=3.474, **p=0.000513** (preserves)
+
+## Batch 2 Statistics
+
+### Primary Test (Binary Low-vs-Rest)
+- Claude text-only: Z=9.83, p<10^-19, OR=0.04 [0.02, 0.08]
+- Claude CUA: Z=7.66, p<10^-12, OR=0.06 [0.03, 0.14]
+- Claude SoM: Z=4.36, p=1.3×10^-5, OR=0.12 [0.04, 0.39]
+- Llama 4 text-only: Z=4.63, p=7.4×10^-6, OR=0.26 [0.14, 0.47]
+
+### Jonckheere-Terpstra
+- Claude text-only: Z=4.55, p<10^-5
+- Llama 4 text-only: Z=3.88, p=1.0×10^-4
+
+### GEE Models
+- All data linear: β=0.52, z=5.20, p=2.0×10^-7
+- Binary low indicator: β=-1.59, z=-5.63, p=1.8×10^-8, OR=0.204
+- Categorical: only Low significantly different from Base (β=-1.56, z=-5.14, p<0.001)
+
+### Breslow-Day Cross-Model Homogeneity
+- BD χ²(1) = 221.8, p < 0.001 (heterogeneous)
+- Claude OR = 0.041, Llama 4 OR = 0.242
+- MH common OR = 0.129 [0.072, 0.231]
+
+### Bootstrap Decomposition (B=2000)
+- Text-only drop: 55.4pp [29.2, 80.0]
+- CUA drop: 35.4pp [15.4, 55.4]
+- Semantic contribution: 20.0pp [-13.8, 52.3] (wide CI, crosses zero)
+- Additivity check: sum CI [29.2, 80.0] contains observed 55.4pp ✓
+
+### Holm-Bonferroni
+- All 8 secondary tests remain significant after correction
+- Most conservative adjusted p: 3.78×10^-4 (SoM trend)

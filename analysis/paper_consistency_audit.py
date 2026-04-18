@@ -133,7 +133,9 @@ def scan_tex_files():
             # Z-statistic patterns
             for m in re.finditer(r'Z\s*=\s*(\d+\.\d+)', stripped):
                 val = float(m.group(1))
-                known_z = [6.635, 6.64, 4.609, 4.61, 5.254, 5.25, 3.555, 3.56, 7.74]
+                known_z = [6.635, 6.64, 4.609, 4.61, 5.254, 5.25, 3.555, 3.56, 7.74,
+                           9.83, 9.829, 4.005, 3.474, 7.658, 7.66, 4.628, 4.63, 4.359, 4.36,
+                           5.607, 5.61, 4.553, 4.55, 5.632, 5.63, 5.198, 5.20]
                 if not any(abs(val - k) < 0.01 for k in known_z):
                     issues.append(('WARN', str(rel), i, f'Z={val} — not in known Z values', line.strip()[:80]))
 

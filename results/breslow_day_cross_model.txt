@@ -1,0 +1,10 @@
+Breslow-Day Test for Cross-Model Homogeneity
+Agent: text-only, Variants: Low vs Base
+
+Claude: OR = 0.0410
+Llama4: OR = 0.2418
+
+Breslow-Day χ²(1) = 221.801, p = 0.0000
+MH common OR = 0.1285 [0.0716, 0.2309]
+
+Interpretation: heterogeneous

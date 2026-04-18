@@ -1,0 +1,5 @@
+model,formula,beta_variant,z,p,qic
+M0_GEE_linear,success~variant_ord+(exch|task),0.5225,5.198,2.012897789210624e-07,1305.1
+M1_GEE_model,success~variant_ord+model+(exch|task),0.5228,5.212,1.8701549002324607e-07,1307.7
+M3_GEE_binary,success~is_low+(exch|task),-1.5894,-5.632,1.7834808988701228e-08,1263.1
+M4_GEE_claude_text,success~variant_ord+(exch|task) [Claude TO],,,,
