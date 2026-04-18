@@ -194,3 +194,16 @@ Any value not on this list that looks like an experimental result is suspect.
 - 172K vs 135K (old token inflation)
 - 6 tasks (old experiment design)
 - 0% SoM success (old pilot-4-only SoM)
+
+## Non-Monotonicity Detail (Task 67)
+
+- task_67_claude_text_base_rate: **20% (1/5)**
+- task_67_claude_text_ml_rate: **100% (5/5)**
+- non_monotonic_task_count: **1 / 13** (task 67 only)
+- Other 12 tasks: medium-low = base for Claude text-only (all 100%/100%)
+
+## Majority-Vote Sensitivity
+
+- Cells with between-rep variance: **48/208 (23.1%)**
+- Claude text-only Low-vs-rest (majority vote): Z=4.005, **p=0.000062** (preserves)
+- Claude CUA Low-vs-rest (majority vote): Z=3.474, **p=0.000513** (preserves)

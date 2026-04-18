@@ -1,0 +1,5 @@
+panel,original_trend_z,majority_trend_z,original_binary_p,majority_binary_p,preserves
+Claude text-only,6.635,3.147,8.473872256794568e-23,6.20629896861182e-05,True
+Claude SoM,3.555,2.061,1.304143742813525e-05,0.02428247530605959,False
+Claude CUA,5.607,2.726,1.88636792911748e-14,0.0005130636898607732,True
+Llama 4 text-only,4.609,2.04,3.6894825657315266e-06,0.04828610767668167,False
