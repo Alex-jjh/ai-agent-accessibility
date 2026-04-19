@@ -57,7 +57,7 @@ AUTHORITATIVE = {
     'chi2_claude': 44.52, 'chi2_llama': 14.98,
     'v_claude': 0.585, 'v_llama': 0.339,
     # Ecological
-    'sites_audited': 34, 'l3_prevalence': 83.3,
+    'sites_audited': 34, 'l3_prevalence': 82.4,
     # Asymmetric
     'base_vs_high_pp': 4.6,
 }
@@ -118,7 +118,7 @@ def scan_tex_files():
             for m in re.finditer(r'(\d+\.\d)\\?%', stripped):
                 val = float(m.group(1))
                 known = [38.5, 100.0, 93.8, 89.2, 36.9, 61.5, 70.8, 75.4,
-                         58.5, 98.5, 95.4, 4.6, 27.7, 32.3, 83.3, 94.8,
+                         58.5, 98.5, 95.4, 4.6, 27.7, 32.3, 82.4, 94.8,
                          50.4, 86.3, 78.3, 41.67, 28.3, 57.0, 13.0, 16.7]
                 if val not in known and val not in [0.0, 1.0]:
                     issues.append(('INFO', str(rel), i, f'{val}% — not in known values list, verify', line.strip()[:80]))
