@@ -97,7 +97,15 @@ The two pathways are comparable in magnitude, not one dominant and one minor.
 |-------|-----------|-----------|------------|
 | map tasks | 128 | **112** | Miscounted from task-site-mapping.json |
 | Stage 1 output | 668 | **684** | Cascading from map count error |
-| string_match tasks | 328 | **241** | Counted "includes SM" vs "primary SM" |
+| string_match tasks | 328 | **241** | Counted "includes SM" vs "primary SM" (see note below) |
+
+**Note on 231 vs 241**: The canonical Stage 2 number is **231** (tasks whose
+*sole* eval_type is string_match). The correction log value of 241 counts tasks
+where string_match is the *primary* eval_type, including 10 tasks with mixed
+eval_types (e.g., string_match + url_match). The paper uses 231 (sole),
+consistent with §4.2 methodology: "retained only the 231 tasks whose sole
+evaluation type is string_match." The 10-task difference (241 − 231) corresponds
+to mixed-eval tasks excluded to avoid non-deterministic evaluation.
 | Cochran-Armitage Z | 5.893 | **6.635** | Old: run_statistics.py on partial data; New: full 13-task |
 | Text-only drop | 48.6pp | **55.4pp** | Old: expansion-only 7 tasks; New: all 13 tasks |
 | CUA drop | 40.0pp | **35.4pp** | Old: expansion-only 7 tasks; New: all 13 tasks |
