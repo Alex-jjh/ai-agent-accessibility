@@ -3,8 +3,9 @@
 Griffith et al. (2022) triangulation analysis for §5.8.
 Derives per-participant metrics from raw 40-participant × 8-task data.
 
-Data source: openICPSR project 183081, transcribed from paper Tables 3-4
-and raw data sheets provided by Alex.
+Data source: openICPSR project 183081
+Primary: Excel file "Copy of FinalData.xlsx" (deposited raw data)
+Cross-validation: Paper Table 4 (published time values)
 
 Sites:
   MM = My Market (high-a11y grocery)      → maps to ~Base/High in our framework
@@ -15,309 +16,190 @@ Sites:
 Each participant did 2 tasks per site (task 1 and task 2).
 Status: Y = completed, N = not completed
 Time: in seconds
+
+Usage:
+  .venv/bin/python3 griffith_triangulation.py
 """
 
 import numpy as np
-from collections import defaultdict
+import openpyxl
+import datetime
+import re
+import os
 
-# Raw data: (status, time_seconds) for each participant × task
-# Transcribed from the provided data tables
-# Format: participants[i] = {task: (status_bool, time_secs)}
+TASK_ORDER = ['MM1', 'MM2', 'GG1', 'GG2', 'OU1', 'OU2', 'PU1', 'PU2']
+EXCEL_PATH = os.path.join(os.path.dirname(__file__), 'Copy of FinalData.xlsx')
 
-def parse_time(t_str):
-    """Parse 'M:SS' to seconds."""
-    parts = t_str.split(':')
-    return int(parts[0]) * 60 + int(parts[1])
 
-raw = {}
+def load_from_excel(path=EXCEL_PATH):
+    """Load raw data from the deposited Excel file."""
+    wb = openpyxl.load_workbook(path)
+    ws = wb['Time and Task Performance']
 
-# P1
-raw[1] = {'MM1': (True, 82), 'MM2': (True, 40), 'GG1': (True, 48), 'GG2': (False, 246),
-           'OU1': (True, 83), 'OU2': (True, 45), 'PU1': (False, 578), 'PU2': (False, 520)}
-# P2
-raw[2] = {'MM1': (True, 125), 'MM2': (True, 59), 'GG1': (False, 100), 'GG2': (False, 164),
-           'OU1': (True, 77), 'OU2': (True, 85), 'PU1': (False, 202), 'PU2': (False, 150)}
-# P3
-raw[3] = {'MM1': (True, 82), 'MM2': (True, 85), 'GG1': (True, 61), 'GG2': (False, 205),
-           'OU1': (True, 70), 'OU2': (True, 125), 'PU1': (False, 355), 'PU2': (False, 319)}
-# P4
-raw[4] = {'MM1': (True, 60), 'MM2': (True, 19), 'GG1': (False, 166), 'GG2': (False, 100),
-           'OU1': (True, 40), 'OU2': (True, 27), 'PU1': (False, 215), 'PU2': (False, 136)}
-# P5
-raw[5] = {'MM1': (True, 93), 'MM2': (True, 40), 'GG1': (True, 135), 'GG2': (False, 341),
-           'OU1': (True, 61), 'OU2': (True, 136), 'PU1': (False, 307), 'PU2': (False, 189)}
-# P6
-raw[6] = {'MM1': (True, 77), 'MM2': (True, 34), 'GG1': (True, 58), 'GG2': (False, 98),
-           'OU1': (True, 30), 'OU2': (True, 22), 'PU1': (False, 85), 'PU2': (False, 100)}
-# P7
-raw[7] = {'MM1': (True, 67), 'MM2': (True, 30), 'GG1': (True, 66), 'GG2': (False, 160),
-           'OU1': (True, 14), 'OU2': (True, 60), 'PU1': (False, 185), 'PU2': (False, 114)}
-# P8
-raw[8] = {'MM1': (True, 102), 'MM2': (True, 370), 'GG1': (False, 404), 'GG2': (True, 159),
-           'OU1': (True, 184), 'OU2': (True, 115), 'PU1': (False, 403), 'PU2': (False, 159)}
-# P9
-raw[9] = {'MM1': (True, 54), 'MM2': (True, 51), 'GG1': (False, 60), 'GG2': (False, 79),
-           'OU1': (True, 38), 'OU2': (True, 81), 'PU1': (False, 47), 'PU2': (False, 33)}
-# P10
-raw[10] = {'MM1': (True, 105), 'MM2': (True, 36), 'GG1': (True, 61), 'GG2': (False, 95),
-            'OU1': (True, 38), 'OU2': (True, 52), 'PU1': (False, 153), 'PU2': (False, 300)}
-# P11
-raw[11] = {'MM1': (True, 66), 'MM2': (True, 52), 'GG1': (True, 59), 'GG2': (False, 132),
-            'OU1': (True, 32), 'OU2': (True, 36), 'PU1': (False, 137), 'PU2': (False, 72)}
-# P12
-raw[12] = {'MM1': (True, 130), 'MM2': (True, 63), 'GG1': (False, 310), 'GG2': (True, 246),
-            'OU1': (True, 35), 'OU2': (True, 25), 'PU1': (True, 273), 'PU2': (True, 100)}
-# P13
-raw[13] = {'MM1': (True, 76), 'MM2': (True, 40), 'GG1': (True, 37), 'GG2': (False, 140),
-            'OU1': (True, 100), 'OU2': (True, 80), 'PU1': (False, 235), 'PU2': (False, 120)}
-# P14
-raw[14] = {'MM1': (True, 32), 'MM2': (True, 30), 'GG1': (True, 32), 'GG2': (False, 151),
-            'OU1': (True, 35), 'OU2': (True, 28), 'PU1': (False, 195), 'PU2': (False, 131)}
-# P15
-raw[15] = {'MM1': (True, 105), 'MM2': (True, 77), 'GG1': (True, 112), 'GG2': (False, 369),
-            'OU1': (True, 72), 'OU2': (True, 63), 'PU1': (False, 247), 'PU2': (False, 158)}
-# P16
-raw[16] = {'MM1': (True, 98), 'MM2': (True, 32), 'GG1': (True, 35), 'GG2': (False, 413),
-            'OU1': (True, 22), 'OU2': (True, 93), 'PU1': (False, 465), 'PU2': (False, 283)}
-# P17
-raw[17] = {'MM1': (True, 58), 'MM2': (True, 63), 'GG1': (True, 56), 'GG2': (False, 196),
-            'OU1': (True, 70), 'OU2': (True, 32), 'PU1': (False, 328), 'PU2': (False, 226)}
-# P18
-raw[18] = {'MM1': (True, 99), 'MM2': (True, 135), 'GG1': (True, 125), 'GG2': (False, 99),
-            'OU1': (True, 62), 'OU2': (True, 75), 'PU1': (False, 186), 'PU2': (False, 126)}
-# P19
-raw[19] = {'MM1': (True, 78), 'MM2': (True, 38), 'GG1': (True, 55), 'GG2': (False, 181),
-            'OU1': (True, 55), 'OU2': (True, 39), 'PU1': (False, 187), 'PU2': (False, 76)}
-# P20
-raw[20] = {'MM1': (True, 159), 'MM2': (True, 84), 'GG1': (True, 47), 'GG2': (False, 368),
-            'OU1': (True, 69), 'OU2': (True, 86), 'PU1': (False, 520), 'PU2': (False, 179)}
-# P21
-raw[21] = {'MM1': (True, 63), 'MM2': (True, 47), 'GG1': (True, 514), 'GG2': (False, 418),
-            'OU1': (True, 153), 'OU2': (True, 54), 'PU1': (False, 338), 'PU2': (False, 97)}
-# P22
-raw[22] = {'MM1': (True, 88), 'MM2': (True, 265), 'GG1': (False, 474), 'GG2': (False, 313),
-            'OU1': (True, 56), 'OU2': (True, 65), 'PU1': (False, 385), 'PU2': (False, 392)}
-# P23 - GG1 has "N/A (3:20)" in raw data, treat as failed with time 200s
-raw[23] = {'MM1': (True, 41), 'MM2': (True, 71), 'GG1': (False, 200), 'GG2': (False, 250),
-            'OU1': (True, 60), 'OU2': (True, 60), 'PU1': (False, 185), 'PU2': (False, 103)}
-# P24
-raw[24] = {'MM1': (True, 39), 'MM2': (True, 53), 'GG1': (True, 61), 'GG2': (False, 264),
-            'OU1': (True, 64), 'OU2': (True, 51), 'PU1': (False, 298), 'PU2': (False, 168)}
-# P25
-raw[25] = {'MM1': (True, 50), 'MM2': (True, 95), 'GG1': (True, 49), 'GG2': (False, 167),
-            'OU1': (True, 36), 'OU2': (True, 45), 'PU1': (False, 233), 'PU2': (False, 210)}
-# P26
-raw[26] = {'MM1': (True, 22), 'MM2': (True, 55), 'GG1': (True, 44), 'GG2': (False, 188),
-            'OU1': (True, 55), 'OU2': (True, 23), 'PU1': (False, 144), 'PU2': (False, 181)}
-# P27
-raw[27] = {'MM1': (True, 54), 'MM2': (True, 187), 'GG1': (True, 96), 'GG2': (False, 321),
-            'OU1': (True, 125), 'OU2': (True, 120), 'PU1': (False, 127), 'PU2': (False, 108)}
-# P28
-raw[28] = {'MM1': (True, 65), 'MM2': (True, 70), 'GG1': (False, 167), 'GG2': (False, 279),
-            'OU1': (True, 37), 'OU2': (True, 91), 'PU1': (False, 270), 'PU2': (False, 291)}
-# P29
-raw[29] = {'MM1': (True, 65), 'MM2': (True, 33), 'GG1': (False, 120), 'GG2': (True, 82),
-            'OU1': (True, 56), 'OU2': (True, 173), 'PU1': (False, 165), 'PU2': (False, 235)}
-# P30
-raw[30] = {'MM1': (True, 60), 'MM2': (True, 56), 'GG1': (False, 207), 'GG2': (True, 84),
-            'OU1': (True, 51), 'OU2': (True, 53), 'PU1': (False, 224), 'PU2': (False, 184)}
-# P31
-raw[31] = {'MM1': (True, 123), 'MM2': (True, 158), 'GG1': (False, 218), 'GG2': (False, 98),
-            'OU1': (True, 83), 'OU2': (True, 92), 'PU1': (False, 122), 'PU2': (False, 113)}
-# P32
-raw[32] = {'MM1': (True, 40), 'MM2': (True, 30), 'GG1': (False, 237), 'GG2': (False, 175),
-            'OU1': (True, 31), 'OU2': (True, 18), 'PU1': (False, 85), 'PU2': (False, 68)}
-# P33
-raw[33] = {'MM1': (True, 59), 'MM2': (True, 64), 'GG1': (True, 158), 'GG2': (False, 376),
-            'OU1': (True, 45), 'OU2': (True, 60), 'PU1': (False, 205), 'PU2': (False, 120)}
-# P34
-raw[34] = {'MM1': (True, 64), 'MM2': (True, 71), 'GG1': (True, 182), 'GG2': (False, 345),
-            'OU1': (True, 358), 'OU2': (False, 197), 'PU1': (True, 506), 'PU2': (True, 430)}
-# P35
-raw[35] = {'MM1': (True, 61), 'MM2': (True, 49), 'GG1': (True, 103), 'GG2': (False, 372),
-            'OU1': (True, 83), 'OU2': (True, 45), 'PU1': (False, 241), 'PU2': (False, 231)}
-# P36
-raw[36] = {'MM1': (True, 54), 'MM2': (True, 257), 'GG1': (False, 224), 'GG2': (False, 173),
-            'OU1': (True, 203), 'OU2': (True, 70), 'PU1': (False, 163), 'PU2': (False, 77)}
-# P37
-raw[37] = {'MM1': (True, 121), 'MM2': (True, 187), 'GG1': (True, 288), 'GG2': (False, 362),
-            'OU1': (True, 81), 'OU2': (True, 91), 'PU1': (False, 428), 'PU2': (False, 230)}
-# P38
-raw[38] = {'MM1': (True, 47), 'MM2': (True, 64), 'GG1': (True, 33), 'GG2': (False, 172),
-            'OU1': (True, 44), 'OU2': (True, 21), 'PU1': (False, 117), 'PU2': (False, 149)}
-# P39
-raw[39] = {'MM1': (True, 42), 'MM2': (False, 262), 'GG1': (True, 68), 'GG2': (False, 355),
-            'OU1': (True, 45), 'OU2': (True, 155), 'PU1': (False, 440), 'PU2': (False, 149)}
-# P40
-raw[40] = {'MM1': (True, 73), 'MM2': (True, 100), 'GG1': (True, 79), 'GG2': (False, 371),
-            'OU1': (True, 43), 'OU2': (True, 55), 'PU1': (False, 458), 'PU2': (False, 420)}
+    # Find data block start rows (rows where column A = 'MM1')
+    block_starts = []
+    for r in range(1, 100):
+        val = ws.cell(row=r, column=1).value
+        if val and str(val).strip() == 'MM1':
+            block_starts.append(r)
 
-# ============================================================
-# Analysis 1: Per-site success rates
-# ============================================================
-print("=" * 60)
-print("ANALYSIS 1: Per-site task completion rates")
-print("=" * 60)
+    data = {}
+    for block_row in block_starts:
+        header_row = block_row - 2
+        for col_start in [1, 5, 9, 13, 17]:
+            pid_cell = ws.cell(row=header_row, column=col_start).value
+            if pid_cell is None:
+                continue
+            matches = re.findall(r'P(\d+)', str(pid_cell).strip())
+            if not matches:
+                continue
+            pid = int(matches[-1])
+            data[pid] = {}
+            for ti, task in enumerate(TASK_ORDER):
+                row = block_row + ti
+                status_val = ws.cell(row=row, column=col_start + 1).value
+                time_val = ws.cell(row=row, column=col_start + 2).value
 
-sites = {'MM': ['MM1', 'MM2'], 'GG': ['GG1', 'GG2'], 'OU': ['OU1', 'OU2'], 'PU': ['PU1', 'PU2']}
-for site, tasks in sites.items():
-    successes = sum(1 for p in raw.values() for t in tasks if raw[list(raw.keys())[list(raw.values()).index(p)]][t][0])
-    # Simpler:
-    total = 0
-    succ = 0
-    for pid, pdata in raw.items():
-        for t in tasks:
-            total += 1
-            if pdata[t][0]:
-                succ += 1
-    print(f"  {site}: {succ}/{total} = {succ/total*100:.1f}%")
+                success = (str(status_val).strip().upper() == 'Y') if status_val else False
 
-# ============================================================
-# Analysis 2: Per-participant time ratio (PU median / OU median)
-# ============================================================
-print("\n" + "=" * 60)
-print("ANALYSIS 2: Per-participant time ratio (PU / OU)")
-print("=" * 60)
+                if isinstance(time_val, datetime.time):
+                    # Excel stores M:SS as HH:MM:SS → hour=minutes, minute=seconds
+                    time_secs = time_val.hour * 60 + time_val.minute
+                elif isinstance(time_val, str):
+                    m = re.search(r'(\d+):(\d+)', time_val)
+                    time_secs = int(m.group(1)) * 60 + int(m.group(2)) if m else 0
+                else:
+                    time_secs = 0
 
-time_ratios = []
-for pid, pdata in raw.items():
-    ou_times = [pdata['OU1'][1], pdata['OU2'][1]]
-    pu_times = [pdata['PU1'][1], pdata['PU2'][1]]
-    ou_med = np.median(ou_times)
-    pu_med = np.median(pu_times)
-    ratio = pu_med / ou_med if ou_med > 0 else float('inf')
-    time_ratios.append(ratio)
+                data[pid][task] = (success, time_secs)
 
-time_ratios = np.array(time_ratios)
-print(f"  Mean time ratio (PU/OU): {np.mean(time_ratios):.2f}")
-print(f"  Median time ratio: {np.median(time_ratios):.2f}")
-print(f"  SD: {np.std(time_ratios, ddof=1):.2f}")
-# Bootstrap 95% CI
-np.random.seed(42)
-boot_means = [np.mean(np.random.choice(time_ratios, size=len(time_ratios), replace=True)) for _ in range(10000)]
-ci_lo, ci_hi = np.percentile(boot_means, [2.5, 97.5])
-print(f"  95% bootstrap CI: [{ci_lo:.2f}, {ci_hi:.2f}]")
+    assert len(data) == 40, f"Expected 40 participants, got {len(data)}"
+    return data
 
-# ============================================================
-# Analysis 3: Per-participant success delta (high-a11y minus low-a11y)
-# ============================================================
-print("\n" + "=" * 60)
-print("ANALYSIS 3: Per-participant success delta (high - low a11y)")
-print("=" * 60)
 
-success_deltas = []
-for pid, pdata in raw.items():
-    high_succ = sum(1 for t in ['MM1', 'MM2', 'OU1', 'OU2'] if pdata[t][0]) / 4.0
-    low_succ = sum(1 for t in ['GG1', 'GG2', 'PU1', 'PU2'] if pdata[t][0]) / 4.0
-    success_deltas.append(high_succ - low_succ)
+# Paper Table 4 times for cross-validation
+PAPER_TABLE4_TIMES = {
+    1: [82,40,48,246,83,45,578,520], 2: [125,59,100,164,77,85,202,150],
+    3: [82,85,61,205,70,125,355,319], 4: [60,19,166,100,40,27,215,136],
+    5: [93,40,135,341,61,136,307,189], 6: [77,34,58,98,30,22,85,100],
+    7: [67,30,66,160,14,60,185,114], 8: [102,370,404,159,184,115,403,159],
+    9: [54,51,60,79,38,81,47,33], 10: [105,36,61,95,38,52,153,300],
+    11: [66,52,59,132,32,36,137,72], 12: [130,63,310,246,35,25,273,100],
+    13: [76,40,37,140,100,80,235,120], 14: [32,30,32,151,35,28,195,131],
+    15: [105,77,112,369,72,63,247,158], 16: [98,32,35,413,22,93,465,283],
+    17: [58,63,56,196,70,32,328,226], 18: [99,135,125,99,62,75,186,126],
+    19: [78,38,55,181,55,39,187,76], 20: [159,84,47,368,69,86,520,179],
+    21: [63,47,514,418,153,54,338,97], 22: [88,265,474,313,56,65,385,392],
+    23: [41,71,200,250,60,60,185,103], 24: [39,53,61,264,64,51,298,168],
+    25: [50,95,49,167,36,45,233,210], 26: [22,55,44,188,55,23,144,181],
+    27: [54,187,96,321,125,120,127,108], 28: [65,70,167,279,37,91,270,291],
+    29: [65,33,120,82,56,173,165,235], 30: [60,56,207,84,51,53,224,184],
+    31: [123,158,218,98,83,92,122,113], 32: [40,30,237,175,31,18,85,68],
+    33: [59,64,158,376,45,60,205,120], 34: [64,71,182,345,358,197,506,430],
+    35: [61,49,103,372,83,45,241,231], 36: [54,257,224,173,203,70,163,77],
+    37: [121,187,288,362,81,91,428,230], 38: [47,64,33,172,44,21,117,149],
+    39: [42,262,68,355,45,155,440,149], 40: [73,100,79,371,43,55,458,420],
+}
 
-success_deltas = np.array(success_deltas)
-print(f"  Mean success delta (high - low): {np.mean(success_deltas):.3f}")
-print(f"  SD: {np.std(success_deltas, ddof=1):.3f}")
-boot_deltas = [np.mean(np.random.choice(success_deltas, size=len(success_deltas), replace=True)) for _ in range(10000)]
-ci_lo, ci_hi = np.percentile(boot_deltas, [2.5, 97.5])
-print(f"  95% bootstrap CI: [{ci_lo:.3f}, {ci_hi:.3f}]")
-print(f"  All 40 participants had delta >= 0: {all(d >= 0 for d in success_deltas)}")
 
-# ============================================================
-# Analysis 4: Variance decomposition (site vs participant)
-# ============================================================
-print("\n" + "=" * 60)
-print("ANALYSIS 4: Variance decomposition")
-print("=" * 60)
+def cross_validate(data):
+    """Assert Excel data matches Paper Table 4 times (within 1s tolerance)."""
+    mismatches = 0
+    for pid in range(1, 41):
+        for ti, task in enumerate(TASK_ORDER):
+            if pid == 23 and task == 'GG1':
+                continue  # ambiguous N/A entry
+            excel_time = data[pid][task][1]
+            paper_time = PAPER_TABLE4_TIMES[pid][ti]
+            if abs(excel_time - paper_time) > 1:
+                print(f"  MISMATCH P{pid} {task}: Excel={excel_time}s, Paper={paper_time}s")
+                mismatches += 1
+    assert mismatches == 0, f"{mismatches} time mismatches between Excel and Paper Table 4"
+    print(f"  Cross-validation passed: 0 mismatches on 319 cells (P23-GG1 excluded as ambiguous)")
 
-# Simple two-way ANOVA-style decomposition on success (binary)
-# Factors: site (4 levels: MM, GG, OU, PU) and participant (40 levels)
-all_obs = []  # (site_idx, participant_idx, success)
-site_names = ['MM', 'GG', 'OU', 'PU']
-site_tasks = {'MM': ['MM1', 'MM2'], 'GG': ['GG1', 'GG2'], 'OU': ['OU1', 'OU2'], 'PU': ['PU1', 'PU2']}
 
-for pid, pdata in raw.items():
-    for si, site in enumerate(site_names):
-        for task in site_tasks[site]:
-            all_obs.append((si, pid, 1.0 if pdata[task][0] else 0.0))
+def run_analysis(raw):
+    """Run all derived analyses and print results."""
+    np.random.seed(42)
 
-obs_array = np.array(all_obs)
-grand_mean = np.mean(obs_array[:, 2])
+    # Per-site success rates
+    print("\n--- Per-site success rates ---")
+    sites = {'MM': ['MM1','MM2'], 'GG': ['GG1','GG2'], 'OU': ['OU1','OU2'], 'PU': ['PU1','PU2']}
+    for site, tasks in sites.items():
+        succ = sum(1 for pid in raw for t in tasks if raw[pid][t][0])
+        total = sum(1 for pid in raw for t in tasks)
+        print(f"  {site}: {succ}/{total} = {succ/total*100:.1f}%")
 
-# Site means
-site_means = {}
-for si, site in enumerate(site_names):
-    mask = obs_array[:, 0] == si
-    site_means[site] = np.mean(obs_array[mask, 2])
-    
-# Participant means
-part_means = {}
-for pid in raw.keys():
-    mask = obs_array[:, 1] == pid
-    part_means[pid] = np.mean(obs_array[mask, 2])
+    # Per-participant time ratio (PU / OU)
+    print("\n--- Time ratio (PU / OU) ---")
+    ratios = []
+    for pid in raw:
+        ou = np.median([raw[pid]['OU1'][1], raw[pid]['OU2'][1]])
+        pu = np.median([raw[pid]['PU1'][1], raw[pid]['PU2'][1]])
+        ratios.append(pu / ou if ou > 0 else float('inf'))
+    ratios = np.array(ratios)
+    boot = [np.mean(np.random.choice(ratios, len(ratios), replace=True)) for _ in range(10000)]
+    print(f"  Mean: {np.mean(ratios):.2f}, Median: {np.median(ratios):.2f}, SD: {np.std(ratios,ddof=1):.2f}")
+    print(f"  95% bootstrap CI: [{np.percentile(boot,2.5):.2f}, {np.percentile(boot,97.5):.2f}]")
 
-# SS decomposition
-ss_total = np.sum((obs_array[:, 2] - grand_mean) ** 2)
-ss_site = sum(len([o for o in all_obs if o[0] == si]) * (site_means[site] - grand_mean) ** 2 
-              for si, site in enumerate(site_names))
-ss_part = sum(len([o for o in all_obs if o[1] == pid]) * (part_means[pid] - grand_mean) ** 2 
-              for pid in raw.keys())
-ss_resid = ss_total - ss_site - ss_part
+    # Per-participant success delta
+    print("\n--- Success delta (high - low) ---")
+    deltas = []
+    for pid in raw:
+        high = sum(1 for t in ['MM1','MM2','OU1','OU2'] if raw[pid][t][0]) / 4.0
+        low = sum(1 for t in ['GG1','GG2','PU1','PU2'] if raw[pid][t][0]) / 4.0
+        deltas.append(high - low)
+    deltas = np.array(deltas)
+    boot_d = [np.mean(np.random.choice(deltas, len(deltas), replace=True)) for _ in range(10000)]
+    print(f"  Mean: {np.mean(deltas):.3f}, SD: {np.std(deltas,ddof=1):.3f}")
+    print(f"  95% bootstrap CI: [{np.percentile(boot_d,2.5):.3f}, {np.percentile(boot_d,97.5):.3f}]")
+    print(f"  All >= 0: {all(d >= 0 for d in deltas)}")
 
-print(f"  Grand mean success: {grand_mean:.3f}")
-print(f"  Site means: {', '.join(f'{s}={site_means[s]:.3f}' for s in site_names)}")
-print(f"  SS_total: {ss_total:.2f}")
-print(f"  SS_site: {ss_site:.2f} ({ss_site/ss_total*100:.1f}%)")
-print(f"  SS_participant: {ss_part:.2f} ({ss_part/ss_total*100:.1f}%)")
-print(f"  SS_residual: {ss_resid:.2f} ({ss_resid/ss_total*100:.1f}%)")
+    # Variance decomposition
+    print("\n--- Variance decomposition ---")
+    site_names = ['MM', 'GG', 'OU', 'PU']
+    obs = []
+    for pid in raw:
+        for si, site in enumerate(site_names):
+            for task in sites[site]:
+                obs.append((si, pid, 1.0 if raw[pid][task][0] else 0.0))
+    obs = np.array(obs)
+    gm = np.mean(obs[:,2])
+    sm = {s: np.mean(obs[obs[:,0]==si, 2]) for si, s in enumerate(site_names)}
+    pm = {pid: np.mean(obs[obs[:,1]==pid, 2]) for pid in raw}
+    ss_t = np.sum((obs[:,2] - gm)**2)
+    ss_s = sum(np.sum(obs[:,0]==si) * (sm[s]-gm)**2 for si,s in enumerate(site_names))
+    ss_p = sum(np.sum(obs[:,1]==pid) * (pm[pid]-gm)**2 for pid in raw)
+    ss_r = ss_t - ss_s - ss_p
+    print(f"  Grand mean: {gm:.3f}")
+    print(f"  Site means: {', '.join(f'{s}={sm[s]:.3f}' for s in site_names)}")
+    print(f"  SS_site: {ss_s:.2f} ({ss_s/ss_t*100:.1f}%)")
+    print(f"  SS_participant: {ss_p:.2f} ({ss_p/ss_t*100:.1f}%)")
+    print(f"  SS_residual: {ss_r:.2f} ({ss_r/ss_t*100:.1f}%)")
 
-# ============================================================
-# Analysis 5: L3-mapped site comparison
-# ============================================================
-print("\n" + "=" * 60)
-print("ANALYSIS 5: L3-mapped comparison (high-a11y vs L3-low)")
-print("=" * 60)
+    # Split reporting
+    print("\n--- Split reporting (high / GG / PU) ---")
+    high_s = [raw[pid][t][0] for pid in raw for t in ['MM1','MM2','OU1','OU2']]
+    print(f"  High-a11y (MM+OU): {sum(high_s)}/{len(high_s)} = {sum(high_s)/len(high_s)*100:.1f}%")
+    gg_s = [raw[pid][t][0] for pid in raw for t in ['GG1','GG2']]
+    print(f"  GG (L3-light): {sum(gg_s)}/{len(gg_s)} = {sum(gg_s)/len(gg_s)*100:.1f}%")
+    pu_s = [raw[pid][t][0] for pid in raw for t in ['PU1','PU2']]
+    print(f"  PU (L3-heavy): {sum(pu_s)}/{len(pu_s)} = {sum(pu_s)/len(pu_s)*100:.1f}%")
 
-# High-a11y sites: MM + OU
-high_success = []
-high_times = []
-for pid, pdata in raw.items():
-    for t in ['MM1', 'MM2', 'OU1', 'OU2']:
-        high_success.append(1 if pdata[t][0] else 0)
-        high_times.append(pdata[t][1])
+    # Time inflation
+    high_t = [raw[pid][t][1] for pid in raw for t in ['MM1','MM2','OU1','OU2']]
+    low_t = [raw[pid][t][1] for pid in raw for t in ['GG1','GG2','PU1','PU2']]
+    print(f"\n  High-a11y median time: {np.median(high_t):.0f}s")
+    print(f"  L3-low median time: {np.median(low_t):.0f}s")
+    print(f"  Time inflation: {np.median(low_t)/np.median(high_t):.1f}x")
 
-# L3-low sites: GG + PU (both have structural violations)
-low_success = []
-low_times = []
-for pid, pdata in raw.items():
-    for t in ['GG1', 'GG2', 'PU1', 'PU2']:
-        low_success.append(1 if pdata[t][0] else 0)
-        low_times.append(pdata[t][1])
 
-print(f"  High-a11y (MM+OU): {sum(high_success)}/{len(high_success)} = {sum(high_success)/len(high_success)*100:.1f}%")
-print(f"  L3-low (GG+PU): {sum(low_success)}/{len(low_success)} = {sum(low_success)/len(low_success)*100:.1f}%")
-print(f"  Delta: {(sum(high_success)/len(high_success) - sum(low_success)/len(low_success))*100:.1f}pp")
-print(f"  High-a11y median time: {np.median(high_times):.0f}s")
-print(f"  L3-low median time: {np.median(low_times):.0f}s")
-print(f"  Time inflation ratio: {np.median(low_times)/np.median(high_times):.1f}x")
+if __name__ == '__main__':
+    print("Loading from Excel...")
+    data = load_from_excel()
+    print(f"Loaded {len(data)} participants\n")
 
-# ============================================================
-# Analysis 6: Per-site breakdown for paper
-# ============================================================
-print("\n" + "=" * 60)
-print("ANALYSIS 6: Per-site success rates (for L1/L2/L3 mapping)")
-print("=" * 60)
+    print("Cross-validating against Paper Table 4...")
+    cross_validate(data)
 
-for site in ['OU', 'MM', 'GG', 'PU']:
-    tasks = site_tasks[site]
-    succ = sum(1 for pid in raw for t in tasks if raw[pid][t][0])
-    total = sum(1 for pid in raw for t in tasks)
-    times = [raw[pid][t][1] for pid in raw for t in tasks]
-    print(f"  {site}: success={succ}/{total} ({succ/total*100:.1f}%), "
-          f"median_time={np.median(times):.0f}s, mean_time={np.mean(times):.0f}s")
-
-# Sanity checks
-print("\n" + "=" * 60)
-print("SANITY CHECKS (for Alex to verify)")
-print("=" * 60)
-print(f"  1. P1 MM1 time = {raw[1]['MM1'][1]}s (should be 82)")
-print(f"  2. P34 PU2 status = {'Y' if raw[34]['PU2'][0] else 'N'}, time = {raw[34]['PU2'][1]}s (should be Y, 430)")
-print(f"  3. Total observations = {len(all_obs)} (should be 320 = 40 participants × 8 tasks)")
-print(f"  4. GG1 completion count = {sum(1 for pid in raw if raw[pid]['GG1'][0])} (paper says 28 = 70% of 40)")
-print(f"  5. PU1 completion count = {sum(1 for pid in raw if raw[pid]['PU1'][0])} (paper says 1 = 2.5% of 40)")
+    run_analysis(data)
