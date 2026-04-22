@@ -124,25 +124,7 @@ bounds the visual-rendering component of the CUA 35.4pp drop — with mean SSIM 
 e.g. 0.92 across tasks, we can honestly write "< 8% pixel variation on average,
 cannot explain a 35pp behavioral gap."
 
-**How to run on EC2**:
-```bash
-python3 scripts/smoke-visual-equivalence.py \
-  --base-url http://10.0.1.50:7770 \
-  --output ./data/visual-equivalence \
-  --reps 3   # 3 replicates per task/variant for variance
-
-# Upload → download → analyze locally
-bash scripts/experiment-upload.sh visual-equivalence ./data/visual-equivalence
-# ... later, locally ...
-bash scripts/experiment-download.sh --latest visual-equivalence
-python3 analysis/visual_equivalence_analysis.py \
-  --mode aggregate \
-  --input ./data/visual-equivalence \
-  --output ./results/visual-equivalence \
-  --save-masks
-```
-
-Estimated runtime: 13 tasks × 2 variants × 3 reps × ~45s = ~30 minutes.
+See the "Quickstart — running on EC2" section below.
 
 ---
 
@@ -178,19 +160,7 @@ Representative tasks chosen to exercise different DOM features:
 - `reddit:29` (forum) — many links, headings
 - `gitlab:132` (commits) — tables, landmarks, code blocks
 
-Estimated runtime: 4 tasks × 14 captures (base + 13 patches) × ~8s reset +
-~3s settle = ~10 min.
-
-Analysis:
-```bash
-python3 analysis/visual_equivalence_analysis.py \
-  --mode ablation \
-  --input ./data/visual-equivalence/ablation \
-  --output ./results/visual-equivalence \
-  --save-masks
-```
-
-Output: `per_patch_metrics.csv` + `report.md` with group classification.
+See the "Quickstart — running on EC2" section below.
 
 ---
 
@@ -239,7 +209,65 @@ values (77.8%, 42/54) are already finalized.
 
 ---
 
-## Provenance / pipeline fidelity
+## Quickstart — running on EC2
+
+**Prerequisites**: Platform EC2 with WebArena docker running at 10.0.1.50, Python
+venv with `browsergym-webarena`, `playwright`, `Pillow` installed (normally
+already set up by `scripts/bootstrap-platform.sh`).
+
+```bash
+# SSM into the platform instance
+aws ssm start-session --target <platform-instance-id>
+
+# On EC2
+cd ~/ai-agent-accessibility
+git pull
+
+# One-command driver: runs Phase 1 + Phase 2 + uploads to S3
+bash scripts/run-visual-equivalence.sh
+
+# Or run phases separately
+python3 scripts/smoke-visual-equivalence.py \
+  --base-url http://10.0.1.50:7770 \
+  --reps 3 \
+  --output ./data/visual-equivalence
+
+python3 scripts/patch-ablation-screenshots.py \
+  --base-url http://10.0.1.50:7770 \
+  --tasks 23 4 29 132 \
+  --output ./data/visual-equivalence/ablation
+
+# Upload
+bash scripts/experiment-upload.sh visual-equivalence ./data/visual-equivalence
+```
+
+Then on your local machine:
+
+```bash
+# Install analysis deps (one-time)
+pip install scikit-image Pillow ImageHash
+
+# Download artifacts
+bash scripts/experiment-download.sh --latest visual-equivalence
+
+# Run analysis
+python3 analysis/visual_equivalence_analysis.py \
+  --mode aggregate \
+  --input ./data/visual-equivalence \
+  --output ./results/visual-equivalence \
+  --save-masks
+
+python3 analysis/visual_equivalence_analysis.py \
+  --mode ablation \
+  --input ./data/visual-equivalence/ablation \
+  --output ./results/visual-equivalence \
+  --save-masks
+```
+
+Expected runtime: ~45 min on EC2 (13 tasks × 2 variants × 3 reps + 4 tasks ×
+14 captures), < 1 min for local analysis.
+
+
 
 All three parts use the exact same code paths that produced the experimental
 data:
@@ -248,17 +276,25 @@ data:
 |-----------------------------|-----------------------------------------------------------|
 | Variant JS (all patches)    | `src/variants/patches/inject/apply-low.js`                |
 | Single-patch JS             | `src/variants/patches/inject/apply-low-individual.js` *new* |
-| BrowserGym bridge           | `src/runner/browsergym_bridge.py`                         |
+| BrowserGym bridge           | `src/runner/browsergym_bridge.py` — capture hook added    |
 | Plan D injection            | context.route + deferred patch + MutationObserver (bridge lines 660–900) |
 | Playwright + chromium viewport | BrowserGym default (1280×720)                          |
 | CUA trace format            | `src/runner/cua_bridge.py` observation schema             |
 
-The ablation script uses `env.reset()` between patches so each patch runs on
-a clean WebArena state (identical login, identical initial page, identical
-Plan D registration path). The only difference between `apply-low.js` and
-`apply-low-individual.js` is that the individual version gates each of the 13
-patch blocks on `window.__ONLY_PATCH_ID === <id>`. The patch logic itself is
-byte-identical to the production version.
+**The capture scripts drive the production bridge as a subprocess**, passing
+`captureMode.outputPath` (and optional `onlyPatchId`) in the same task config
+JSON that the executor uses for real experiments. The bridge does its normal
+`env.reset()` + ui_login monkey-patches + post-reset shopping HTTP login +
+Plan D variant injection + DOM settle, then (when captureMode is set) writes
+a screenshot and exits before the agent loop starts. Every line of login,
+variant injection, and DOM handling is the exact code that ran during Pilot 4
+and the expansion experiments — there is no reimplementation, no drift.
+
+The ablation script sets `variantLevel="base"` and then instructs the bridge
+to apply ONLY one of the 13 patch blocks via `apply-low-individual.js`
+(gated on `window.__ONLY_PATCH_ID`). The patch logic is byte-identical to
+the production `apply-low.js` — the individual file is generated by
+copy-pasting each numbered block under an if/else guard, with no edits.
 
 No modification was made to `apply-low.js` — the file used to produce
 experimental data is untouched.

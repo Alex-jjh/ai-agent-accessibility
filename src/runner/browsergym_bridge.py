@@ -840,6 +840,73 @@ def main() -> None:
                     print(f"[bridge] Initial obs recovered ({len(obs_msg['axtree_txt'])} chars)", file=sys.stderr)
             except Exception:
                 pass
+
+        # -------------------------------------------------------------------
+        # CAPTURE MODE — visual equivalence validation
+        # -------------------------------------------------------------------
+        # Used by scripts/smoke-visual-equivalence.py and
+        # scripts/patch-ablation-screenshots.py to capture pipeline-identical
+        # screenshots at the first-observation state.
+        #
+        # When config["captureMode"] is set, write a PNG to the specified path,
+        # emit a one-line JSON summary, and exit — skipping the agent loop.
+        # This guarantees the screenshot matches exactly what the agent saw in
+        # step 0, using the same login + Plan D injection pipeline.
+        capture_cfg = config.get("captureMode")
+        if capture_cfg:
+            try:
+                screenshot_path = capture_cfg.get("outputPath")
+                if not screenshot_path:
+                    raise ValueError("captureMode.outputPath is required")
+                extra_patch_id = capture_cfg.get("onlyPatchId")
+                # If running in patch-ablation mode (single patch specified),
+                # inject apply-low-individual.js with ONLY_PATCH_ID set.
+                if extra_patch_id is not None:
+                    try:
+                        bg_page = env.unwrapped.page
+                        indiv_path = INJECT_DIR / "apply-low-individual.js"
+                        indiv_js = indiv_path.read_text(encoding="utf-8")
+                        bg_page.evaluate(f"window.__ONLY_PATCH_ID = {int(extra_patch_id)}")
+                        ablation_changes = bg_page.evaluate(indiv_js)
+                        print(f"[bridge] Capture ablation: applied patch {extra_patch_id}, {len(ablation_changes)} DOM changes", file=sys.stderr)
+                        # Let layout reflow settle (matters for patches 3/9)
+                        bg_page.wait_for_timeout(1000)
+                    except Exception as ablation_err:
+                        print(f"[bridge] Capture ablation patch {extra_patch_id} failed: {ablation_err}", file=sys.stderr)
+
+                bg_page = env.unwrapped.page
+                # Extra settle for Plan D MutationObserver convergence
+                bg_page.wait_for_timeout(500)
+                pathlib.Path(screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                bg_page.screenshot(path=screenshot_path, full_page=False)
+                vp = bg_page.viewport_size or {}
+                summary = {
+                    "captureMode": True,
+                    "screenshotPath": screenshot_path,
+                    "url": bg_page.url,
+                    "viewport": {"width": vp.get("width"), "height": vp.get("height")},
+                    "variant": variant_level,
+                    "onlyPatchId": extra_patch_id,
+                    "axtreeLen": len(obs_msg.get("axtree_txt", "")),
+                    "terminated": True,
+                    "truncated": False,
+                    "reward": 0.0,
+                    "step": 0,
+                }
+                send(summary)
+                print(f"[bridge] Capture mode: wrote {screenshot_path}", file=sys.stderr)
+            except Exception as cap_err:
+                print(f"[bridge] Capture mode failed: {cap_err}", file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
+                send({"captureMode": True, "error": str(cap_err), "terminated": True,
+                      "truncated": False, "reward": 0.0, "step": -1})
+            # Clean exit — do not enter agent loop
+            try:
+                env.close()
+            except Exception:
+                pass
+            return
+
         send(obs_msg)
 
         # CUA mode: hand off to the self-driving agent loop.

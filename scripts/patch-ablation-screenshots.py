@@ -1,26 +1,22 @@
 #!/usr/bin/env python3
 """
-Per-Patch Ablation — Captures a screenshot with EACH of the 13 low-variant
-patches applied individually on representative tasks. Isolates which patches
-produce visual changes (Group A/B/C classification for §6 Limitations).
+Per-Patch Ablation — Drives browsergym_bridge.py in captureMode with
+`onlyPatchId` to apply each of the 13 low-variant patches individually and
+screenshot the result.
 
-Uses src/variants/patches/inject/apply-low-individual.js which takes
-window.__ONLY_PATCH_ID to select a single patch block.
+For each (task, patch_id):
+  1. Fresh subprocess → bridge does env.reset + login + Plan D registration
+  2. bridge loads apply-low-individual.js with window.__ONLY_PATCH_ID = N
+  3. bridge waits 1000ms for layout to settle (matters for patches 3, 9)
+  4. bridge screenshots and exits
 
-Strategy: for each (task, patch_id):
-  1. Fresh env.reset() (gives clean login + base page state)
-  2. Inject apply-low-individual.js with __ONLY_PATCH_ID=patch_id
-  3. Wait for DOM settle
-  4. Screenshot
+Each patch gets a pristine env.reset so no cross-patch DOM contamination.
 
-Using fresh resets per (task, patch) ensures no cross-contamination between
-patches; this is slower but gives clean per-patch deltas.
-
-Representative tasks (exercise different DOM features):
-  - ecommerce:23 (product page): nav, header, links, img alt, form inputs, reviews
-  - shopping_admin:4 (admin dashboard): nav, landmarks, tables, thead/th, datagrid
-  - reddit:29 (forum listing): many links, headings, compact text layout
-  - gitlab:132 (commit browser): tables, landmarks, code blocks
+Task selection (representative per app — exercise different DOM features):
+  ecommerce:23     — product page (nav, header, links, img, form, reviews)
+  ecommerce_admin:4 — admin dashboard (nav, landmarks, tables, thead/th, grid)
+  reddit:29         — forum listing (many links, headings)
+  gitlab:132        — commit browser (tables, landmarks, code)
 
 Usage (on EC2):
   python3 scripts/patch-ablation-screenshots.py \\
@@ -28,167 +24,147 @@ Usage (on EC2):
     --tasks 23 4 29 132 \\
     --output ./data/visual-equivalence/ablation
 
-Output structure:
-  ./data/visual-equivalence/ablation/<task>/
-    base.png
-    patch_01.png ... patch_13.png
-    manifest.json
+Output:
+  ./data/visual-equivalence/ablation/<task>/base.png
+  ./data/visual-equivalence/ablation/<task>/patch_01.png ... patch_13.png
+  ./data/visual-equivalence/ablation/manifest.json
 """
 
 import argparse
 import json
-import os
 import pathlib
-import re
+import subprocess
 import sys
 import time
 import traceback
+from urllib.parse import urlparse
 
-BRIDGE_DIR = pathlib.Path(__file__).parent.parent / "src" / "runner"
-sys.path.insert(0, str(BRIDGE_DIR))
-
-INJECT_DIR = pathlib.Path(__file__).parent.parent / "src" / "variants" / "patches" / "inject"
+REPO_ROOT = pathlib.Path(__file__).parent.parent.resolve()
+BRIDGE = REPO_ROOT / "src" / "runner" / "browsergym_bridge.py"
 
 TASK_APP_MAP = {
-    "4":   "shopping_admin",
-    "23":  "shopping",
-    "24":  "shopping",
-    "26":  "shopping",
+    "4":   "ecommerce_admin",
+    "23":  "ecommerce",
+    "24":  "ecommerce",
+    "26":  "ecommerce",
     "29":  "reddit",
     "67":  "reddit",
-    "41":  "shopping_admin",
-    "94":  "shopping_admin",
+    "41":  "ecommerce_admin",
+    "94":  "ecommerce_admin",
     "132": "gitlab",
-    "188": "shopping",
-    "198": "shopping_admin",
+    "188": "ecommerce",
+    "198": "ecommerce_admin",
     "293": "gitlab",
     "308": "gitlab",
 }
 
+APP_PORTS = {
+    "ecommerce":       7770,
+    "ecommerce_admin": 7780,
+    "reddit":          9999,
+    "gitlab":          8023,
+}
+
 PATCH_DESCRIPTIONS = {
-    1:  "semantic landmarks -> div (nav, main, header, footer, article, section, aside)",
-    2:  "remove all aria-* and role attributes",
-    3:  "remove all <label> elements",
-    4:  "remove keyboard event handlers (onkeydown/up/press)",
-    5:  "wrap interactive elements in closed Shadow DOM",
-    6:  "replace h1-h6 with styled divs",
+    1:  "semantic landmarks -> div",
+    2:  "remove aria-* and role",
+    3:  "remove <label> elements",
+    4:  "remove keyboard handlers",
+    5:  "shadow DOM wrap interactive",
+    6:  "h1-h6 -> styled divs",
     7:  "remove img alt/aria-label/title",
-    8:  "remove tabindex attributes",
-    9:  "replace thead/tbody/tfoot/th with divs",
-    10: "remove html lang attribute",
-    11: "replace <a href> with <span onclick> (blue underlined)",
-    12: "inject duplicate IDs",
-    13: "add onfocus='this.blur()' (keyboard trap)",
+    8:  "remove tabindex",
+    9:  "thead/tbody/th -> div",
+    10: "remove html lang",
+    11: "a[href] -> span (blue underlined)",
+    12: "duplicate IDs",
+    13: "onfocus='this.blur()' keyboard trap",
 }
 
 
-def setup_wa_env(base_url: str) -> None:
-    m = re.match(r"(https?://[^:/]+)", base_url)
-    base_host = m.group(1) if m else "http://10.0.1.50"
-    os.environ.setdefault("WA_SHOPPING",       f"{base_host}:7770")
-    os.environ.setdefault("WA_SHOPPING_ADMIN", f"{base_host}:7780/admin")
-    os.environ.setdefault("WA_REDDIT",         f"{base_host}:9999")
-    os.environ.setdefault("WA_GITLAB",         f"{base_host}:8023")
-    os.environ.setdefault("WA_WIKIPEDIA",      f"{base_host}:8888")
-    os.environ.setdefault("WA_MAP",            f"{base_host}:3000")
-    os.environ.setdefault("WA_HOMEPAGE",       f"{base_host}:7770")
-    os.environ.setdefault("OPENAI_API_KEY",    "sk-litellm")
-    os.environ.setdefault("OPENAI_BASE_URL",   "http://localhost:4000")
-    os.environ.setdefault("PLAYWRIGHT_TIMEOUT", "60000")
+def run_one(task_id: str, app: str, base_url: str, out_path: pathlib.Path,
+            patch_id: int | None, variant_level: str,
+            timeout_s: int = 180) -> dict:
+    """Run the bridge once to capture a single screenshot.
 
+    - patch_id=None, variant_level="base" → screenshot of unmodified page
+    - patch_id=N, variant_level="base"   → screenshot with ONLY patch N applied
+      (via apply-low-individual.js, not the full low bundle)
+    """
+    p = urlparse(base_url)
+    host = p.hostname or "10.0.1.50"
+    scheme = p.scheme or "http"
+    port = APP_PORTS[app]
+    target_url = f"{scheme}://{host}:{port}"
 
-def wait_dom_stable(page, settle_ms: int = 1500) -> None:
-    try:
-        page.wait_for_load_state("networkidle", timeout=5000)
-    except Exception:
-        pass
-    page.wait_for_timeout(settle_ms)
+    config = {
+        "taskId": task_id,
+        "targetUrl": target_url,
+        "taskGoal": "",
+        "variantLevel": variant_level,  # "base" means no full-low injection
+        "agentConfig": {
+            "observationMode": "text-only",
+            "llmBackend": "claude-sonnet",
+            "maxSteps": 1,
+            "retryCount": 0,
+            "retryBackoffMs": 0,
+            "temperature": 0,
+        },
+        "captureMode": {
+            "outputPath": str(out_path),
+            "onlyPatchId": patch_id,  # None for base, 1..13 for ablation
+        },
+        "wallClockTimeoutMs": timeout_s * 1000,
+    }
 
-
-def capture_task_ablation(task_id: str, out_dir: pathlib.Path, settle_ms: int) -> list[dict]:
-    """Capture base + 13 individual patches for one task. Returns per-patch records."""
-    import browsergym.webarena  # noqa: F401
-    import gymnasium as gym
-
-    records = []
-    app = TASK_APP_MAP.get(task_id, "unknown")
-    gym_task = f"browsergym/webarena.{task_id}"
-    task_dir = out_dir / task_id
-    task_dir.mkdir(parents=True, exist_ok=True)
-
-    individual_js_path = INJECT_DIR / "apply-low-individual.js"
-    individual_js = individual_js_path.read_text(encoding="utf-8")
-
-    # Capture base (no patch) via a fresh env.reset
-    print(f"  [{task_id}] base", file=sys.stderr)
-    env = gym.make(gym_task)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    rec = {
+        "task_id": task_id, "app": app, "patch_id": patch_id or 0,
+        "patch_name": "base" if patch_id is None else PATCH_DESCRIPTIONS.get(patch_id, ""),
+        "screenshot": str(out_path), "success": False, "error": None,
+        "elapsed_s": None, "url": None, "viewport": None,
+    }
     t0 = time.time()
     try:
-        env.reset()
-        page = env.unwrapped.page
-        wait_dom_stable(page, settle_ms)
-        base_path = task_dir / "base.png"
-        page.screenshot(path=str(base_path), full_page=False)
-        base_url = page.url
-        base_viewport = page.viewport_size
-        records.append({
-            "task_id": task_id, "app": app, "patch_id": 0, "patch_name": "base",
-            "screenshot": str(base_path), "url": base_url,
-            "viewport": dict(base_viewport) if base_viewport else None,
-            "elapsed_s": time.time() - t0, "success": True, "error": None,
-        })
-    except Exception as e:
-        records.append({
-            "task_id": task_id, "app": app, "patch_id": 0, "patch_name": "base",
-            "screenshot": None, "error": f"{type(e).__name__}: {e}",
-            "elapsed_s": time.time() - t0, "success": False,
-        })
-        env.close()
-        return records
-    env.close()
-
-    # Apply each patch on a fresh env.reset — slow but clean
-    for patch_id in range(1, 14):
-        print(f"  [{task_id}] patch {patch_id}: {PATCH_DESCRIPTIONS[patch_id]}", file=sys.stderr)
-        env = gym.make(gym_task)
-        t0 = time.time()
-        rec = {
-            "task_id": task_id, "app": app, "patch_id": patch_id,
-            "patch_name": PATCH_DESCRIPTIONS[patch_id],
-            "screenshot": None, "elapsed_s": None, "success": False,
-            "error": None, "dom_changes": 0,
-        }
-        try:
-            env.reset()
-            page = env.unwrapped.page
-            wait_dom_stable(page, settle_ms)
-
-            # Set the patch id, then evaluate the single-patch script
-            page.evaluate(f"window.__ONLY_PATCH_ID = {patch_id}")
+        proc = subprocess.run(
+            [sys.executable, str(BRIDGE), json.dumps(config)],
+            input="",
+            text=True,
+            capture_output=True,
+            timeout=timeout_s,
+        )
+        stdout = proc.stdout or ""
+        stderr = proc.stderr or ""
+        summary_line = None
+        for line in stdout.strip().splitlines():
+            line = line.strip()
+            if not line:
+                continue
             try:
-                changes = page.evaluate(individual_js)
-                rec["dom_changes"] = len(changes) if isinstance(changes, list) else 0
-            except Exception as eval_err:
-                # Some patches may crash on some pages (e.g. patch 5 shadow DOM with
-                # elements whose parents are already shadow hosts). Record and continue.
-                rec["error"] = f"patch eval: {type(eval_err).__name__}: {eval_err}"
-
-            # Settle — let any layout reflow stabilize (matters for patches 3, 9)
-            page.wait_for_timeout(800)
-
-            shot_path = task_dir / f"patch_{patch_id:02d}.png"
-            page.screenshot(path=str(shot_path), full_page=False)
-            rec["screenshot"] = str(shot_path)
+                msg = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if msg.get("captureMode"):
+                summary_line = msg
+                break
+        if summary_line is None:
+            rec["error"] = f"no capture summary; stderr tail: {stderr[-500:]}"
+        elif summary_line.get("error"):
+            rec["error"] = f"bridge reported: {summary_line['error']}"
+        elif not out_path.exists():
+            rec["error"] = f"screenshot missing after capture: {out_path}"
+        else:
             rec["success"] = True
-        except Exception as e:
-            rec["error"] = f"{type(e).__name__}: {e}"
-            traceback.print_exc(file=sys.stderr)
-        finally:
-            rec["elapsed_s"] = time.time() - t0
-            records.append(rec)
-            env.close()
-
-    return records
+            rec["url"] = summary_line.get("url")
+            rec["viewport"] = summary_line.get("viewport")
+    except subprocess.TimeoutExpired:
+        rec["error"] = f"timeout after {timeout_s}s"
+    except Exception as e:
+        rec["error"] = f"{type(e).__name__}: {e}"
+        traceback.print_exc(file=sys.stderr)
+    finally:
+        rec["elapsed_s"] = round(time.time() - t0, 1)
+    return rec
 
 
 def main():
@@ -196,43 +172,84 @@ def main():
     ap.add_argument("--base-url", default="http://10.0.1.50:7770")
     ap.add_argument("--tasks", nargs="+", default=["23", "4", "29", "132"],
                     help="Task IDs for ablation (default: 23 4 29 132 — one per app)")
+    ap.add_argument("--patches", nargs="+", type=int, default=list(range(1, 14)),
+                    help="Patch IDs to ablate (default: 1..13)")
     ap.add_argument("--output", default="./data/visual-equivalence/ablation")
-    ap.add_argument("--settle-ms", type=int, default=1500)
+    ap.add_argument("--timeout-s", type=int, default=180)
     args = ap.parse_args()
 
-    setup_wa_env(args.base_url)
+    if not BRIDGE.exists():
+        print(f"ERROR: bridge not found at {BRIDGE}", file=sys.stderr)
+        sys.exit(1)
 
-    out_dir = pathlib.Path(args.output)
+    out_dir = pathlib.Path(args.output).resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    all_records = []
-    t0 = time.time()
+    all_records: list[dict] = []
+    t_start = time.time()
+    total = len(args.tasks) * (1 + len(args.patches))
+    done = 0
+
     for i, tid in enumerate(args.tasks):
         if tid not in TASK_APP_MAP:
             print(f"WARN: task {tid} not in TASK_APP_MAP, skipping", file=sys.stderr)
             continue
-        print(f"\n[{i+1}/{len(args.tasks)}] task {tid} ({TASK_APP_MAP[tid]})", file=sys.stderr)
-        try:
-            recs = capture_task_ablation(tid, out_dir, settle_ms=args.settle_ms)
-            all_records.extend(recs)
-        except Exception as e:
-            print(f"  FATAL for task {tid}: {e}", file=sys.stderr)
-            traceback.print_exc(file=sys.stderr)
+        app = TASK_APP_MAP[tid]
+        task_dir = out_dir / tid
 
-        # Incremental manifest
-        manifest = out_dir / "manifest.json"
-        with manifest.open("w") as f:
-            json.dump({
-                "config": vars(args),
-                "patch_descriptions": PATCH_DESCRIPTIONS,
-                "records": all_records,
-                "elapsed_s": time.time() - t0,
-            }, f, indent=2)
+        # Capture base (unmodified) first — this is the reference image
+        done += 1
+        print(f"\n[{done}/{total}] task={tid} app={app} variant=base (reference)",
+              file=sys.stderr)
+        base_path = task_dir / "base.png"
+        rec = run_one(tid, app, args.base_url, base_path,
+                      patch_id=None, variant_level="base",
+                      timeout_s=args.timeout_s)
+        all_records.append(rec)
+        print(f"  -> {'OK' if rec['success'] else 'FAIL'} ({rec['elapsed_s']}s)"
+              + (f" err={rec['error'][:80]}" if rec['error'] else ""),
+              file=sys.stderr)
+
+        # Save incremental manifest
+        _save_manifest(out_dir, all_records, args, t_start)
+
+        # Only proceed with ablations if base capture succeeded
+        if not rec["success"]:
+            print(f"  WARN: skipping ablation for task {tid} (base capture failed)",
+                  file=sys.stderr)
+            done += len(args.patches)
+            continue
+
+        for patch_id in args.patches:
+            done += 1
+            print(f"[{done}/{total}] task={tid} patch={patch_id}: "
+                  f"{PATCH_DESCRIPTIONS.get(patch_id, '?')}", file=sys.stderr)
+            patch_path = task_dir / f"patch_{patch_id:02d}.png"
+            rec = run_one(tid, app, args.base_url, patch_path,
+                          patch_id=patch_id, variant_level="base",
+                          timeout_s=args.timeout_s)
+            all_records.append(rec)
+            print(f"  -> {'OK' if rec['success'] else 'FAIL'} ({rec['elapsed_s']}s)"
+                  + (f" err={rec['error'][:80]}" if rec['error'] else ""),
+                  file=sys.stderr)
+            _save_manifest(out_dir, all_records, args, t_start)
 
     ok = sum(1 for r in all_records if r["success"])
-    print(f"\nDone. {ok}/{len(all_records)} captures succeeded in {time.time()-t0:.1f}s",
-          file=sys.stderr)
+    print(f"\nDone. {ok}/{len(all_records)} captures succeeded in "
+          f"{time.time() - t_start:.1f}s", file=sys.stderr)
     print(f"Manifest: {out_dir / 'manifest.json'}", file=sys.stderr)
+    sys.exit(0 if ok > 0 else 1)
+
+
+def _save_manifest(out_dir, records, args, t_start):
+    manifest_path = out_dir / "manifest.json"
+    with manifest_path.open("w") as f:
+        json.dump({
+            "config": vars(args),
+            "patch_descriptions": PATCH_DESCRIPTIONS,
+            "records": records,
+            "elapsed_s": round(time.time() - t_start, 1),
+        }, f, indent=2)
 
 
 if __name__ == "__main__":
