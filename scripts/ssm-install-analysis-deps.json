@@ -1,0 +1,18 @@
+{
+  "commands": [
+    "set -e",
+    "export HOME=/root",
+    "cd /root/platform && git pull",
+    "echo '--- scipy (Mann-Whitney U) ---'",
+    "/usr/bin/python3.11 -m pip install --user --quiet scipy",
+    "echo '--- uninstall any stale torch/torchvision first ---'",
+    "/usr/bin/python3.11 -m pip uninstall -y --quiet torch torchvision torchaudio || true",
+    "echo '--- install matched torch+torchvision CPU builds (pinned) ---'",
+    "/usr/bin/python3.11 -m pip install --user --quiet --index-url https://download.pytorch.org/whl/cpu 'torch==2.4.1' 'torchvision==0.19.1'",
+    "echo '--- install lpips last (picks up torchvision) ---'",
+    "/usr/bin/python3.11 -m pip install --user --quiet lpips",
+    "echo '--- verify ---'",
+    "/usr/bin/python3.11 -c 'import scipy, torch, torchvision, lpips; print(\"scipy\", scipy.__version__, \"torch\", torch.__version__, \"torchvision\", torchvision.__version__, \"lpips OK\")'"
+  ],
+  "executionTimeout": ["900"]
+}

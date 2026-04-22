@@ -1,0 +1,19 @@
+{
+  "commands": [
+    "set -e",
+    "export HOME=/root",
+    "export PATH=/root/.local/bin:$PATH",
+    "cd /root/platform && git pull",
+    "/usr/bin/python3.11 -c 'import scipy, torch, torchvision, lpips, playwright, PIL; print(\"deps OK\")'",
+    "mkdir -p /root/platform/data/visual-equivalence/logs",
+    "echo 'Launching run-visual-equivalence.sh under nohup...'",
+    "nohup bash /root/platform/scripts/run-visual-equivalence.sh > /root/platform/data/visual-equivalence/logs/run.log 2>&1 &",
+    "LAUNCH_PID=$!",
+    "echo \"PID=$LAUNCH_PID\"",
+    "echo $LAUNCH_PID > /root/platform/data/visual-equivalence/logs/run.pid",
+    "sleep 5",
+    "ps -p $LAUNCH_PID > /dev/null && echo 'process alive' || echo 'process died immediately — check run.log'",
+    "head -30 /root/platform/data/visual-equivalence/logs/run.log 2>&1 || true"
+  ],
+  "executionTimeout": ["120"]
+}
