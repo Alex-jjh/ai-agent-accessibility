@@ -64,15 +64,19 @@ resource "aws_instance" "webarena" {
     # Wait for services
     sleep 60
 
-    # Get private IP for base URL config
-    PRIVATE_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+    # Get private IP for base URL config (IMDSv2 token required)
+    IMDS_TOKEN=$(curl -sS -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 300")
+    PRIVATE_IP=$(curl -sS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169.254/latest/meta-data/local-ipv4)
+    echo "PRIVATE_IP=$PRIVATE_IP"
 
     docker exec shopping /var/www/magento2/bin/magento setup:store-config:set --base-url="http://$PRIVATE_IP:7770/" || true
     docker exec shopping mysql -u magentouser -pMyPassword magentodb -e "UPDATE core_config_data SET value='http://$PRIVATE_IP:7770/' WHERE path = 'web/secure/base_url';" || true
+    docker exec shopping mysql -u magentouser -pMyPassword magentodb -e "UPDATE core_config_data SET value='http://$PRIVATE_IP:7770/' WHERE path = 'web/unsecure/base_url';" || true
     docker exec shopping /var/www/magento2/bin/magento cache:flush || true
 
     docker exec shopping_admin /var/www/magento2/bin/magento setup:store-config:set --base-url="http://$PRIVATE_IP:7780/" || true
     docker exec shopping_admin mysql -u magentouser -pMyPassword magentodb -e "UPDATE core_config_data SET value='http://$PRIVATE_IP:7780/' WHERE path = 'web/secure/base_url';" || true
+    docker exec shopping_admin mysql -u magentouser -pMyPassword magentodb -e "UPDATE core_config_data SET value='http://$PRIVATE_IP:7780/' WHERE path = 'web/unsecure/base_url';" || true
     docker exec shopping_admin /var/www/magento2/bin/magento cache:flush || true
 
     docker exec shopping_admin php /var/www/magento2/bin/magento config:set admin/security/password_is_forced 0 || true
