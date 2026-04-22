@@ -109,22 +109,59 @@ def _shopping_login_http(base_url: str, username: str, password: str,
     Magento's form_key is CSRF-protected; browser login selectors are
     theme-dependent and untested on current WebArena. This matches
     src/runner/browsergym_bridge.py Post-reset shopping login logic verbatim.
+
+    NOTE: Magento's base URL is baked into the AMI as a stale public hostname
+    (e.g. ec2-3-131-244-37.us-east-2.compute.amazonaws.com). Every request
+    gets 302-redirected to that hostname. Workaround: install a DNS-rewriting
+    HTTP adapter that routes any such hostname to the private WebArena IP.
     """
     import requests as _requests
+    from requests.adapters import HTTPAdapter
     import urllib.parse as _urlparse
 
+    target_host = _urlparse.urlparse(base_url).hostname
+    target_port = _urlparse.urlparse(base_url).port or 80
+
+    class _IPRewriteAdapter(HTTPAdapter):
+        """Rewrite any EC2 public hostname back to the private WebArena IP.
+
+        Magento's canonical URL is a stale public hostname; we force all
+        requests to that hostname to resolve to our private IP.
+        """
+        def send(self, request, **kwargs):
+            parsed = _urlparse.urlparse(request.url)
+            # Rewrite if host is an EC2 public hostname or resolves publicly.
+            # Simpler heuristic: anything NOT matching target_host + same port -> rewrite
+            if parsed.hostname and parsed.hostname != target_host:
+                # Keep the original Host header so Magento returns matching canonical URL
+                new_netloc = f"{target_host}:{parsed.port or target_port}"
+                new_url = _urlparse.urlunparse(parsed._replace(netloc=new_netloc))
+                request.url = new_url
+                # Set Host header back to the original so the app sees consistent URL
+                request.headers["Host"] = f"{parsed.hostname}:{parsed.port or target_port}"
+            return super().send(request, **kwargs)
+
     session = _requests.Session()
+    adapter = _IPRewriteAdapter()
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+
     cookies_out: list[dict] = []
     try:
-        # Step 1: GET login page for form_key
+        # Step 1: GET login page for form_key. Allow redirects — our adapter
+        # will rewrite the stale public host back to the private IP.
         login_url = f"{base_url}/customer/account/login/"
-        resp1 = session.get(login_url, timeout=timeout_s)
+        resp1 = session.get(login_url, timeout=timeout_s, allow_redirects=True)
+        print(f"    [login:shopping] GET login: status={resp1.status_code} "
+              f"final_url={resp1.url[:80]}", file=sys.stderr)
         form_key_match = re.search(
             r'name="form_key"\s+.*?value="([^"]+)"', resp1.text
         ) or re.search(r'"form_key"\s*:\s*"([^"]+)"', resp1.text)
         form_key = form_key_match.group(1) if form_key_match else ""
+        print(f"    [login:shopping] form_key={'found' if form_key else 'MISSING'} "
+              f"(len={len(form_key)})", file=sys.stderr)
 
-        # Step 2: POST — form action URL may have broken Docker-internal host
+        # Step 2: POST credentials
         action_match = re.search(
             r'<form[^>]*id=["\']login-form["\'][^>]*action=["\']([^"\']+)["\']',
             resp1.text
@@ -152,13 +189,13 @@ def _shopping_login_http(base_url: str, username: str, password: str,
         print(f"    [login:shopping] POST status={resp2.status_code} login_ok={login_ok}",
               file=sys.stderr)
 
-        # Convert to Playwright cookie format
-        host = _urlparse.urlparse(base_url).hostname
+        # Convert to Playwright cookie format — tag cookies with the private IP
+        # host (our target_host) since that's where we'll replay URLs.
         for c in session.cookies:
             cookies_out.append({
                 "name": c.name,
                 "value": c.value,
-                "domain": host,
+                "domain": target_host,
                 "path": c.path or "/",
             })
     except Exception as e:

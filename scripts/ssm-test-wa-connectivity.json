@@ -1,0 +1,12 @@
+{
+  "commands": [
+    "echo '--- Platform EC2 -> WebArena connectivity tests ---'",
+    "curl -sS -o /dev/null -w 'shopping (7770): %{http_code} time=%{time_total}s\\n' --max-time 10 http://10.0.1.50:7770/ || echo 'shopping: FAILED'",
+    "curl -sS -o /dev/null -w 'admin (7780): %{http_code} time=%{time_total}s\\n' --max-time 10 http://10.0.1.50:7780/ || echo 'admin: FAILED'",
+    "curl -sS -o /dev/null -w 'reddit (9999): %{http_code} time=%{time_total}s\\n' --max-time 10 http://10.0.1.50:9999/ || echo 'reddit: FAILED'",
+    "curl -sS -o /dev/null -w 'gitlab (8023): %{http_code} time=%{time_total}s\\n' --max-time 15 http://10.0.1.50:8023/ || echo 'gitlab: FAILED'",
+    "echo '--- Getting shopping login page to see form_key location ---'",
+    "curl -sS -o /tmp/shop-login.html --max-time 10 http://10.0.1.50:7770/customer/account/login/ && head -c 300 /tmp/shop-login.html || true"
+  ],
+  "executionTimeout": ["90"]
+}

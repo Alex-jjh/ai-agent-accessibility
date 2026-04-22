@@ -1,0 +1,11 @@
+{
+  "commands": [
+    "echo '--- Magento base URL config (shopping) ---'",
+    "docker exec shopping cat /var/www/magento2/app/etc/env.php 2>&1 | head -40 || sudo docker exec shopping cat /var/www/magento2/app/etc/env.php 2>&1 | head -40",
+    "echo '--- Raw GET to shopping login (no follow) ---'",
+    "curl -sS -I --max-time 10 http://localhost:7770/customer/account/login/ 2>&1 | head -20",
+    "echo '--- Raw GET to shopping root ---'",
+    "curl -sS -I --max-time 10 http://localhost:7770/ 2>&1 | head -10"
+  ],
+  "executionTimeout": ["60"]
+}
