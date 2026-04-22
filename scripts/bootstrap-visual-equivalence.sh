@@ -31,42 +31,45 @@ fi
 echo "[bootstrap] HOME=$HOME USER=$(id -un) PWD=$(pwd)"
 echo "[bootstrap] Starting minimal install for URL-replay..."
 
-# 1. Python 3.11 (for modern type hints)
+# 1. Python 3.11 (for modern type hints). DO NOT re-symlink /usr/bin/python3 —
+# Amazon Linux 2023's dnf/yum are Python scripts shebang'd to /usr/bin/python3.
+# Overwriting that symlink breaks dnf system-wide.
 if ! python3.11 --version &>/dev/null; then
   echo "[1/4] Installing Python 3.11..."
-  sudo yum install -y python3.11 python3.11-pip >/dev/null
+  sudo dnf install -y python3.11 python3.11-pip >/dev/null
 fi
-sudo ln -sf /usr/bin/python3.11 /usr/bin/python3 2>/dev/null || true
-sudo ln -sf /usr/bin/python3.11 /usr/bin/python 2>/dev/null || true
-echo "  $(python3 --version)"
+echo "  $(python3.11 --version)"
 
-# 2. System deps for chromium (Amazon Linux 2023 — yum not apt)
+# 2. System deps for chromium (Amazon Linux 2023 — dnf not apt)
+# Key packages: nspr + nss for TLS/crypto (libnspr4.so),
+# atk/at-spi2-atk for a11y bridge, cups-libs/libdrm/libX* for headless rendering
 echo "[2/4] Installing chromium system deps..."
-sudo yum install -y \
-  nss atk at-spi2-atk cups-libs libdrm libXcomposite \
-  libXdamage libXrandr mesa-libgbm pango alsa-lib libxkbcommon \
+sudo dnf install -y \
+  nspr nss nss-util \
+  atk at-spi2-atk cups-libs libdrm \
+  libXcomposite libXdamage libXrandr libXtst libXScrnSaver \
+  mesa-libgbm pango alsa-lib libxkbcommon \
   >/dev/null 2>&1 || echo "  (some packages may already be present, continuing)"
 
 # 3. Python packages: playwright + Pillow + scikit-image + ImageHash
 echo "[3/4] Installing Python packages..."
-python3 -m pip install --user --quiet \
+python3.11 -m pip install --user --quiet \
   playwright Pillow numpy scikit-image ImageHash
 
-# 4. Playwright chromium
+# 4. Playwright chromium — use python3.11 directly, NOT 'python3' (which stays at 3.9)
 echo "[4/4] Installing Playwright chromium..."
-python3 -m playwright install chromium >/dev/null 2>&1 || {
-  # Retry — sometimes the first install fails on resource-constrained fresh instances
+python3.11 -m playwright install chromium >/dev/null 2>&1 || {
   sleep 5
-  python3 -m playwright install chromium
+  python3.11 -m playwright install chromium
 }
 
 echo ""
 echo "=== Bootstrap complete ==="
 echo ""
 echo "Verify:"
-echo "  python3 -c 'from playwright.sync_api import sync_playwright; print(\"playwright ok\")'"
-echo "  python3 -c 'import PIL, numpy, skimage, imagehash; print(\"deps ok\")'"
+echo "  python3.11 -c 'from playwright.sync_api import sync_playwright; print(\"playwright ok\")'"
+echo "  python3.11 -c 'import PIL, numpy, skimage, imagehash; print(\"deps ok\")'"
 echo ""
 echo "Then run:"
 echo "  cd ~/platform  # or wherever repo is cloned"
-echo "  bash scripts/run-visual-equivalence.sh"
+echo "  PATH=/root/.local/bin:\$PATH python3.11 scripts/run-visual-equivalence.sh"

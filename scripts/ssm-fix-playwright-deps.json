@@ -1,0 +1,18 @@
+{
+  "commands": [
+    "set -eo pipefail",
+    "export HOME=/root",
+    "echo '--- 1. Restore /usr/bin/python3 symlink so dnf works ---'",
+    "ls -la /usr/bin/python3 || true",
+    "if [ -e /usr/bin/python3.9 ]; then sudo ln -sf /usr/bin/python3.9 /usr/bin/python3; fi",
+    "python3 --version",
+    "rpm -q dnf python3-dnf || true",
+    "echo '--- 2. Install playwright chromium deps via dnf ---'",
+    "sudo dnf install -y nspr nss nss-util alsa-lib atk at-spi2-atk cups-libs libdrm libXcomposite libXdamage libXrandr libxkbcommon mesa-libgbm pango libXtst libXScrnSaver 2>&1 | tail -15",
+    "echo '--- 3. Verify libnspr4 present ---'",
+    "ls /usr/lib64/libnspr4.so 2>/dev/null && echo 'libnspr4.so: FOUND' || echo 'libnspr4.so: STILL MISSING'",
+    "echo '--- 4. Launch chromium ---'",
+    "/usr/bin/python3.11 -c \"from playwright.sync_api import sync_playwright; pw = sync_playwright().start(); b = pw.chromium.launch(headless=True); print('browser launched OK'); b.close(); pw.stop()\""
+  ],
+  "executionTimeout": ["300"]
+}

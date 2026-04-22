@@ -5,7 +5,7 @@
     "export PATH=/root/.local/bin:$PATH",
     "cd /root/platform",
     "git pull",
-    "python3 scripts/smoke-replay-login.py 10.0.1.50 2>&1"
+    "/usr/bin/python3.11 scripts/smoke-replay-login.py 10.0.1.50 2>&1"
   ],
   "executionTimeout": ["300"]
 }

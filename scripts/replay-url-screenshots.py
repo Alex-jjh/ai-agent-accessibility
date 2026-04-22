@@ -102,47 +102,191 @@ def rewrite_ip(url: str, target_ip: str) -> str:
     return url
 
 
+def _shopping_login_http(base_url: str, username: str, password: str,
+                         timeout_s: int = 30) -> list[dict]:
+    """HTTP login for Magento storefront — matches production bridge.
+
+    Magento's form_key is CSRF-protected; browser login selectors are
+    theme-dependent and untested on current WebArena. This matches
+    src/runner/browsergym_bridge.py Post-reset shopping login logic verbatim.
+    """
+    import requests as _requests
+    import urllib.parse as _urlparse
+
+    session = _requests.Session()
+    cookies_out: list[dict] = []
+    try:
+        # Step 1: GET login page for form_key
+        login_url = f"{base_url}/customer/account/login/"
+        resp1 = session.get(login_url, timeout=timeout_s)
+        form_key_match = re.search(
+            r'name="form_key"\s+.*?value="([^"]+)"', resp1.text
+        ) or re.search(r'"form_key"\s*:\s*"([^"]+)"', resp1.text)
+        form_key = form_key_match.group(1) if form_key_match else ""
+
+        # Step 2: POST — form action URL may have broken Docker-internal host
+        action_match = re.search(
+            r'<form[^>]*id=["\']login-form["\'][^>]*action=["\']([^"\']+)["\']',
+            resp1.text
+        ) or re.search(
+            r'<form[^>]*action=["\']([^"\']*loginPost[^"\']*)["\']', resp1.text
+        )
+        if action_match:
+            login_post_url = action_match.group(1)
+            parsed_action = _urlparse.urlparse(login_post_url)
+            if not parsed_action.hostname:
+                login_post_url = base_url.rstrip("/") + parsed_action.path
+        else:
+            login_post_url = f"{base_url}/customer/account/loginPost/"
+
+        resp2 = session.post(
+            login_post_url,
+            data={
+                "form_key": form_key,
+                "login[username]": username,
+                "login[password]": password,
+            },
+            timeout=timeout_s, allow_redirects=False
+        )
+        login_ok = resp2.status_code in (301, 302, 303)
+        print(f"    [login:shopping] POST status={resp2.status_code} login_ok={login_ok}",
+              file=sys.stderr)
+
+        # Convert to Playwright cookie format
+        host = _urlparse.urlparse(base_url).hostname
+        for c in session.cookies:
+            cookies_out.append({
+                "name": c.name,
+                "value": c.value,
+                "domain": host,
+                "path": c.path or "/",
+            })
+    except Exception as e:
+        print(f"    [login:shopping] HTTP flow failed: {e}", file=sys.stderr)
+    return cookies_out
+
+
+def _try_login_selectors(page, username: str, password: str, timeout_ms: int,
+                         username_selectors: list[str],
+                         password_selectors: list[str]) -> bool:
+    """Fill login form using fallback chain of selectors. Returns True on submit."""
+    u_filled = False
+    for sel in username_selectors:
+        try:
+            loc = page.locator(sel).first
+            if loc.count() > 0:
+                loc.fill(username, timeout=5000)
+                u_filled = True
+                print(f"    [login] username via '{sel}'", file=sys.stderr)
+                break
+        except Exception:
+            continue
+    p_filled = False
+    for sel in password_selectors:
+        try:
+            loc = page.locator(sel).first
+            if loc.count() > 0:
+                loc.fill(password, timeout=5000)
+                p_filled = True
+                print(f"    [login] password via '{sel}'", file=sys.stderr)
+                break
+        except Exception:
+            continue
+    if not (u_filled and p_filled):
+        return False
+    # Submit — try button[type=submit] then any form button
+    for sel in ['button[type="submit"]', 'input[type="submit"]',
+                'button:has-text("Sign In")', 'button:has-text("Log in")',
+                'button:has-text("Login")']:
+        try:
+            loc = page.locator(sel).first
+            if loc.count() > 0:
+                loc.click(timeout=5000)
+                page.wait_for_load_state("networkidle", timeout=timeout_ms)
+                return True
+        except Exception:
+            continue
+    return False
+
+
 def login_and_capture_cookies(pw_browser, app: str, base_url: str,
                               timeout_ms: int = 30000) -> list[dict]:
     """Run a real login flow in a throwaway context, return the resulting cookies.
 
     We do this once per app before the main capture loop so we have
     authenticated cookies to inject into capture contexts.
+
+    Strategy per app:
+      shopping       -> HTTP POST with form_key extraction (matches production bridge)
+      shopping_admin -> canonical Magento admin selectors (battle-tested in production)
+      reddit         -> selector fallback chain (Postmill selectors undocumented)
+      gitlab         -> Rails standard selectors
     """
     if app not in WEBARENA_ACCOUNTS:
         return []
     username, password, _ = WEBARENA_ACCOUNTS[app]
+
+    # Shopping uses HTTP flow — browser selectors for Magento storefront are
+    # theme-dependent and untested. Production bridge uses HTTP too.
+    if app == "shopping":
+        cookies = _shopping_login_http(base_url, username, password)
+        print(f"    [login] {app}: HTTP flow produced {len(cookies)} cookies",
+              file=sys.stderr)
+        return cookies
+
     context = pw_browser.new_context(viewport={"width": 1280, "height": 720})
     cookies: list[dict] = []
     try:
         page = context.new_page()
         page.set_default_timeout(timeout_ms)
         if app == "shopping_admin":
-            # Magento admin login at /admin/
+            # Canonical Magento admin — selectors verified in production bridge
             page.goto(f"{base_url}/admin/", wait_until="networkidle")
             page.locator("#username").fill(username)
             page.locator("#login").fill(password)
             page.locator(".action-login").click()
             page.wait_for_load_state("networkidle", timeout=timeout_ms)
-        elif app == "shopping":
-            # Magento storefront login
-            page.goto(f"{base_url}/customer/account/login/", wait_until="networkidle")
-            page.locator("input#email").fill(username)
-            page.locator("input#pass").fill(password)
-            page.get_by_role("button", name=re.compile("Sign In", re.I)).first.click()
-            page.wait_for_load_state("networkidle", timeout=timeout_ms)
         elif app == "reddit":
+            # Postmill — try multiple selector candidates since docs vary
             page.goto(f"{base_url}/login", wait_until="networkidle")
-            page.locator("input#user_name").fill(username)
-            page.locator("input#user_password").fill(password)
-            page.locator("button[type='submit']").first.click()
-            page.wait_for_load_state("networkidle", timeout=timeout_ms)
+            ok = _try_login_selectors(
+                page, username, password, timeout_ms,
+                username_selectors=[
+                    "input#user_name", "input#login_username",
+                    'input[name="_username"]', 'input[name="username"]',
+                    'input[type="text"]',
+                ],
+                password_selectors=[
+                    "input#user_password", "input#login_password",
+                    'input[name="_password"]', 'input[name="password"]',
+                    'input[type="password"]',
+                ])
+            if not ok:
+                print(f"    [login:reddit] selector chain exhausted — dumping form structure",
+                      file=sys.stderr)
+                try:
+                    inputs = page.evaluate(
+                        "Array.from(document.querySelectorAll('input'))"
+                        ".map(i => ({id:i.id, name:i.name, type:i.type}))"
+                    )
+                    print(f"    [login:reddit] inputs={inputs}", file=sys.stderr)
+                except Exception:
+                    pass
         elif app == "gitlab":
             page.goto(f"{base_url}/users/sign_in", wait_until="networkidle")
-            page.locator("input#user_login").fill(username)
-            page.locator("input#user_password").fill(password)
-            page.locator("button[type='submit']").first.click()
-            page.wait_for_load_state("networkidle", timeout=timeout_ms)
+            ok = _try_login_selectors(
+                page, username, password, timeout_ms,
+                username_selectors=[
+                    "input#user_login", 'input[name="user[login]"]',
+                    'input#username', 'input[name="username"]',
+                ],
+                password_selectors=[
+                    "input#user_password", 'input[name="user[password]"]',
+                    'input[type="password"]',
+                ])
+            if not ok:
+                print(f"    [login:gitlab] selector chain exhausted",
+                      file=sys.stderr)
 
         cookies = context.cookies()
         print(f"    [login] {app}: captured {len(cookies)} cookies", file=sys.stderr)
