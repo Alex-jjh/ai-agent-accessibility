@@ -173,6 +173,28 @@ Execution phases:
     24 failures: 17 cross-layer functional (low), 6 UI complexity (admin:198), 1 step budget.
     admin:198 anomaly: ml 80% > base 60% > high 40% (Columns dialog + screenshot timeout).
 
+  Phase 7: Visual Equivalence Validation — 🟡 IN PROGRESS 2026-04-22
+    Goal: close CHI 2027 paper §6 Limitations #7 (CUA visual-equivalence confound).
+    Approach: URL replay — replay the 137 unique URLs agents actually visited
+    (extracted from 3,379 trace cases) under base + low variant, directly via
+    Playwright (no BrowserGym). SSIM/pHash/MAD pixel-diff analysis +
+    per-patch ablation + human-review gallery.
+    Status:
+      - 137 URLs extracted, 136 replayable
+      - CUA trace signature analysis: 42/54 = 77.8% of low failures match
+        link→span click-inert signature (≥8 clicks, ≥90% inert, ≥3 same-region
+        loops) → paper-ready behavioral evidence
+      - All tooling committed: replay-url-screenshots.py,
+        replay-url-patch-ablation.py, visual_equivalence_analysis.py,
+        visual_equivalence_gallery.py
+      - apply-low-individual.js: 13 patches each gated on window.__ONLY_PATCH_ID,
+        byte-identical to apply-low.js
+      - New burner 840744349421 deployed, both EC2 online
+      - Login smoke PASSED on all 4 apps (commit d104d01)
+      - Pending: run Phase B (137 URL × 2 variant ≈ 25min) + Phase C (56 captures ≈ 5min),
+        download + analyze, write final §6 drop-in.
+    Architecture: docs/analysis/visual-equivalence-architecture.md
+
 Actual total: N=1,040 (Pilot 4: 240 text/SoM + 120 CUA + Expansion: 140 Claude + 260 Llama 4 + 140 SoM + 140 CUA)
 
 Ecological validity audit completed (2026-04-13):
@@ -451,6 +473,44 @@ Backup: 349 (gitlab, repo members), 124 (DROPPED — stale ground truth)
 - Instance IDs change per account — get from `terraform output`
 - See docs/deployment.md and docs/new-account-migration-guide.md for full guide
 
+## Deployment Lessons Learned (2026-04-22, burner 840744349421)
+
+Five root-cause issues that cost iterations; all now codified in infra/ and scripts/:
+
+1. **IMDSv2 required on new AMIs.** AL2023 and recent Ubuntu AMIs reject
+   IMDSv1 unauthenticated curl to `169.254.169.254`. infra/webarena.tf
+   user-data previously used `curl -s http://169.254.169.254/...` without
+   a token → PRIVATE_IP came back empty → `magento setup:store-config:set
+   --base-url=http://:7770/` failed silently → Magento kept its stale AMI-baked
+   public hostname and every request 302-redirected to an unreachable host.
+   Fix: always get an IMDSv2 token first. If user-data already failed
+   on an existing EC2, run scripts/ssm-fix-magento-baseurl.json as one-shot.
+
+2. **AL2023 uses dnf, not yum.** `yum` is a Python shim that silently
+   fails on AL2023 when python3-dnf is missing or when /usr/bin/python3
+   is re-symlinked. chromium's libnspr4.so (required for Playwright)
+   ships as nspr and nss on AL2023.
+   Fix: `sudo dnf install -y nspr nss nss-util atk at-spi2-atk cups-libs
+   libdrm libXcomposite libXdamage libXrandr libXtst libXScrnSaver
+   mesa-libgbm pango alsa-lib libxkbcommon`.
+
+3. **Don't overwrite /usr/bin/python3.** AL2023's dnf and yum scripts
+   shebang to /usr/bin/python3. Symlinking python3 to a user-installed
+   python3.11 (to make it the default) breaks dnf system-wide. Always
+   call `python3.11` or `/usr/bin/python3.11` explicitly; keep
+   /usr/bin/python3 → python3.9 intact.
+
+4. **Ubuntu WebArena uses sh, not bash** for SSM commands. `set -eo pipefail`
+   fails on Ubuntu's /bin/sh (dash). Use `set -e` only in ssm-*.json
+   command arrays targeting the WebArena Ubuntu instance; `set -eo pipefail`
+   is fine on Platform EC2 (AL2023 /bin/sh → bash).
+
+5. **ALWAYS push before asking EC2 to pull.** `git pull` on EC2 picks up
+   what's on origin/master. Local commits without push = EC2 runs stale
+   code. When iterating on a script that runs remotely, commit + push +
+   pull is one atomic action. Do NOT send an SSM command that `git pull`s
+   before verifying origin/master contains the change.
+
 ## EC2 Reproducibility Rules (CRITICAL)
 
 - NEVER make manual edits on EC2 that aren't tracked in the repo
@@ -601,6 +661,9 @@ scan-a11y-audit/  — Ecological validity audit (axe-core scan of 30+ real websi
   - expansion-cua-full-deep-dive.md — CUA full 24 failures analyzed
   - expansion-vision-full-analysis.md — Combined SoM+CUA analysis (N=280)
   - expansion-cross-agent-comparison.md — 4-agent comparison table
+  - visual-equivalence-plan.md — CUA visual confound validation approach (v2: URL replay)
+  - visual-equivalence-architecture.md — System topology + data pipeline for replay
+  - visual-equivalence-validation.md — §6 Limitations drop-in template
   - Write NEW analysis reports here (not in data/)
 - `docs/task-expansion-plan.md` — Task expansion from 6→13 tasks (selection rationale + execution plan)
 - `figures/figure4_layer_model_spec.md` — Five-layer architecture text spec
