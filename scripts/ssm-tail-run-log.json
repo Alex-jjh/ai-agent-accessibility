@@ -1,0 +1,10 @@
+{
+  "commands": [
+    "if [ -f /root/platform/data/visual-equivalence/logs/run.pid ]; then PID=$(cat /root/platform/data/visual-equivalence/logs/run.pid); ps -p $PID > /dev/null && echo \"run.pid=$PID ALIVE\" || echo \"run.pid=$PID DEAD\"; fi",
+    "echo '--- last 60 lines of run.log ---'",
+    "tail -n 60 /root/platform/data/visual-equivalence/logs/run.log 2>&1 || true",
+    "echo '--- progress from manifest (if present) ---'",
+    "/usr/bin/python3.11 -c \"import json; m=json.load(open('/root/platform/data/visual-equivalence/replay/manifest.json')); p=m.get('progress',{}); print(f\\\"Phase B progress: {p.get('done','?')}/{p.get('total','?')} success={p.get('success','?')} session_lost={p.get('session_lost','?')}\\\")\" 2>/dev/null || echo 'no Phase B manifest yet'"
+  ],
+  "executionTimeout": ["60"]
+}

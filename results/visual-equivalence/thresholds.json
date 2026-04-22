@@ -1,0 +1,35 @@
+{
+  "group_a_ssim_min": 0.9999999625384399,
+  "group_a_mad_max": 3.494411602614115e-08,
+  "group_a_phash_max": 0.0,
+  "group_a_lpips_max": 0.05,
+  "group_b_ssim_max": 0.999999928787208,
+  "group_b_mad_min": 6.596401576082746e-08,
+  "group_b_phash_min": 0.0,
+  "group_b_lpips_min": 0.15,
+  "source": "derived_from_baseline",
+  "baseline_stats": {
+    "ssim": {
+      "mean": 0.9999999962896718,
+      "std": 1.6875615948906997e-08,
+      "p05": 0.9999999829205108,
+      "p95": 1.0,
+      "n": 60
+    },
+    "mad": {
+      "mean": 3.924216291454854e-09,
+      "std": 1.550994986734315e-08,
+      "p05": 0.0,
+      "p95": 2.531828703703697e-08,
+      "n": 60
+    },
+    "phash": {
+      "mean": 0.0,
+      "std": 0.0,
+      "p05": 0.0,
+      "p95": 0.0,
+      "n": 60
+    },
+    "lpips": null
+  }
+}

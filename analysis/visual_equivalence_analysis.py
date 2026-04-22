@@ -332,12 +332,33 @@ def run_aggregate(input_dir: pathlib.Path, output_dir: pathlib.Path,
     is_url_replay = "slug" in records[0] or "url" in records[0]
 
     if is_url_replay:
-        return _run_aggregate_url_replay(records, output_dir, save_masks)
+        return _run_aggregate_url_replay(records, output_dir, save_masks, manifest_path.parent)
     return _run_aggregate_legacy(records, output_dir, save_masks)
 
 
+def _resolve_screenshot(stored_path: str, input_dir: pathlib.Path) -> pathlib.Path:
+    """Resolve a manifest-recorded screenshot path to a local file.
+
+    Manifest records absolute paths from the capture host (EC2). When the
+    archive is extracted locally, those paths don't exist. We rewrite
+    `/root/platform/data/visual-equivalence/replay/<slug>/<name>.png` →
+    `<input_dir>/<slug>/<name>.png` using the last two path components.
+    """
+    p = pathlib.Path(stored_path)
+    if p.exists():
+        return p
+    # Try the last 2 components joined under input_dir
+    parts = p.parts[-2:]
+    candidate = input_dir.joinpath(*parts)
+    if candidate.exists():
+        return candidate
+    # Try last 1 component under input_dir
+    return input_dir / p.name
+
+
 def _run_aggregate_url_replay(records: list[dict], output_dir: pathlib.Path,
-                              save_masks: bool) -> tuple[list[dict], list[dict], dict]:
+                              save_masks: bool,
+                              input_dir: pathlib.Path) -> tuple[list[dict], list[dict], dict]:
     """Pair captures for URL-replay manifest format.
 
     For each slug: base ↔ low (primary) and base ↔ base2 (baseline noise).
@@ -349,7 +370,6 @@ def _run_aggregate_url_replay(records: list[dict], output_dir: pathlib.Path,
         if r.get("session_lost"):
             continue  # exclude session-lost captures (P0-3)
         # Prefer captures after re-login if both present
-        key = (r["slug"], r["variant"])
         existing = by_slug.setdefault(r["slug"], {}).get(r["variant"])
         if existing is None or r.get("after_relogin"):
             by_slug[r["slug"]][r["variant"]] = r
@@ -364,34 +384,34 @@ def _run_aggregate_url_replay(records: list[dict], output_dir: pathlib.Path,
         if base is None:
             print(f"SKIP {slug}: missing base", file=sys.stderr)
             continue
+        base_path = _resolve_screenshot(base["screenshot"], input_dir)
 
         # Primary pair: base vs low
         low = variants.get("low")
         if low is not None:
+            low_path = _resolve_screenshot(low["screenshot"], input_dir)
             mask_out = diff_dir / f"{slug}__base_vs_low.png" if save_masks else None
-            m = compute_pair_metrics(pathlib.Path(base["screenshot"]),
-                                     pathlib.Path(low["screenshot"]),
-                                     diff_mask_out=mask_out)
+            m = compute_pair_metrics(base_path, low_path, diff_mask_out=mask_out)
             m.update({
                 "slug": slug, "app": base.get("app", ""),
                 "url": base.get("url", ""),
                 "pair": "base_vs_low",
-                "base_path": base["screenshot"],
-                "variant_path": low["screenshot"],
+                "base_path": str(base_path),
+                "variant_path": str(low_path),
             })
             base_vs_low.append(m)
 
         # Baseline pair: base vs base2 (P0-2)
         base2 = variants.get("base2")
         if base2 is not None:
-            m = compute_pair_metrics(pathlib.Path(base["screenshot"]),
-                                     pathlib.Path(base2["screenshot"]))
+            base2_path = _resolve_screenshot(base2["screenshot"], input_dir)
+            m = compute_pair_metrics(base_path, base2_path)
             m.update({
                 "slug": slug, "app": base.get("app", ""),
                 "url": base.get("url", ""),
                 "pair": "base_vs_base2",
-                "base_path": base["screenshot"],
-                "variant_path": base2["screenshot"],
+                "base_path": str(base_path),
+                "variant_path": str(base2_path),
             })
             base_vs_base2.append(m)
 
@@ -503,13 +523,13 @@ def run_ablation(input_dir: pathlib.Path, output_dir: pathlib.Path,
         if not base_rec:
             print(f"SKIP {key}: no base capture", file=sys.stderr)
             continue
-        base_path = pathlib.Path(base_rec["screenshot"])
+        base_path = _resolve_screenshot(base_rec["screenshot"], input_dir)
         for pid in range(1, 14):
             patch_rec = task_data.get(pid)
             if not patch_rec or not patch_rec.get("screenshot"):
                 print(f"  SKIP {key} patch {pid}: no capture", file=sys.stderr)
                 continue
-            patch_path = pathlib.Path(patch_rec["screenshot"])
+            patch_path = _resolve_screenshot(patch_rec["screenshot"], input_dir)
             mask_out = diff_dir / f"{key}_patch_{pid:02d}.png" if save_masks else None
             m = compute_pair_metrics(base_path, patch_path, diff_mask_out=mask_out)
             m.update({
@@ -758,6 +778,7 @@ def main():
             json.dumps(thresholds, indent=2, default=str), encoding="utf-8")
         print(f"Wrote thresholds.json (source={thresholds.get('source')})",
               file=sys.stderr)
+        n_pairs = len(base_vs_low) + len(baseline)
     else:
         # Load thresholds if available — otherwise fall back to pre-registered
         thresholds = PREREGISTERED_THRESHOLDS
@@ -770,8 +791,9 @@ def main():
         write_csv(records, output_dir / "per_patch_metrics.csv", mode="ablation")
         write_report(records, output_dir / "report.md", mode="ablation",
                      thresholds=thresholds)
+        n_pairs = len(records)
 
-    print(f"Analyzed {len(records)} pairs. Results: {output_dir}", file=sys.stderr)
+    print(f"Analyzed {n_pairs} pairs. Results: {output_dir}", file=sys.stderr)
 
 
 if __name__ == "__main__":
