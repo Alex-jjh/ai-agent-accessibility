@@ -1,0 +1,9 @@
+{
+  "commands": [
+    "cd /home/ec2-user || cd /home/ssm-user || cd ~",
+    "if [ ! -d platform ]; then git clone https://github.com/Alex-jjh/ai-agent-accessibility.git platform; fi",
+    "cd platform && git pull",
+    "bash scripts/bootstrap-platform.sh 2>&1 | tail -30"
+  ],
+  "executionTimeout": ["900"]
+}
