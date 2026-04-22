@@ -43,17 +43,46 @@ REPO_ROOT = pathlib.Path(__file__).parent.parent.resolve()
 APPLY_LOW_INDIV = REPO_ROOT / "src" / "variants" / "patches" / "inject" / "apply-low-individual.js"
 
 # Representative URLs per app — chosen to exercise different DOM features
-# that the low patches target (nav, headings, links, tables, forms, etc.)
+# that the low patches target (nav, headings, links, tables, forms, etc.).
+# P0-1 reviewer fix: 4 URLs was too few to claim per-patch SSIM attribution
+# generalizes. Expanded to 15 URLs across 4 apps for SSIM IQR/std reporting.
 REPRESENTATIVE_URLS = [
     # (display_label, port, path, description)
-    ("ecommerce",       7770, "/epson-workforce-wf-3620-wifi-direct-all-in-one-color-inkjet-printer-copier-scanner-amazon-dash-rep",
-     "product page — nav, header, links, img, form, reviews"),
-    ("ecommerce_admin", 7780, "/admin/sales/order/",
-     "admin orders — nav, landmarks, tables, thead/th, filters"),
-    ("reddit",          9999, "/f/books",
+    # --- shopping (Magento storefront) × 4 ---
+    ("ecommerce_home",     7770, "/",
+     "storefront home — nav menu, banner, product grid"),
+    ("ecommerce_product",  7770, "/epson-workforce-wf-3620-wifi-direct-all-in-one-color-inkjet-printer-copier-scanner-amazon-dash-rep",
+     "product page — nav, header, links, img, form, reviews tabs"),
+    ("ecommerce_category", 7770, "/home-kitchen.html",
+     "category listing — product grid, faceted nav, pagination"),
+    ("ecommerce_account",  7770, "/customer/account/",
+     "account dashboard — logged-in header, sidebar nav, forms"),
+    # --- shopping_admin (Magento admin) × 3 ---
+    ("admin_orders",       7780, "/admin/sales/order/",
+     "admin orders — grid, thead/th, filters, actions dropdown"),
+    ("admin_dashboard",    7780, "/admin/admin/dashboard/",
+     "admin dashboard — summary widgets, side nav, charts"),
+    ("admin_products",     7780, "/admin/catalog/product/",
+     "admin products — column headers, inline actions, bulk ops"),
+    # --- reddit (Postmill) × 3 ---
+    ("reddit_home",        9999, "/",
+     "reddit home — hot feed, sidebar, vote arrows"),
+    ("reddit_forum",       9999, "/f/books",
      "forum listing — many links, headings, compact layout"),
-    ("gitlab",          8023, "/primer/design/-/graphs/main",
-     "commit browser — svg chart, sidebar, tables"),
+    ("reddit_submission",  9999, "/f/books/130079/the-gene-an-intimate-history-by-siddhartha-mukherjee",
+     "submission detail — comments, nested threads, user links"),
+    # --- gitlab × 3 ---
+    ("gitlab_project",     8023, "/primer/design",
+     "project overview — tabs, readme, sidebar, file tree"),
+    ("gitlab_commits",     8023, "/primer/design/-/commits/main",
+     "commit log — list of commits, pagination, author links"),
+    ("gitlab_graphs",      8023, "/primer/design/-/graphs/main",
+     "contributors graph — svg chart, sidebar, tables"),
+    # --- controls × 2 (kiwix / wiki — static content, low DOM complexity) ---
+    ("kiwix_home",         8888, "/",
+     "wiki home — static nav + text"),
+    ("gitlab_issues",      8023, "/primer/design/-/issues",
+     "gitlab issues — list, labels, filters"),
 ]
 
 PATCH_DESCRIPTIONS = {

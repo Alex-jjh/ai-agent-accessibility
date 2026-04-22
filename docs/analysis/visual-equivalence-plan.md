@@ -162,3 +162,131 @@ the production bridge" capture. URL replay gives **more** evidence than bridge
 capture (137 pages vs 26 start pages). We keep both; URL replay is primary, bridge
 capture is a cross-check if reviewers challenge "do your replay screenshots match
 what BrowserGym would actually render?"
+
+
+---
+
+## v2.1 — Reviewer-grade hardening (2026-04-22)
+
+Three P0 fixes and three P1 fixes applied after a simulated CHI reviewer
+reread of the v2 plan. The changes are all in-code + documented here so the
+plan is pre-registered before Phase B/C runs.
+
+### P0-1: Phase C URL coverage 4 → 15
+
+Rationale: per-patch SSIM attribution on only 4 URLs cannot claim to
+generalize. We now test each patch on 15 URLs spanning all 4 WebArena apps:
+
+- shopping × 4 (home, product, category, account dashboard)
+- shopping_admin × 3 (orders grid, dashboard, products grid)
+- reddit × 3 (home, forum listing, submission detail)
+- gitlab × 4 (project, commits, graphs, issues)
+- controls × 1 (kiwix)
+
+This gives per-patch mean±σ, which we report in the §6 table and in the
+paper's supplementary. `REPRESENTATIVE_URLS` in
+`scripts/replay-url-patch-ablation.py` is the authoritative list.
+
+### P0-2: Baseline-noise floor via `base` vs `base2`
+
+Rationale: Playwright two-shot captures of the SAME URL under the SAME
+variant are not pixel-identical (dynamic content: banner rotation, timestamps,
+CSRF tokens, animation tails). Without knowing this intrinsic noise, a
+base-vs-low SSIM of 0.97 is ambiguous.
+
+Implementation:
+- `replay-url-screenshots.py --variants base base2 low` (default) captures
+  the same URL under base twice (independent contexts) plus once under low.
+- `visual_equivalence_analysis.py` runs a Mann-Whitney U test comparing the
+  base-vs-low SSIM distribution to the base-vs-base2 baseline distribution.
+- The paper reports both: the mean SSIM AND its statistical distance from
+  intrinsic rendering noise. "base-vs-low SSIM is within baseline noise
+  (U=…, p=…)" is the defensible claim.
+
+### P0-3: Session-lost detection + periodic re-login
+
+Rationale: over 274 sequential captures a login cookie can silently expire,
+producing a mid-run mix of "authenticated pages" and "redirect-to-login pages".
+
+Implementation:
+- `capture_one()` sets `session_lost=True` if `final_url` contains
+  `/login`, `/sign_in`, `/customer/account/login`, or `/admin/auth/login`
+  AND the original URL didn't. Such captures are excluded from analysis.
+- Main loop re-logins every 50 URLs (`--relogin-every`) as a refresh.
+- On a single session-lost hit, the app is re-logged-in and the capture
+  retried once with `after_relogin=True` recorded in the manifest.
+
+Captures that failed after retry are reported in the §6 drop-in as
+"excluded from analysis: session_lost=N / total".
+
+### Pre-registered thresholds (P1-2)
+
+Before data collection, we fix the Group A/B/C boundaries. These are
+documented here and hard-coded in
+`analysis/visual_equivalence_analysis.py::PREREGISTERED_THRESHOLDS`.
+
+**Default thresholds** (used if baseline data absent):
+
+| Bound                 | SSIM     | MAD     | pHash  | LPIPS   |
+|-----------------------|----------|---------|--------|---------|
+| Group A (identical)   | ≥ 0.98   | < 0.01  | ≤ 5    | ≤ 0.05  |
+| Group B (visible Δ)   | < 0.95   | > 0.05  | > 10   | > 0.15  |
+
+**Data-driven thresholds** (preferred, derived from base-vs-base2 baseline):
+
+- Group A floor = μ(baseline) − 2σ for each metric (≈98% of intrinsic noise
+  classifies as A)
+- Group B cutoff = μ(baseline) − 4σ (clearly beyond noise)
+
+The analysis script writes `thresholds.json` during the aggregate step and
+the ablation step reuses it via `--thresholds-json`. This guarantees both
+phases use identical, baseline-derived cutoffs.
+
+**Group C** is a conjunction: Group A metrics + patch_id = 11 (link→span).
+It is not a threshold; it's a definition that identifies visually-identical
+changes that destroy navigation.
+
+### P1-1: LPIPS as second perceptual metric
+
+Rationale: SSIM is structure-sensitive and can false-positive on minor
+translation (element shifted 2 px). LPIPS is learned-perceptual and
+correlates with human judgment more directly.
+
+Implementation: lazy-loaded via `analysis.visual_equivalence_analysis.compute_lpips`
+on first call. Added as an optional column; if `lpips` package is not
+installed, the metric is simply omitted. Classifier uses LPIPS as an extra
+gate in the Group A AND-chain when present.
+
+### P1-3: Direct click-probe for Group C
+
+Rationale: Group C currently joins two independent signals
+(SSIM ≈ 1.0 + CUA 77.8% trace signature). A third, direct signal is cheap:
+actually click on the same (x, y) coordinates under base and under patch-11
+only, record whether the page navigated away.
+
+Implementation: `scripts/replay-url-click-probe.py`
+- For each of the 15 URLs: find first visible `<a href>` in the viewport,
+  capture bbox center coords
+- Click at those coords under base → assert page navigated
+- Navigate to same URL, apply ONLY patch 11, click at same coords →
+  assert page DID NOT navigate
+- Success criterion: ≥ 80% of URLs show "base navigated + patch 11 inert"
+
+The paper can then state: "On N/15 URLs, identical-SSIM patch 11 produces
+pixel-identical rendering yet destroys click-induced navigation
+(final_url unchanged after 3s wait)."
+
+## Execution checklist (updated)
+
+1. [x] Scripts updated with P0/P1 fixes
+2. [x] Push to origin/master
+3. [ ] Install lpips + torch on Platform EC2 (bootstrap follow-up)
+4. [ ] Phase B: `replay-url-screenshots.py --variants base base2 low`
+       (137 URLs × 3 variants ≈ 35 min)
+5. [ ] Phase C: `replay-url-patch-ablation.py` (15 URLs × 14 captures ≈ 12 min)
+6. [ ] Phase D: `replay-url-click-probe.py` (15 URLs × 2 clicks ≈ 6 min)
+7. [ ] Upload to S3 + download locally
+8. [ ] Run `visual_equivalence_analysis.py --mode aggregate` → derives thresholds
+9. [ ] Run `visual_equivalence_analysis.py --mode ablation --thresholds-json …`
+10. [ ] Open gallery.html + flag edge cases
+11. [ ] Write §6 drop-in with SSIM numbers, Mann-Whitney result, Group breakdown

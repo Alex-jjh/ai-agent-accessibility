@@ -310,67 +310,96 @@ def capture_one(pw_browser, url: str, variant: str, out_path: pathlib.Path,
                 post_patch_ms: int = 800,
                 timeout_ms: int = 45000,
                 apply_js: Optional[str] = None,
-                only_patch_id: Optional[int] = None) -> dict:
-    """Render a URL at a variant, screenshot, return metadata."""
-    t0 = time.time()
-    context = pw_browser.new_context(
-        viewport={"width": 1280, "height": 720},
-        # Matches Playwright chromium default — don't add extra headers
-    )
+                only_patch_id: Optional[int] = None,
+                max_retries: int = 3) -> dict:
+    """Render a URL at a variant, screenshot, return metadata.
+
+    On transient failure (network flake, Magento DB lock, 502, timeout),
+    retries up to max_retries times with exponential backoff. Records
+    attempts count so the analysis can exclude cases that needed retries
+    (an indicator of unstable capture).
+    """
     rec = {
         "url": url, "variant": variant, "screenshot": None,
         "success": False, "error": None, "elapsed_s": None,
         "final_url": None, "title": None, "dom_changes": 0,
+        "attempts": 0, "session_lost": False,
     }
-    try:
-        if cookies:
+    t_start = time.time()
+    for attempt in range(1, max_retries + 1):
+        rec["attempts"] = attempt
+        t0 = time.time()
+        context = pw_browser.new_context(
+            viewport={"width": 1280, "height": 720},
+        )
+        rec["error"] = None  # reset per-attempt
+        try:
+            if cookies:
+                try:
+                    context.add_cookies(cookies)
+                except Exception:
+                    # Some cookies have odd expiry/samesite fields — retry filtered
+                    clean = [{k: v for k, v in c.items()
+                              if k in ("name", "value", "domain", "path",
+                                       "expires", "httpOnly", "secure", "sameSite")}
+                             for c in cookies]
+                    context.add_cookies(clean)
+
+            page = context.new_page()
+            page.set_default_timeout(timeout_ms)
+            page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
             try:
-                context.add_cookies(cookies)
-            except Exception as cerr:
-                # Some cookies have odd expiry/samesite fields — retry filtered
-                clean = [{k: v for k, v in c.items()
-                          if k in ("name", "value", "domain", "path",
-                                   "expires", "httpOnly", "secure", "sameSite")}
-                         for c in cookies]
-                context.add_cookies(clean)
+                page.wait_for_load_state("networkidle", timeout=10000)
+            except Exception:
+                pass
+            page.wait_for_timeout(settle_ms)
 
-        page = context.new_page()
-        page.set_default_timeout(timeout_ms)
-        page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-        # Additional settle — networkidle is a better signal but some pages
-        # with persistent polling never reach it
-        try:
-            page.wait_for_load_state("networkidle", timeout=10000)
-        except Exception:
-            pass
-        page.wait_for_timeout(settle_ms)
+            if variant == "low" and apply_js:
+                if only_patch_id is not None:
+                    page.evaluate(f"window.__ONLY_PATCH_ID = {int(only_patch_id)}")
+                changes = page.evaluate(apply_js)
+                rec["dom_changes"] = len(changes) if isinstance(changes, list) else 0
+                page.wait_for_timeout(post_patch_ms)
+            # variant in {"base", "base2"} → no patch applied; base2 is an
+            # independent re-capture of the same URL for baseline-noise estimation.
 
-        if variant == "low" and apply_js:
-            if only_patch_id is not None:
-                # Ablation mode — apply-low-individual.js, select one patch
-                page.evaluate(f"window.__ONLY_PATCH_ID = {int(only_patch_id)}")
-            changes = page.evaluate(apply_js)
-            rec["dom_changes"] = len(changes) if isinstance(changes, list) else 0
-            # Wait for layout reflow / style recalc
-            page.wait_for_timeout(post_patch_ms)
+            final_url = page.url
+            rec["final_url"] = final_url
+            try:
+                rec["title"] = page.title()[:200]
+            except Exception:
+                pass
 
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        page.screenshot(path=str(out_path), full_page=False)
-        rec["screenshot"] = str(out_path)
-        rec["success"] = True
-        rec["final_url"] = page.url
-        try:
-            rec["title"] = page.title()[:200]
-        except Exception:
-            pass
-    except Exception as e:
-        rec["error"] = f"{type(e).__name__}: {str(e)[:200]}"
-    finally:
-        rec["elapsed_s"] = round(time.time() - t0, 2)
-        try:
-            context.close()
-        except Exception:
-            pass
+            # P0-3 session-lost detection — if the final URL landed on a login
+            # page, the authenticated cookies expired mid-run. This capture
+            # does not represent the variant rendering the agent would have
+            # seen, so we mark it and exclude from analysis.
+            lost_markers = ("/login", "/sign_in", "/customer/account/login",
+                            "/admin/auth/login")
+            if any(m in final_url for m in lost_markers) and \
+               not any(m in url for m in lost_markers):
+                rec["session_lost"] = True
+                rec["error"] = f"session_lost redirect_to={final_url[:120]}"
+                # Don't screenshot; caller should re-login
+                return rec
+
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            page.screenshot(path=str(out_path), full_page=False)
+            rec["screenshot"] = str(out_path)
+            rec["success"] = True
+            rec["elapsed_s"] = round(time.time() - t_start, 2)
+            return rec
+        except Exception as e:
+            rec["error"] = f"{type(e).__name__}: {str(e)[:200]}"
+            if attempt < max_retries:
+                # Exponential backoff: 1s, 3s, 9s
+                time.sleep(3 ** (attempt - 1))
+        finally:
+            try:
+                context.close()
+            except Exception:
+                pass
+    rec["elapsed_s"] = round(time.time() - t_start, 2)
     return rec
 
 
@@ -382,8 +411,10 @@ def main():
                     help="Single URL override (skips CSV)")
     ap.add_argument("--webarena-ip", default="10.0.1.50",
                     help="IP to rewrite historical URLs to (current WebArena)")
-    ap.add_argument("--variants", nargs="+", default=["base", "low"],
-                    help="Variants to capture")
+    ap.add_argument("--variants", nargs="+", default=["base", "base2", "low"],
+                    help="Variants to capture. 'base2' = second independent "
+                         "base capture for baseline-noise estimation (P0-2); "
+                         "renders as base (no patches) but in its own context.")
     ap.add_argument("--output", default="./data/visual-equivalence/replay")
     ap.add_argument("--min-visits", type=int, default=1,
                     help="Only replay URLs visited >= N times in original experiments")
@@ -391,6 +422,9 @@ def main():
                     help="Maximum URLs to capture (0 = all)")
     ap.add_argument("--apps", nargs="+", default=None,
                     help="Filter by app (shopping shopping_admin reddit gitlab)")
+    ap.add_argument("--relogin-every", type=int, default=50,
+                    help="Re-login all apps every N URLs to prevent session "
+                         "expiry (P0-3). Default 50.")
     args = ap.parse_args()
 
     # Load the variant JS bytes once
@@ -445,17 +479,30 @@ def main():
         app_cookies: dict[str, list[dict]] = {}
         # Determine which apps we need cookies for
         needed_apps = sorted({app for _, app, _ in urls if app in WEBARENA_ACCOUNTS})
-        for app in needed_apps:
-            port = [p for p, a in PORT_APP.items() if a == app][0]
-            base_url = f"http://{args.webarena_ip}:{port}"
-            print(f"  login {app} at {base_url}", file=sys.stderr)
-            app_cookies[app] = login_and_capture_cookies(browser, app, base_url)
+
+        def _refresh_all_logins():
+            for app in needed_apps:
+                port = [p for p, a in PORT_APP.items() if a == app][0]
+                base_url = f"http://{args.webarena_ip}:{port}"
+                print(f"  login {app} at {base_url}", file=sys.stderr)
+                app_cookies[app] = login_and_capture_cookies(browser, app, base_url)
+
+        _refresh_all_logins()
 
         # Phase 2: replay each URL
         print(f"\n--- Phase 2: replay {len(urls)} URLs ---", file=sys.stderr)
         total = len(urls) * len(args.variants)
         done = 0
+        urls_since_relogin = 0
+        session_lost_count = 0
         for url, app, visits in urls:
+            # P0-3: periodic re-login to prevent session expiry over long runs
+            if urls_since_relogin >= args.relogin_every:
+                print(f"  [re-login] after {urls_since_relogin} URLs", file=sys.stderr)
+                _refresh_all_logins()
+                urls_since_relogin = 0
+            urls_since_relogin += 1
+
             slug = url_to_slug(url)
             slug_dir = out_dir / slug
             cookies = app_cookies.get(app, [])
@@ -471,6 +518,28 @@ def main():
                     "app": app, "visits": visits, "slug": slug,
                 })
                 all_records.append(rec)
+
+                # P0-3: if session was lost, immediately re-login and retry
+                # this single capture once
+                if rec.get("session_lost") and app in WEBARENA_ACCOUNTS:
+                    session_lost_count += 1
+                    print(f"  [session lost] re-logging {app} and retrying "
+                          f"{slug}/{variant}", file=sys.stderr)
+                    port = [p for p, a in PORT_APP.items() if a == app][0]
+                    base_url = f"http://{args.webarena_ip}:{port}"
+                    app_cookies[app] = login_and_capture_cookies(
+                        browser, app, base_url)
+                    cookies = app_cookies[app]
+                    rec2 = capture_one(
+                        browser, url, variant, out_path,
+                        cookies=cookies, apply_js=apply_js,
+                    )
+                    rec2.update({
+                        "app": app, "visits": visits, "slug": slug,
+                        "after_relogin": True,
+                    })
+                    all_records.append(rec2)
+                    rec = rec2
                 status = "OK" if rec["success"] else "FAIL"
                 print(f"[{done}/{total}] {variant:4} {slug[:60]:<60} {status} "
                       f"({rec['elapsed_s']}s)"
@@ -491,7 +560,9 @@ def main():
                         "elapsed_s": round(time.time() - t_start, 1),
                         "progress": {"done": done, "total": total,
                                      "success": sum(1 for r in all_records
-                                                    if r["success"])},
+                                                    if r["success"]),
+                                     "session_lost": session_lost_count,
+                                     "relogins": done // max(1, args.relogin_every * len(args.variants))},
                     }, f, indent=2)
 
         browser.close()

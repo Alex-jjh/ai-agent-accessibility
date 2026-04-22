@@ -45,11 +45,11 @@ echo
 
 # Environment check
 echo "--- Environment ---"
-python3 --version
-python3 -c "import playwright, PIL; print('playwright:', playwright.__version__)" || {
+/usr/bin/python3.11 --version
+/usr/bin/python3.11 -c "import playwright, PIL; print('playwright:', playwright.__version__)" || {
   echo "ERROR: missing deps. Install:"
-  echo "  python3 -m pip install --user playwright Pillow"
-  echo "  python3 -m playwright install chromium"
+  echo "  /usr/bin/python3.11 -m pip install --user playwright Pillow requests scipy lpips torch"
+  echo "  /usr/bin/python3.11 -m playwright install chromium"
   exit 1
 }
 
@@ -80,10 +80,10 @@ if [ ! -f "$URLS_CSV" ]; then
     --output "$REPO_ROOT/results/visual-equivalence"
 fi
 
-# Phase B: aggregate URL replay
+# Phase B: aggregate URL replay (now with base2 baseline — P0-2)
 echo
 echo "=============================================="
-echo "  Phase B: URL replay (base vs low)"
+echo "  Phase B: URL replay (base, base2, low — P0-2 baseline included)"
 echo "=============================================="
 P_B_LOG="$LOG_DIR/phase-b-replay.log"
 P_B_START=$(date +%s)
@@ -91,50 +91,72 @@ PHASE_B_ARGS=(
   --urls-csv "$URLS_CSV"
   --webarena-ip "$WEBARENA_IP"
   --min-visits "$MIN_VISITS"
+  --variants base base2 low
+  --relogin-every 50
   --output "$DATA_DIR/replay"
 )
 [ "$LIMIT" -gt 0 ] && PHASE_B_ARGS+=(--limit "$LIMIT")
-python3 "$REPO_ROOT/scripts/replay-url-screenshots.py" "${PHASE_B_ARGS[@]}" \
+/usr/bin/python3.11 "$REPO_ROOT/scripts/replay-url-screenshots.py" "${PHASE_B_ARGS[@]}" \
   2>&1 | tee "$P_B_LOG"
 P_B_ELAPSED=$(( $(date +%s) - P_B_START ))
 echo "Phase B elapsed: ${P_B_ELAPSED}s"
 
-# Phase C: per-patch ablation
+# Phase C: per-patch ablation (now 15 URLs × 14 captures — P0-1)
 echo
 echo "=============================================="
-echo "  Phase C: Per-patch ablation (4 URLs × 14 captures)"
+echo "  Phase C: Per-patch ablation (15 URLs × 14 captures — P0-1)"
 echo "=============================================="
 P_C_LOG="$LOG_DIR/phase-c-ablation.log"
 P_C_START=$(date +%s)
-python3 "$REPO_ROOT/scripts/replay-url-patch-ablation.py" \
+/usr/bin/python3.11 "$REPO_ROOT/scripts/replay-url-patch-ablation.py" \
   --webarena-ip "$WEBARENA_IP" \
   --output "$DATA_DIR/ablation-replay" \
   2>&1 | tee "$P_C_LOG"
 P_C_ELAPSED=$(( $(date +%s) - P_C_START ))
 echo "Phase C elapsed: ${P_C_ELAPSED}s"
 
+# Phase D: click-probe (P1-3)
+echo
+echo "=============================================="
+echo "  Phase D: Click-probe for Group C (P1-3)"
+echo "=============================================="
+P_D_LOG="$LOG_DIR/phase-d-click-probe.log"
+P_D_START=$(date +%s)
+/usr/bin/python3.11 "$REPO_ROOT/scripts/replay-url-click-probe.py" \
+  --webarena-ip "$WEBARENA_IP" \
+  --output "$DATA_DIR/click-probe" \
+  2>&1 | tee "$P_D_LOG"
+P_D_ELAPSED=$(( $(date +%s) - P_D_START ))
+echo "Phase D elapsed: ${P_D_ELAPSED}s"
+
 # Summary
 echo
 echo "=============================================="
 echo "  Summary"
 echo "=============================================="
-PHASE_B_OK=$(python3 -c "
+PHASE_B_OK=$(/usr/bin/python3.11 -c "
 import json
 m = json.load(open('$DATA_DIR/replay/manifest.json'))
 ok = sum(1 for r in m['records'] if r['success'])
 print(f\"{ok}/{len(m['records'])}\")
 " 2>/dev/null || echo "?")
-PHASE_C_OK=$(python3 -c "
+PHASE_C_OK=$(/usr/bin/python3.11 -c "
 import json
 m = json.load(open('$DATA_DIR/ablation-replay/manifest.json'))
 ok = sum(1 for r in m['records'] if r['success'])
 print(f\"{ok}/{len(m['records'])}\")
 " 2>/dev/null || echo "?")
+PHASE_D_OK=$(/usr/bin/python3.11 -c "
+import json
+m = json.load(open('$DATA_DIR/click-probe/manifest.json'))
+print(f\"{m.get('n_patch11_inert','?')}/{m.get('n_base_ok','?')} inert\")
+" 2>/dev/null || echo "?")
 PNG_TOTAL=$(find "$DATA_DIR" -name '*.png' | wc -l)
 echo "Phase B:   $PHASE_B_OK"
 echo "Phase C:   $PHASE_C_OK"
+echo "Phase D:   $PHASE_D_OK"
 echo "Total PNG: $PNG_TOTAL"
-echo "Elapsed:   $((P_B_ELAPSED + P_C_ELAPSED))s"
+echo "Elapsed:   $((P_B_ELAPSED + P_C_ELAPSED + P_D_ELAPSED))s"
 
 # Upload to S3
 echo

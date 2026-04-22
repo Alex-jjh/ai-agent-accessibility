@@ -52,9 +52,16 @@ sudo dnf install -y \
   >/dev/null 2>&1 || echo "  (some packages may already be present, continuing)"
 
 # 3. Python packages: playwright + Pillow + scikit-image + ImageHash + requests
+#    + scipy (Mann-Whitney U for P0-2) + lpips + torch (perceptual metric P1-1)
 echo "[3/4] Installing Python packages..."
 python3.11 -m pip install --user --quiet \
-  playwright Pillow numpy scikit-image ImageHash requests
+  playwright Pillow numpy scikit-image ImageHash requests scipy
+# LPIPS + torch are large (~800MB). Install CPU-only torch to keep it small
+# since we only use LPIPS for inference on screenshots, not training.
+python3.11 -m pip install --user --quiet \
+  "torch>=2.0" --index-url https://download.pytorch.org/whl/cpu || \
+  python3.11 -m pip install --user --quiet torch
+python3.11 -m pip install --user --quiet lpips
 
 # 4. Playwright chromium — use python3.11 directly, NOT 'python3' (which stays at 3.9)
 echo "[4/4] Installing Playwright chromium..."
