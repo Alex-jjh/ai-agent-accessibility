@@ -46,7 +46,7 @@ echo
 # Environment check
 echo "--- Environment ---"
 /usr/bin/python3.11 --version
-/usr/bin/python3.11 -c "import playwright, PIL; print('playwright:', playwright.__version__)" || {
+/usr/bin/python3.11 -c "from playwright.sync_api import sync_playwright; import PIL; print('playwright + PIL OK')" || {
   echo "ERROR: missing deps. Install:"
   echo "  /usr/bin/python3.11 -m pip install --user playwright Pillow requests scipy lpips torch"
   echo "  /usr/bin/python3.11 -m playwright install chromium"
