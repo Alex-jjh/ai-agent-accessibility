@@ -1,122 +1,148 @@
 #!/bin/bash
-# One-shot visual equivalence experiment driver — runs both capture phases
-# inside an existing Platform EC2 with WebArena running, auto-uploads to S3.
+# =============================================================================
+# run-visual-equivalence.sh — One-shot URL-replay visual equivalence driver
 #
-# Prerequisites on EC2:
-#   - Repo checked out at /home/ssm-user/ai-agent-accessibility
-#   - WebArena running at 10.0.1.50 (shopping 7770, admin 7780, reddit 9999, gitlab 8023)
-#   - LiteLLM proxy running on localhost:4000 (used only for eval key)
-#   - Python venv with browsergym, playwright, gymnasium, numpy, Pillow installed
+# Runs on Platform EC2 with WebArena docker up at 10.0.1.50. Produces
+# pixel-level base-vs-low comparison data to close paper §6 Limitations item 7.
 #
-# Run from EC2 via SSM:
-#   aws ssm start-session --target <platform-instance-id>
-#   cd ~/ai-agent-accessibility
-#   git pull
+# Prerequisites:
+#   - Python 3.11 with playwright + Pillow (bootstrap-platform.sh installs these)
+#   - `playwright install chromium` (done by bootstrap)
+#   - WebArena up at 10.0.1.50 (shopping 7770, admin 7780, reddit 9999, gitlab 8023)
+#   - Repo cloned at ~/platform with current git HEAD
+#
+# Usage:
 #   bash scripts/run-visual-equivalence.sh
 #
-# Output: ~/ai-agent-accessibility/data/visual-equivalence/ gets uploaded to S3
-# under s3://<bucket>/experiments/visual-equivalence-<timestamp>.tar.gz.
-#
-# Runtime estimate: ~45 min total
-#   Part 1 (aggregate, 13 tasks × 2 variants × 3 reps = 78 captures): ~25 min
-#   Part 2 (ablation, 4 tasks × 14 captures = 56 captures): ~15 min
-#   Upload: ~2 min
-#
+# Output (auto-uploaded to S3):
+#   ./data/visual-equivalence/replay/{slug}/base.png + low.png  (Part B, ~137 URLs × 2)
+#   ./data/visual-equivalence/ablation-replay/{slug}/{base,patch_NN}.png  (Part C, 4 URLs × 14)
+#   ./data/visual-equivalence/logs/
+# =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 DATA_DIR="$REPO_ROOT/data/visual-equivalence"
-LOG_DIR="$REPO_ROOT/data/visual-equivalence/logs"
-BASE_URL="${WEBARENA_BASE_URL:-http://10.0.1.50:7770}"
-REPS="${REPS:-3}"
+LOG_DIR="$DATA_DIR/logs"
+WEBARENA_IP="${WEBARENA_IP:-10.0.1.50}"
+URLS_CSV="${URLS_CSV:-$REPO_ROOT/results/visual-equivalence/agent-urls-dedup.csv}"
+MIN_VISITS="${MIN_VISITS:-5}"   # Skip long-tail URLs that only one agent hit
+LIMIT="${LIMIT:-0}"             # 0 = all
 
-mkdir -p "$DATA_DIR" "$LOG_DIR"
+mkdir -p "$DATA_DIR/replay" "$DATA_DIR/ablation-replay" "$LOG_DIR"
 
 echo "=============================================="
-echo "  Visual Equivalence Experiment"
+echo "  Visual Equivalence — URL Replay Experiment"
 echo "=============================================="
-echo "Repo root:    $REPO_ROOT"
-echo "Data dir:     $DATA_DIR"
-echo "Base URL:     $BASE_URL"
-echo "Reps/cell:    $REPS"
-echo "Start time:   $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+echo "Repo root:     $REPO_ROOT"
+echo "Data dir:      $DATA_DIR"
+echo "WebArena IP:   $WEBARENA_IP"
+echo "URLs CSV:      $URLS_CSV"
+echo "Min visits:    $MIN_VISITS"
+echo "Start time:    $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
 echo
 
-# Check python environment
-echo "--- Environment check ---"
-python3 --version || { echo "ERROR: python3 not found"; exit 1; }
-python3 -c "import browsergym.webarena, gymnasium, PIL" 2>&1 || {
-  echo "ERROR: missing dependencies. Install with:"
-  echo "  pip install browsergym-webarena gymnasium 'browsergym[webarena]' Pillow"
+# Environment check
+echo "--- Environment ---"
+python3 --version
+python3 -c "import playwright, PIL; print('playwright:', playwright.__version__)" || {
+  echo "ERROR: missing deps. Install:"
+  echo "  python3 -m pip install --user playwright Pillow"
+  echo "  python3 -m playwright install chromium"
   exit 1
 }
-echo "Python deps OK"
 
-# Check WebArena reachability
+# WebArena health
 echo
-echo "--- WebArena health check ---"
+echo "--- WebArena health ---"
 for port in 7770 7780 9999 8023; do
-  if curl -s -o /dev/null -w "%{http_code}" --max-time 10 "http://10.0.1.50:$port" | grep -qE "^(200|301|302|403)$"; then
-    echo "  port $port: OK"
+  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "http://$WEBARENA_IP:$port")
+  if [[ "$code" =~ ^(200|301|302|401|403)$ ]]; then
+    echo "  port $port: OK ($code)"
   else
-    echo "  port $port: UNREACHABLE — aborting"
+    echo "  port $port: BAD ($code) — aborting"
     exit 1
   fi
 done
 
-# Phase 1: 13-task base-vs-low aggregate
-echo
-echo "=============================================="
-echo "  Phase 1: Aggregate capture (13 tasks × 2 variants × $REPS reps)"
-echo "=============================================="
-PHASE1_LOG="$LOG_DIR/phase1-aggregate.log"
-PHASE1_START=$(date +%s)
-python3 "$REPO_ROOT/scripts/smoke-visual-equivalence.py" \
-  --base-url "$BASE_URL" \
-  --variants base low \
-  --reps "$REPS" \
-  --output "$DATA_DIR" \
-  2>&1 | tee "$PHASE1_LOG"
-PHASE1_ELAPSED=$(( $(date +%s) - PHASE1_START ))
-echo "Phase 1 elapsed: ${PHASE1_ELAPSED}s"
+# URLs CSV check
+if [ ! -f "$URLS_CSV" ]; then
+  echo
+  echo "URLs CSV not found. Extracting from traces..."
+  python3 "$REPO_ROOT/scripts/extract_agent_urls.py" \
+    --traces "$REPO_ROOT/data/expansion-cua" \
+             "$REPO_ROOT/data/pilot4-cua" \
+             "$REPO_ROOT/data/pilot4-full" \
+             "$REPO_ROOT/data/expansion-claude" \
+             "$REPO_ROOT/data/expansion-llama4" \
+             "$REPO_ROOT/data/expansion-som" \
+    --output "$REPO_ROOT/results/visual-equivalence"
+fi
 
-# Phase 2: per-patch ablation on 4 representative tasks
+# Phase B: aggregate URL replay
 echo
 echo "=============================================="
-echo "  Phase 2: Per-patch ablation (4 tasks × 14 captures)"
+echo "  Phase B: URL replay (base vs low)"
 echo "=============================================="
-PHASE2_LOG="$LOG_DIR/phase2-ablation.log"
-PHASE2_START=$(date +%s)
-python3 "$REPO_ROOT/scripts/patch-ablation-screenshots.py" \
-  --base-url "$BASE_URL" \
-  --tasks 23 4 29 132 \
-  --output "$DATA_DIR/ablation" \
-  2>&1 | tee "$PHASE2_LOG"
-PHASE2_ELAPSED=$(( $(date +%s) - PHASE2_START ))
-echo "Phase 2 elapsed: ${PHASE2_ELAPSED}s"
+P_B_LOG="$LOG_DIR/phase-b-replay.log"
+P_B_START=$(date +%s)
+PHASE_B_ARGS=(
+  --urls-csv "$URLS_CSV"
+  --webarena-ip "$WEBARENA_IP"
+  --min-visits "$MIN_VISITS"
+  --output "$DATA_DIR/replay"
+)
+[ "$LIMIT" -gt 0 ] && PHASE_B_ARGS+=(--limit "$LIMIT")
+python3 "$REPO_ROOT/scripts/replay-url-screenshots.py" "${PHASE_B_ARGS[@]}" \
+  2>&1 | tee "$P_B_LOG"
+P_B_ELAPSED=$(( $(date +%s) - P_B_START ))
+echo "Phase B elapsed: ${P_B_ELAPSED}s"
+
+# Phase C: per-patch ablation
+echo
+echo "=============================================="
+echo "  Phase C: Per-patch ablation (4 URLs × 14 captures)"
+echo "=============================================="
+P_C_LOG="$LOG_DIR/phase-c-ablation.log"
+P_C_START=$(date +%s)
+python3 "$REPO_ROOT/scripts/replay-url-patch-ablation.py" \
+  --webarena-ip "$WEBARENA_IP" \
+  --output "$DATA_DIR/ablation-replay" \
+  2>&1 | tee "$P_C_LOG"
+P_C_ELAPSED=$(( $(date +%s) - P_C_START ))
+echo "Phase C elapsed: ${P_C_ELAPSED}s"
 
 # Summary
 echo
 echo "=============================================="
 echo "  Summary"
 echo "=============================================="
-PHASE1_OK=$(python3 -c "import json; m=json.load(open('$DATA_DIR/manifest.json')); print(m['summary'].get('success', 0), '/', m['summary'].get('total', 0))" 2>/dev/null || echo "?")
-PHASE2_OK=$(python3 -c "import json; m=json.load(open('$DATA_DIR/ablation/manifest.json')); print(sum(1 for r in m['records'] if r.get('success')), '/', len(m['records']))" 2>/dev/null || echo "?")
-TOTAL_PNG=$(find "$DATA_DIR" -name "*.png" | wc -l)
-echo "Phase 1 captures: $PHASE1_OK"
-echo "Phase 2 captures: $PHASE2_OK"
-echo "Total PNG files:  $TOTAL_PNG"
-echo "Total elapsed:    $((PHASE1_ELAPSED + PHASE2_ELAPSED))s"
+PHASE_B_OK=$(python3 -c "
+import json
+m = json.load(open('$DATA_DIR/replay/manifest.json'))
+ok = sum(1 for r in m['records'] if r['success'])
+print(f\"{ok}/{len(m['records'])}\")
+" 2>/dev/null || echo "?")
+PHASE_C_OK=$(python3 -c "
+import json
+m = json.load(open('$DATA_DIR/ablation-replay/manifest.json'))
+ok = sum(1 for r in m['records'] if r['success'])
+print(f\"{ok}/{len(m['records'])}\")
+" 2>/dev/null || echo "?")
+PNG_TOTAL=$(find "$DATA_DIR" -name '*.png' | wc -l)
+echo "Phase B:   $PHASE_B_OK"
+echo "Phase C:   $PHASE_C_OK"
+echo "Total PNG: $PNG_TOTAL"
+echo "Elapsed:   $((P_B_ELAPSED + P_C_ELAPSED))s"
 
-# Auto-upload to S3
+# Upload to S3
 echo
 echo "=============================================="
 echo "  Uploading to S3"
 echo "=============================================="
 bash "$REPO_ROOT/scripts/experiment-upload.sh" visual-equivalence "$DATA_DIR" || {
-  echo "WARNING: upload failed — data is still at $DATA_DIR, upload manually:"
-  echo "  bash scripts/experiment-upload.sh visual-equivalence $DATA_DIR"
+  echo "WARNING: upload failed — data still at $DATA_DIR"
   exit 1
 }
 

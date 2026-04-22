@@ -1,116 +1,164 @@
-# Visual Equivalence Validation — Experiment Plan
+# Visual Equivalence Validation — Experiment Plan (v2 — URL Replay)
 
-**Date**: 2026-04-22
-**Goal**: Upgrade §6 Limitations #7 from "claim visual equivalence" to "formally verified with pixel-level ground truth." Close the last reviewer-attackable hole in the CUA contribution decomposition.
+**Date**: 2026-04-22 (v2)
+**Status**: Scripts ready. Deployment on new burner (840744349421) in progress.
 
----
+## What changed from v1
 
-## 1. Research question
+v1 plan: run `env.reset()` for each of 13 tasks, let the bridge do login + Plan D
+injection, screenshot the first-observation page. Captures ONLY the task start
+page (26 screenshots total).
 
-§5.3 claims a causal decomposition: text-only 55.4pp drop − CUA 35.4pp drop = 20.0pp attributable to the semantic pathway (a11y tree), leaving ~35.4pp attributable to cross-layer functional breakage (href removal). This argument rests on the assumption that CUA is **fully DOM-independent** — it sees only raw pixels. If variant patches change pixel output (even subtly), then part of CUA's 35.4pp drop could be a **visual confound** rather than pure functional breakage, which would inflate our "semantic" estimate.
+v2 plan: **URL replay**. Extract every unique URL the agents actually visited
+across all 3,379 historical cases (137 unique URLs), then render each URL under
+`base` and `low` variants directly via Playwright (no BrowserGym, no agent loop),
+inject `apply-low.js`, screenshot, pixel-compare. Captures what agents ACTUALLY
+saw, not just start pages.
 
-§6 Limitations currently hedges:
+**Why v2 is stronger**:
+- Broader ecological coverage: 137 pages vs 26 start pages
+- Higher statistical power: more pairs → tighter SSIM confidence intervals
+- Cleaner pipeline: Playwright only, no BrowserGym state dependency
+- Matches Ma11y (ISSTA 2024) methodology: static-site mutation replay
 
-> "our contribution decomposition assumes CUA agents are fully DOM-independent... minor visual rendering differences across variants (e.g., subtle layout shifts from element substitution) may introduce a small confound. We mitigate this concern by noting that all variant patches are CSS-preserving DOM substitutions designed to maintain visual equivalence... but pixel-perfect rendering identity across variants is not formally guaranteed."
+**Why v2 is legitimate**: the claim being tested is purely about **rendering
+equivalence** of `apply-low.js` patches — it is deterministic with respect to
+{ URL, viewport, login cookies, patch script }. The agent's presence is
+irrelevant to whether the pixels are equivalent; what matters is whether the
+agent *saw equivalent pixels*, which URL-replay directly answers by rendering
+the pages the agent actually visited.
 
-The phrase "not formally guaranteed" is the reviewer attack surface. This experiment formally verifies it.
+## Design
 
-## 2. Hypothesis (three-group prediction)
+### Part A — Extract agent URLs (DONE)
 
-Each of the 13 low-variant patches falls into one of three visual-impact groups:
+Walks every trace on disk, emits one row per (case, step, url, action).
 
-| Group | Prediction | Patches | Mechanism |
-|-------|-----------|---------|-----------|
-| **A** Visually identical (SSIM ≥ 0.98) | pixel-level match, no layout shift | 1 (nav→div), 2 (aria-* delete), 4 (keyboard handlers), 5 (shadow DOM wrap), 7 (img alt), 8 (tabindex), 10 (html lang), 12 (duplicate IDs), 13 (onfocus blur) | attribute-only or invisible wrapping |
-| **B** Visible change (SSIM < 0.95) | text disappears or table reflows | 3 (label.remove), 9 (thead→div) | element removal or flow-model change |
-| **C** Visually identical but functionally broken (SSIM ≥ 0.98, click inert) | blue/underline/cursor preserved via inline style, `href` deleted | 11 (link→span) | DOM substitution with CSS preservation |
-| ? Ambiguous | font size preserved by inline style, but heading margins may shift | 6 (h1→div) | needs empirical test |
+- Script: `scripts/extract_agent_urls.py`
+- Output: `results/visual-equivalence/agent-urls{.csv,-dedup.csv,-summary.md}`
+- Result (2026-04-22):
+  - 3,379 cases scanned
+  - 137 unique URLs (136 replayable — 1 excluded as chrome-error/about:blank)
+  - 76 ecommerce_admin + 32 reddit + 23 gitlab + 6 ecommerce
 
-**Group C is the paper's hard evidence**: if patch 11 alone produces SSIM ≥ 0.98 but CUA's click at the preserved coordinate produces no navigation, that is textbook cross-layer functional breakage with zero visual confound — exactly the "Same Barrier" claim operationalized at the pixel level.
+Top-visited URLs match task semantics: admin order listing, product pages,
+forum pages (f/books), commit browsers (primer/design/-/graphs/main), search
+pages. The URL set spans all 13 tasks × 4 variants.
 
-## 3. Design
+### Part B — URL Replay Screenshots (EC2)
 
-### 3.1 Part 1 — All-patches comparison (13 tasks × 2 variants)
+Script: `scripts/replay-url-screenshots.py`
 
-For each of the 13 tasks: capture `base` and `low` screenshot at the agent's first-observation state. This measures the aggregate visual difference the CUA agent actually sees in the experiment.
+For each replayable URL × {base, low}:
+1. Launch Playwright chromium at **1280×720 viewport** (matches BrowserGym default)
+2. Set WebArena app login cookies (admin/admin, emma.lopez/Password.123)
+3. Navigate to URL, wait for `networkidle` + 1500ms settle
+4. If variant="low": `page.evaluate(apply-low.js)`; wait for layout reflow
+5. `page.screenshot(full_page=False)` → PNG
+6. Record viewport, URL (in case of redirects), title, HTML size, load duration
 
-- 13 tasks × {base, low} = **26 screenshots**
-- Same pipeline: BrowserGym `gym.make("browsergym/webarena.<id>")` → `env.reset()` → login flow → Plan D injection → 500ms settle → `page.screenshot()`
-- Same viewport: Playwright chromium default 1280×720 (matches experiment)
-- Per-pair metrics: SSIM, pHash hamming distance, per-pixel mean absolute difference (MAD), diff mask image
+Variants: `base`, `low` (can extend to `medium-low`, `high` if we want the full
+matrix; but `base` vs `low` is the only comparison that matters for §6
+Limitations decomposition).
 
-### 3.2 Part 2 — Per-patch ablation (isolates Group A/B/C)
+IP rewriting: historical traces use both `10.0.1.49` (old burner) and
+`10.0.1.50` (recent burner). The replay script rewrites both to the current
+WebArena IP before navigating.
 
-For each of the 13 individual patches: apply only that patch (not all 13), screenshot, compare to base.
+### Part C — Per-patch ablation on a representative URL set
 
-- 1 representative task (e.g. `ecommerce:23` — product page with nav/header/links/form/table) × 13 patches × 1 rep = **13 screenshots + 1 base**
-- Uses a patch selector parameter in `apply-low.js` — refactor to expose individual patch functions. Or: build 13 ad-hoc single-patch scripts. (Simpler: fork `apply-low.js` with an `only` parameter.)
-- Per-patch metrics: SSIM, MAD, diff mask, bounding box of visual changes
+Script: `scripts/replay-url-patch-ablation.py` (thin driver on top of Part B)
 
-### 3.3 Part 3 — CUA failure trace cross-validation
+For ONE representative URL per app (4 total), apply each of 13 patches
+individually via `apply-low-individual.js` (`window.__ONLY_PATCH_ID = N`),
+screenshot, compare to base.
 
-From CUA low-variant failures (27 cases total, of which ~17 are reportedly cross-layer functional breakage per §5.2.9), quantify how many show the **link→span signature**:
-- Agent clicked a coordinate that is visually a link (blue underlined text)
-- Click succeeded (no Playwright error, mouse registered)
-- Page did not navigate (URL unchanged, no new DOM load)
+Representative URLs:
+- ecommerce: `/epson-workforce-wf-3620-...` (product page — nav, header, img, reviews)
+- ecommerce_admin: `/admin/sales/order/` (admin grid — tables, filters, landmarks)
+- reddit: `/f/books` (forum listing — many links, headings)
+- gitlab: `/primer/design/-/graphs/main` (svg chart + sidebar + tables)
 
-This is the agent-side corroboration of Part 2. Together they say: "patches visually identical (Part 2) + agent clicked the pixel anyway (Part 3) → only DOM deletion of `href` could explain the failure."
+4 × 13 = 52 ablation screenshots + 4 base refs.
 
-### 3.4 Metrics
+### Part D — Analysis (local, SSIM / pHash / MAD)
 
-- **SSIM** (scikit-image `structural_similarity`, grayscale, data_range=255): 0–1, higher is more similar. Threshold: ≥ 0.98 = "identical for humans".
-- **pHash** (perception hashing via `imagehash.phash`, 8-bit): Hamming distance ≤ 5 = "perceptually identical". Robust to anti-aliasing noise.
-- **MAD** (mean absolute pixel difference on RGB, normalized to 0–1): < 0.01 = "effectively identical", > 0.05 = "clearly different".
-- **Diff mask**: per-pixel threshold on abs difference, saved as PNG for qualitative review.
+Script: `analysis/visual_equivalence_analysis.py` (already written, works)
 
-### 3.5 Success criteria
+Two modes:
+- `--mode aggregate` consumes Part B output → per-URL base-vs-low metrics
+- `--mode ablation` consumes Part C output → per-patch Group A/B/C classification
 
-The experiment "works" — i.e., the paper claim is supported — if:
-1. **≥ 9/13 patches are Group A** (SSIM ≥ 0.98, pHash ≤ 5): we can honestly claim "most patches are visually identical".
-2. **Patch 11 is Group C** (SSIM ≥ 0.98 AND known-broken functionality): smoking gun available.
-3. **Group B is small and identifiable** (patches 3, 9, possibly 6): we disclose them as a caveat, not hide them.
-4. **Aggregate low-vs-base SSIM per task ≥ 0.85** on ≥ 10/13 tasks: the full variant (all 13 patches combined) still produces mostly-similar screenshots, bounding the size of the visual confound.
-5. **≥ 60% of CUA low-variant failures show link→span signature**: corroborates Group C functional-only failure mode.
+Thresholds:
+- Group A: SSIM ≥ 0.98, MAD < 0.01, pHash ≤ 5 (pixel-level identical)
+- Group B: SSIM < 0.95 OR MAD > 0.05 OR pHash > 10 (visible change)
+- Group C: A-threshold met AND patch_id == 11 (link→span — smoking gun)
 
-## 4. Deliverables
+### Part E — CUA failure trace signature (DONE, local)
 
-1. **`scripts/smoke-visual-equivalence.py`** — captures base+low screenshots for all 13 tasks on EC2. Runs inside the existing bridge infrastructure so pipeline is identical. Saves to `./data/visual-equivalence/<task>/{base,low}.png`.
-2. **`scripts/patch-ablation-screenshots.py`** — applies each of 13 patches individually on ecommerce:23, saves `./data/visual-equivalence/ablation/patch_<N>.png` + `base.png`.
-3. **`analysis/visual_equivalence_analysis.py`** — reads screenshots, computes SSIM/pHash/MAD, produces `results/visual-equivalence-report.md` with per-patch classification and per-task aggregate table.
-4. **`analysis/cua_failure_trace_validation.py`** — scans CUA low-variant failure traces, classifies each by link→span signature (click coord → URL unchanged → screenshot diff minimal).
-5. **`docs/analysis/visual-equivalence-validation.md`** — final writeup, drop-in for paper §6.
+Script: `analysis/cua_failure_trace_validation.py`
+Result: **42 / 54 CUA low-variant failures (77.8%) match link→span signature**
+(≥ 8 clicks, ≥ 90% inert, ≥ 3 same-region loops, outcome=failure).
+See `results/visual-equivalence/cua-failure-signature.md`.
 
-## 5. Pipeline fidelity requirements
+## Pipeline fidelity — differences from the experimental runs
 
-Per `project-context.md` "Consistency requirements" — any mid-experiment change to bridge code, variant scripts, or browsergym version invalidates comparability. For this validation we:
+URL replay is **intentionally simpler** than production, but pipeline fidelity
+is preserved on the two dimensions that matter for a visual-equivalence claim:
 
-- **Use the unmodified current `browsergym_bridge.py`** to drive env.reset + login + Plan D. The capture script hooks in AFTER initial observation is sent but BEFORE the agent loop starts.
-- **Use the same `apply-low.js` that produced the experimental data** (git hash at time of pilot4 + expansion). Do not touch the file.
-- **Capture at the same instant the bridge emits the first observation** — Plan D deferred patch has already fired (window.load + 500ms + MutationObserver settling), so the screenshot matches what the CUA agent sees in step 0.
-- **For patch ablation**, refactor `apply-low.js` into a version that accepts an `ONLY_PATCH_ID` env var and runs only one of the 13 patch blocks. Do not modify the production `apply-low.js`; build a separate `apply-low-individual.js`.
+| Property | Production experiments | URL replay | Fidelity? |
+|---|---|---|---|
+| Viewport | BrowserGym chromium default 1280×720 | Playwright chromium 1280×720 (explicit) | ✅ |
+| Variant JS | `apply-low.js` applied via Plan D deferred hook | Same file, applied via direct `page.evaluate()` after load | ✅ (same code, simpler driver) |
+| Login cookies | env.reset + monkey-patched ui_login | Direct Playwright context cookie injection | ✅ (same cookies, different injection path) |
+| Navigation | Agent-triggered goto/click/fill | Direct `page.goto(url)` | ⚠️ (but irrelevant to rendering) |
+| Pages reached | Depends on agent success | ALL agent-visited URLs (union) | ✅ stronger |
+| Plan D context.route | Persists patches across SPA navigations | Not needed — single navigation per URL | ✅ single-navigation trivially patched |
 
-## 6. Risk / mitigation
+The **only difference** that could matter for SSIM is that v2 doesn't re-apply
+patches via MutationObserver (production does). This is fine because:
+1. MutationObserver re-applies only when Magento/KnockoutJS mutates the DOM
+   AFTER patches — a framework-timing effect, not a visual effect
+2. For the screenshot moment, both approaches converge to the same DOM state:
+   `apply-low.js` has run once, settled, no mutations pending
+3. We wait longer in v2 (explicit 1500ms settle + 800ms post-patch settle)
+   than production's 500ms defer, giving MORE time for framework stability
 
-| Risk | Mitigation |
-|------|-----------|
-| Screenshot state varies due to lazy-loaded content (reddit post list randomizes, magento has rotating banners) | Capture 3 replicates per (task, variant), use the pair with minimum within-variant variance |
-| Plan D injection has 500ms + MutationObserver; screenshot may capture mid-flight | Wait for `[data-variant-patched="true"]` sentinel on `<html>` before screenshotting (same as observation extraction wait) |
-| ecom:23 may not exercise all 13 patches (e.g., no table → patch 9 invisible there) | Use 2 representative tasks for ablation: ecom:23 (product page — exercises links, form labels, img alts, nav, headings) + admin:4 (admin page — exercises tables, admin navigation) |
-| Current EC2 may not be available | Build for portable execution — scripts accept `--webarena-url` arg; plan doc references S3 upload/download workflow |
-| CUA failure trace classification requires per-step click coords + URL before/after | Traces already record these (we have 260 CUA traces on disk at `data/expansion-cua/` + `data/pilot4-cua/`). Use existing JSON format. |
+## Success criteria
 
-## 7. Execution checklist
+Same as v1 plan §3.5, with larger N:
 
-- [ ] Phase 0: Build ablation script (`apply-low-individual.js` + `patch-ablation-screenshots.py`) — local dev, test on WebArena if available
-- [ ] Phase 1: Capture script (`smoke-visual-equivalence.py`) — local dev, run on EC2
-- [ ] Phase 2: Analysis (`visual_equivalence_analysis.py`) — local dev, run on local artifacts
-- [ ] Phase 3: CUA trace validator — local only, reads existing CUA traces
-- [ ] Phase 4: Write `visual-equivalence-validation.md` — drops into paper §6
+1. ≥ 9 of 13 patches are **Group A** (visually identical)
+2. Patch 11 is **Group C** (visually identical, functionally broken — smoking gun)
+3. Group B patches (3, 9, possibly 6) are few and identified
+4. **Aggregate base-vs-low SSIM ≥ 0.85** across ≥ 80% of agent-visited URLs
+5. ≥ 60% of CUA low failures show the link→span signature (ALREADY 77.8%)
 
-## 8. Expected outcome for the paper
+## Runtime estimate
 
-Replaces §6 Limitations #7 with a short validation subsection:
+- Part A (done): 2 minutes
+- Part B (aggregate): 137 URLs × 2 variants × ~5s = ~25 min
+- Part C (ablation): 4 URLs × 14 captures × ~5s = ~5 min
+- Upload to S3: ~1 min
+- Local analysis: < 1 min
 
-> We formally validated visual equivalence by capturing screenshots at the first-observation state for all 13 tasks under both `base` and `low` variants, using the identical BrowserGym pipeline (Playwright chromium, 1280×720 viewport, Plan D injection). Per-patch ablation isolated each of the 13 low-variant manipulations on a representative page. Of the 13 patches, **X produce visually-identical output (SSIM ≥ 0.98), Y produce visible layout changes (SSIM < 0.95), and patch 11 (link→span) produces SSIM ≥ 0.98 despite deleting functional href attributes** — textbook cross-layer functional breakage with zero visual confound. Aggregate low-vs-base SSIM across all 13 tasks averages Z (min, max), bounding the visual-rendering component of the CUA 35.4pp drop at below W pp. The remaining ≥ V pp is attributable to DOM structural functional breakage, corroborated by trace analysis showing U% of CUA low-variant failures match the link→span click-inert signature.
+**Total: ~30 minutes on EC2 for all screenshots.**
 
-The "not formally guaranteed" clause becomes "formally verified via pixel-level ground truth."
+## Deliverables
+
+1. `scripts/extract_agent_urls.py` — URL extraction ✅
+2. `scripts/replay-url-screenshots.py` — Part B replay driver
+3. `scripts/replay-url-patch-ablation.py` — Part C ablation driver
+4. `src/variants/patches/inject/apply-low-individual.js` — single-patch selector ✅
+5. `analysis/visual_equivalence_analysis.py` — SSIM/pHash/MAD + Group A/B/C ✅
+6. `analysis/cua_failure_trace_validation.py` — Part E link→span signature ✅
+7. `docs/analysis/visual-equivalence-validation.md` — paper-ready writeup
+
+## Relationship to original bridge captureMode
+
+The `browsergym_bridge.py captureMode` hook from commit f211198 still works and
+remains available for anyone who wants the literal "first-observation state via
+the production bridge" capture. URL replay gives **more** evidence than bridge
+capture (137 pages vs 26 start pages). We keep both; URL replay is primary, bridge
+capture is a cross-check if reviewers challenge "do your replay screenshots match
+what BrowserGym would actually render?"
