@@ -1,0 +1,9 @@
+{
+  "commands": [
+    "set -eo pipefail",
+    "export HOME=/root",
+    "/usr/bin/python3.11 -m pip install --user --quiet requests",
+    "/usr/bin/python3.11 -c 'import requests; print(\"requests ok:\", requests.__version__)'"
+  ],
+  "executionTimeout": ["120"]
+}

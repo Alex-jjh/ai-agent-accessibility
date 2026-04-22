@@ -51,10 +51,10 @@ sudo dnf install -y \
   mesa-libgbm pango alsa-lib libxkbcommon \
   >/dev/null 2>&1 || echo "  (some packages may already be present, continuing)"
 
-# 3. Python packages: playwright + Pillow + scikit-image + ImageHash
+# 3. Python packages: playwright + Pillow + scikit-image + ImageHash + requests
 echo "[3/4] Installing Python packages..."
 python3.11 -m pip install --user --quiet \
-  playwright Pillow numpy scikit-image ImageHash
+  playwright Pillow numpy scikit-image ImageHash requests
 
 # 4. Playwright chromium — use python3.11 directly, NOT 'python3' (which stays at 3.9)
 echo "[4/4] Installing Playwright chromium..."
