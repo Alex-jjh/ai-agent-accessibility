@@ -1,0 +1,11 @@
+{
+  "commands": [
+    "set -eo pipefail",
+    "if [ -z \"${HOME:-}\" ]; then export HOME=/root; fi",
+    "cd $HOME",
+    "if [ ! -d platform ]; then git clone https://github.com/Alex-jjh/ai-agent-accessibility.git platform; fi",
+    "cd platform && git pull",
+    "bash scripts/bootstrap-visual-equivalence.sh 2>&1 | tail -30"
+  ],
+  "executionTimeout": ["900"]
+}

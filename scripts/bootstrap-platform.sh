@@ -12,6 +12,17 @@
 # =============================================================================
 set -euo pipefail
 
+# SSM non-login shells don't set $HOME. Derive from the script's own location.
+if [ -z "${HOME:-}" ]; then
+  # Running via SSM as root — use /root as HOME
+  if [ "$(id -u)" = "0" ]; then
+    export HOME=/root
+  else
+    export HOME=$(getent passwd "$(id -un)" | cut -d: -f6)
+  fi
+  echo "[bootstrap] Set HOME=$HOME (was unset)"
+fi
+
 echo "=== Platform Bootstrap ==="
 
 # --- 1. Python 3.11 (BrowserGym requires 3.10+ for match/case syntax) ---
