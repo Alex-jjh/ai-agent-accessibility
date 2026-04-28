@@ -17,3 +17,17 @@ __pycache__/
 .venv/
 dist/
 build/
+
+# Local data archives (large experiment artifacts, synced via S3)
+/data.tar
+/data.tar.gz
+/data.tgz
+scan-a11y-audit/results.tar
+scan-a11y-audit/results.tar.gz
+
+# Terraform local state/logs
+terraform-apply.log
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
