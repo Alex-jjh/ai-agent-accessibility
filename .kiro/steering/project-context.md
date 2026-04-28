@@ -255,7 +255,7 @@ Timeline:
   Aug: Complete draft
   Sep: LaTeX formatting + CHI 2027 submission
 
-## v8 AMT Refactor — Phase A progress (2026-04-28)
+## v8 AMT Refactor — Phase A EOD (2026-04-28)
 
 Following the 2026-04-27 roadmap rescope to the "Accessibility Manipulation
 Taxonomy (AMT)" framing. Phase A is the foundation for Mode A's 2,808 cases
@@ -263,86 +263,140 @@ and the signature-alignment paper core contribution.
 
 ### A.4 — 26 operators extracted (COMPLETE)
 
-See `docs/amt-operator-spec.md` for the normative spec. Design:
-- 26 operator source files in `src/variants/patches/operators/` (13 L + 3 ML + 10 H)
-- Build artefact `src/variants/patches/inject/apply-all-individual.js` generated
-  by `npm run build:operators` (= `scripts/build-operators.ts`)
-- Runtime protocol: set `window.__OPERATOR_IDS = ["L3","H2"]` before
-  `page.evaluate(applyAllIndividualJs)` to select any subset; wrapper auto-injects
-  `operatorId` into every Change record; canonical application order is
-  H → ML → L (source §8.4)
-- Legacy files (`apply-low.js`, `apply-medium-low.js`, `apply-high.js`,
-  `apply-pure-semantic-low.js`, `apply-low-individual.js`) UNTOUCHED — existing
-  N=1,040 experiments and visual-equivalence replay keep running against them
+See `docs/amt-operator-spec.md` for the normative spec. 26 operator source
+files in `src/variants/patches/operators/` (13 L + 3 ML + 10 H incl. H5a/b/c);
+build artefact `src/variants/patches/inject/apply-all-individual.js` via
+`npm run build:operators`. Runtime: set `window.__OPERATOR_IDS = ["L3","H2"]`
+before evaluating the artefact. Canonical application order H → ML → L.
+Legacy composite files are frozen (SHA-256-pinned, see CI guards below) —
+existing N=1,040 data stays valid for cross-batch merging.
 
-Severity-verified by 57 automated tests:
-- §9.1 contract — each file parses, is a single IIFE, returns Change[]
-- §9.2 **composite parity** (LOAD-BEARING) — `apply-low.js` ≡ __OPERATOR_IDS=
-  [L1..L13] by change count/type; same for ML and H. Validates the new
-  individual-mode data can be merged with existing composite-mode N=1,040.
-- §9.3 idempotence — every operator produces stable DOM on second run
-  (Plan D re-injection safety). Fixed a latent non-idempotence in L12 by
-  adding a `<meta data-variant-L12-sentinel>` body child as a guard.
-- §9.4 non-commutativity — at least one commuting pair (L2↔L10) and one
-  non-commuting pair (H5c↔L11) detected, confirming the composition study
-  is measuring real order effects
-
-All 392 repo tests pass. `tsc --noEmit` clean.
+57-test contract+parity+idempotence+non-commutativity suite.
 
 ### A.5 — 12-dim DOM signature audit (COMPLETE)
 
-See `scripts/audit-operator.ts` + `analysis/ssim_helper.py`. For each operator,
-opens a fresh Playwright context, captures BEFORE metrics, injects the
-operator, captures AFTER metrics, computes 12-dim delta:
+See `scripts/audit-operator.ts` + `analysis/ssim_helper.py`. Per-operator
+Playwright audit: fresh context → BEFORE metrics → inject single operator →
+wait for DOM-quiet → AFTER metrics → 12-dim delta (DOM D1-D3, A11y A1-A3,
+Visual V1-V3, Functional F1-F3).
 
-- DOM (D1-D3): tag-count delta, attribute added/removed, node count delta
-- A11y (A1-A3): role changes, accessible-name changes, ARIA state changes
-  — A1/A2 use **multiset symmetric difference** not index-pair diff (index
-  method misses node removals because everything shifts up)
-- Visual (V1-V3): SSIM (Python scikit-image subprocess), max bbox shift px,
-  mean contrast delta over sampled interactive elements
-- Functional (F1-F3): interactive count delta, inline-handler delta,
-  focusable (tabIndex ≥ 0) delta
+Two paper-ready misalignment findings surfaced even on the static fixture:
+- **L11** (a→span): prior "semantic only" but data shows sem+FUN
+  (-7 focusables, -7 interactive, href deleted)
+- **H4** (add landmark role): prior "semantic positive" but actual no-op
+  because Chromium auto-maps `<nav>` to role=navigation
 
-Implementation tripwire fixed: Playwright 1.59 REMOVED
-`page.accessibility.snapshot()` API (it was deprecated in 1.48). A.5 uses CDP
-`Accessibility.getFullAXTree` directly via `newCDPSession(page)`.
+### Mode-A blocker fixes — all 4 CRITICAL from reviewer audit resolved
 
-Smoke validation (26 operators × static fixture, 105s wall-clock):
-| Op  | A1 roles | V1 SSIM | F1 interactives | prior vs observed |
-|-----|----------|---------|-----------------|-------------------|
-| L1  | 12       | 0.82    | 0               | ✓ sem+vis (matches) |
-| L11 | 14       | 0.999   | -7              | **misalignment** — prior said "semantic only", data shows sem+FUN (href deleted, -7 focusables) |
-| H4  | 0        | 1.0     | 0               | **misalignment** — prior said "semantic positive"; actual no-op because Chromium auto-assigns role=navigation to `<nav>` already |
+Three parallel reviewer-audit sub-agents (code-review, production-readiness,
+reviewer-#2) ran against today's A.4/A.5 deliverables, producing ~60 issues.
+4/4 CRITICAL blockers cleared by EOD:
 
-These two misalignments are paper §5.2 material directly.
+- **B2+B3 CI guards** (`src/variants/patches/ci-guards.test.ts`, commit
+  bc2018e): build artefact freshness + legacy composite SHA-256 freeze. Both
+  negative-tested during development (correctly fails on deliberate
+  pollution of L3.js and apply-low.js).
+- **B1 individual-mode wiring** (bad7749): new `VariantSpec` discriminated
+  union in TS + `applyVariantSpec()` dispatcher; Python `_build_variant_js()`
+  assembles `__OPERATOR_IDS` preamble + IIFE so Plan D re-injection receives
+  the right globals every time. `VARIANT_SCRIPTS["individual"]` registered.
+- **C3 audit authentication** (978f68c, 7fdc116, 1c2e3b4):
+  `scripts/webarena_login.py` CLI helper (4-app login, ported from
+  replay-url-screenshots.py); audit-operator.ts gains `--login-app`
+  + `--login-base-url`; fail-loud exit=3 on login failure (no silent
+  login-page audits). Run-dir layout `data/amt-audit-runs/<run-id>/` with
+  screenshots + run.log persisted; `scripts/audit-{upload,download}.sh`
+  mirror the experiment data pipeline; S3 prefix `audits/` (parallel to
+  `experiments/`). Full spec at `docs/amt-audit-artifacts.md`.
+- **C4+H1 DOM-quiet settle** (b2ce425): default settleMs 1500→5000ms
+  (Pilot-validated Magento floor); new `--quiet-ms` flag (default 500ms)
+  uses MutationObserver + Node-side polling to detect genuine DOM
+  convergence before AFTER snapshot. Subtle bug discovered in the process:
+  `page.evaluate(async () => new Promise(...))` does NOT reliably host
+  long-lived `setTimeout` loops under Playwright's CDP managed Promise —
+  first impl produced mutations=0, maxQuietSeen=0 for every operator
+  because the tick function never ran. Node-side polling with stateful
+  window globals works correctly.
 
-### A.1 / A.3 — visual-equivalence admin rerun (NOT STARTED)
+### A.1 / A.3 — visual-equivalence admin rerun (deferred)
 
-Not blocking Mode A. Defer until Mode A wrapper is ready; Mode A does not use
-`replay-url-screenshots.py`. Root cause already diagnosed in
-`docs/analysis/visual-equivalence-decision-memo.md` §Addendum:
-Magento admin session TTL < Phase B duration, session-lost detection uses URL
-pattern (won't catch Magento's URL-stable login render). Fix is 1-hour effort
-when we return to Phase B.
+Not blocking Mode A. Root cause diagnosed in
+`docs/analysis/visual-equivalence-decision-memo.md` §Addendum (Magento
+admin session TTL < Phase B duration + URL-pattern detection blind to
+Magento's URL-stable login page). Defer until we return to Phase 7
+visual-equivalence track.
 
-### Deployment — new burner 190777959793 (PARTIAL)
+### Deployment — burner 190777959793
 
-- `ada credentials update` + `terraform apply` succeeded
-- Platform + WebArena EC2 both spinning up; first `RunInstances` rejected with
-  `PendingVerification` (AWS new-account check, clears in ~20 min); retry
-  succeeded
-- Both instance IDs in `infra/terraform.tfstate`; WebArena Docker bootstrap runs
-  via cloud-init — needs ~10-15 min before shopping/admin/reddit/gitlab respond
-- TODO when bootstrap completes: `bash scripts/bootstrap-platform.sh` on
-  Platform EC2, run smoke test against a real WebArena URL through
-  `scripts/audit-operator.ts` (expect SSIMs similar to static fixture but with
-  real CSS in play)
+- `ada credentials update` + `terraform apply` succeeded (retry after AWS
+  `PendingVerification` cleared ~20 min)
+- Platform + WebArena EC2 up, Docker boot in progress at EOD
+- Next session: bootstrap Platform EC2 + run live A.5 smoke against one
+  WebArena URL per app (sanity-check audit pipeline end-to-end before
+  committing to a 1,014-run batch)
 
-### Repo hygiene
+### Repo hygiene + tooling
 
-- Worked around Windows→Mac transfer: dropped CRLF working-tree diff on 278
-  tracked files via `git restore .` (no real content changes)
+- Win→Mac transfer cleanup: `.gitattributes` (LF normalization); `.gitignore`
+  extended (data archives, IDE config, terraform backups, AMT audit
+  outputs, .DS_Store); node_modules rebuilt for darwin-arm64; jsdom added
+  as devDep.
+- Python 3.11 installed locally (matches EC2); `pip install requests` for
+  `webarena_login.py`.
+- `docs/amt-audit-artifacts.md` (new) + `docs/amt-operator-spec.md` §5.4
+  cross-reference (new) document the audit output layout + S3 pipeline.
+
+### Test state (EOD)
+
+- TS: 402/402 across 25 files
+- Python: 13/13 assertions (`src/runner/test_build_variant_js.py`)
+- `tsc --noEmit`: clean
+
+### Commit timeline (2026-04-28)
+
+```
+b2ce425  feat(audit): mutation-based DOM quiet wait + 5s initial settle   ← C4/H1
+1c2e3b4  docs(spec): cross-reference audit artefacts in §5 file layout
+7fdc116  feat(audit): run-dir output + S3 upload/download pipeline        ← C3 persistence
+07512e7  chore(git): ignore .DS_Store
+978f68c  feat(audit): authenticate to WebArena before audit               ← C3 login
+bad7749  feat(variants): wire individual-mode operator injection          ← B1
+bc2018e  test(variants): CI guards for build freshness + legacy freeze    ← B2+B3
+0431809  feat(variants): AMT 24-operator taxonomy                         ← A.4
+f5b4452  test(variants): update VARIANT_LEVELS count for pure-semantic-low
+0a57beb  chore(git): ignore IDE config, terraform backups, AMT outputs
+1c02f65  chore: enforce LF line endings, ignore local data archives
++ 4 more docs/rename commits
+```
+
+### Still blocking Mode A B.1
+
+Two reviewer-audit items still on the critical path. Full details in
+`.kiro/steering/2026-04-27-chi2027-roadmap-v8.md` §11:
+
+- **C1 Plan D sentinel coverage** — bridge's `[data-variant-revert]`
+  detection covers only 5/26 operators (L1, L6, L9, L11, ML1). The other
+  21 would trigger infinite re-injection on mutation-heavy pages. Fix:
+  add a single `data-variant-patched` sentinel set by
+  `apply-all-individual.js` after all selected operators run; update
+  bridge to key on that. 1–2h.
+- **H5 scheduler operatorIds dimension** — config schema and test-case
+  generator don't yet know how to generate cases over the operator axis.
+  Smallest-viable path: config YAML accepts
+  `variants: [{kind: individual, operatorIds: [L3]}]` entries; scheduler
+  treats them as a new matrix axis. 2–3h.
+
+### Next session's first moves (strict order)
+
+1. Live A.5 smoke on one WebArena URL per app (anonymous/authenticated as
+   applicable) — validates audit pipeline on real Magento/KO/GitLab pages
+   (~10 min wallclock)
+2. Fix C1 sentinel coverage → unblocks Plan D re-injection on all 26 ops
+3. Fix H5 scheduler → unblocks B.1 invocation
+4. A.5 batch wrapper: 13 URLs × 3 reps × 26 operators → `results/amt/dom_signatures.json`
+5. **Then** B.1 Mode A full run (2,808 cases × Claude Sonnet 3.5 × 8 days × ~$850)
+
+
 - Added `.gitattributes` (`* text=auto eol=lf`) to prevent recurrence
 - `.gitignore` extended to ignore root-level data archives (`data.tar`,
   `data.tar.gz`, `scan-a11y-audit/results.tar`, `terraform-apply.log`)

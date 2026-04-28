@@ -2015,3 +2015,137 @@ added).
 2. Batch wrapper lands → `results/amt/dom_signatures.json` with mean±stddev
 3. **Then** B.1 Mode A full run (24 operators × 13 tasks × 3 agents × 3 reps
    = 2,808 cases, 8 days wall, ~$850 LLM)
+
+
+## 2026-04-28 PM: Reviewer-Audit Blocker Fixes (B1, B2+B3, C3, C4/H1)
+
+### Context
+
+Three parallel reviewer-audit sub-agents (code-review, production-readiness,
+reviewer-#2) ran against the morning's A.4/A.5 deliverables and surfaced ~60
+issues across severity tiers. Four were classified CRITICAL for Mode A — all
+four resolved by EOD.
+
+### B2+B3: CI Guards for Build Freshness + Legacy Freeze (bc2018e)
+
+**Problem**: Two silent-failure risks identified:
+- B2: An operator source file (e.g. `L3.js`) could be edited without
+  rebuilding `apply-all-individual.js`, causing the build artefact to
+  silently drift from its sources.
+- B3: Legacy composite files (`apply-low.js`, `apply-medium-low.js`,
+  `apply-high.js`, `apply-pure-semantic-low.js`, `apply-low-individual.js`)
+  could be accidentally edited, invalidating the N=1,040 baseline data
+  without any CI signal.
+
+**Fix**: `src/variants/patches/ci-guards.test.ts` with two guards:
+- B2: `buildArtefact()` output must byte-match the on-disk
+  `apply-all-individual.js`. Catches "edited source, forgot to rebuild".
+- B3: SHA-256 hashes of 5 legacy files pinned as of 2026-04-28 baseline.
+  Any edit fails the guard with explicit remediation guidance.
+
+**Validation**: Both guards negative-tested during development — deliberately
+appended a comment to `L3.js` (B2 caught it) and to `apply-low.js` (B3
+caught it). Guards correctly failed with descriptive messages.
+
+### B1: Individual-Mode Operator Injection Wiring (bad7749)
+
+**Problem**: The bridge and executor had no way to run individual operators.
+`applyVariant()` only accepted composite `VariantLevel` strings. Plan D
+re-injection needed to know which operators to re-apply after framework
+DOM mutations.
+
+**Fix**: Three-layer wiring:
+1. **TypeScript**: New `VariantSpec` discriminated union in `src/variants/types.ts`
+   (`{kind:'composite', level}` | `{kind:'individual', operatorIds}`).
+   `applyVariantSpec(page, spec, appName)` dispatcher in
+   `src/variants/patches/index.ts`. `applyVariant()` becomes a thin wrapper
+   (signature preserved for backward compat).
+2. **Python bridge**: `_build_variant_js(variant_level, config)` helper in
+   `browsergym_bridge.py` assembles `window.__OPERATOR_IDS = [...]` preamble
+   + IIFE body. `VARIANT_SCRIPTS["individual"]` registered. Plan D cache
+   uses `_build_variant_js()` so re-injection receives correct globals.
+3. **VariantDiff**: Optional `operatorIds?: string[]` field added.
+
+**Tests**: 4 new TS tests (composite dispatch, individual dispatch, unknown
+kind rejection, operatorIds propagation) + 13 Python assertions via AST
+extraction (avoids importing the full bridge which needs BrowserGym).
+
+### C3: Audit Authentication for WebArena (978f68c, 7fdc116, 1c2e3b4)
+
+**Problem**: All 13 task URLs require authentication. Running the DOM
+signature audit without login would measure login pages instead of the
+actual task pages — producing garbage signatures.
+
+**Fix**: Three commits:
+1. `scripts/webarena_login.py` — new CLI helper porting the 4-app login
+   flow from `replay-url-screenshots.py`. Shopping uses HTTP form_key flow;
+   admin/reddit/gitlab use Playwright selectors. Emits cookies JSON to
+   stdout, diagnostics to stderr.
+2. `scripts/audit-operator.ts` gains `--login-app` + `--login-base-url`
+   flags. Spawns Python helper, injects cookies into browser context.
+   **Fails loud with exit=3 on login failure** (no silent login-page audits).
+3. Run-dir output layout: `data/amt-audit-runs/<run-id>/` containing
+   `audit.json` + `run.log` + `screenshots/`. Screenshot paths in
+   `audit.json` are relative to run-dir (tar/untar safe). stderr tee'd
+   to `run.log`. `scripts/audit-upload.sh` + `scripts/audit-download.sh`
+   mirror the experiment data pipeline but use S3 prefix `audits/`.
+
+**Documentation**: `docs/amt-audit-artifacts.md` (237 lines) specifies
+artefact layout, lifecycle, CLI contract, S3 paths, troubleshooting.
+`docs/amt-operator-spec.md` section 5.4 added as cross-reference.
+
+### C4/H1: DOM-Quiet Wait + Extended Settle (b2ce425)
+
+**Problem**: The original 300ms fixed `waitForTimeout` after operator
+injection was insufficient for Magento's KnockoutJS re-rendering (Pilot 4
+validated 5s as the floor). The AFTER snapshot could capture mid-mutation
+DOM state, producing noisy signatures.
+
+**Fix**:
+- Default `settleMs` increased from 1500 to 5000ms (Pilot-validated floor).
+- New `--quiet-ms` flag (default 500ms) replaces the fixed 300ms post-
+  injection wait. `waitForDomQuiet(page, quietMs, maxWaitMs)` installs a
+  MutationObserver in the page recording `__amtQuietLast` / `__amtQuietCount`
+  globals. Node polls every 100ms. Returns quiet when continuous `quietMs`
+  elapsed with zero mutations, or after `maxWaitMs = quietMs * 3`.
+- Diagnostic log when quiet threshold unmet (non-blocking).
+
+**Subtle bug discovered**: First implementation used
+`page.evaluate(async () => new Promise(...))` with an in-page `setTimeout`
+tick loop to track mutation timing. The tick function never ran — Playwright's
+CDP-managed Promise resolution doesn't reliably host long-lived `setTimeout`
+loops inside `page.evaluate()`. Every operator showed `mutations=0,
+maxQuietSeen=0`. Root cause: the Promise executor completes synchronously
+from Playwright's perspective; the `setTimeout` callbacks are scheduled but
+the Promise resolution races ahead. Fix: moved all timing logic to Node-side
+polling with stateful `window.__amtQuiet*` globals set by the
+MutationObserver callback. Node reads them via `page.evaluate()` in a
+100ms poll loop. Works correctly — 26 operators on fixture show 0 "quiet
+not met" warnings.
+
+### Test State (EOD)
+
+- TS: 402/402 across 25 files (was 392 before today's PM session)
+- Python: 13/13 assertions (`src/runner/test_build_variant_js.py`)
+- `tsc --noEmit`: clean
+
+### Files Changed (PM session)
+
+| Commit | Files | Purpose |
+|--------|-------|---------|
+| bc2018e | `src/variants/patches/ci-guards.test.ts` | B2+B3 CI guards |
+| bad7749 | `src/variants/types.ts`, `src/variants/patches/index.ts`, `src/variants/patches/patches.test.ts`, `src/runner/browsergym_bridge.py`, `src/runner/test_build_variant_js.py` | B1 individual-mode wiring |
+| 978f68c | `scripts/webarena_login.py`, `scripts/audit-operator.ts` | C3 login |
+| 7fdc116 | `scripts/audit-operator.ts`, `scripts/audit-upload.sh`, `scripts/audit-download.sh` | C3 persistence |
+| 1c2e3b4 | `docs/amt-audit-artifacts.md`, `docs/amt-operator-spec.md` | C3 docs |
+| b2ce425 | `scripts/audit-operator.ts` | C4/H1 DOM-quiet |
+
+### Still Blocking Mode A B.1
+
+Two reviewer-audit items remain on the critical path (not addressed today):
+
+- **C1 Plan D sentinel coverage**: bridge's `[data-variant-revert]` detection
+  covers only 5/26 operators. Fix: add `data-variant-patched` sentinel to
+  `apply-all-individual.js` after all operators run. ~1-2h.
+- **H5 scheduler operatorIds dimension**: config schema and test-case
+  generator don't yet support individual-mode variants. ~2-3h.
