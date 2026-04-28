@@ -22,6 +22,7 @@ import base64
 import io
 import json
 import math
+import os
 import sys
 import time
 import traceback
@@ -306,6 +307,24 @@ def run_cua_agent_loop(env, config: dict, send_fn) -> None:
 
     print(f"[cua] Starting CUA agent loop: goal='{goal[:80]}', max_steps={max_steps}", file=sys.stderr)
 
+    # Optional screenshot dump: save every step's screenshot to disk for
+    # post-hoc human review. Enabled when config["screenshotDir"] is set.
+    screenshot_dir = config.get("screenshotDir", "")
+    if screenshot_dir:
+        os.makedirs(screenshot_dir, exist_ok=True)
+        print(f"[cua] Screenshot dump enabled: {screenshot_dir}", file=sys.stderr)
+
+    def _dump_screenshot(b64_data: str, step_num: int, suffix: str) -> None:
+        """Write a screenshot PNG to disk if dump is enabled."""
+        if not screenshot_dir:
+            return
+        try:
+            path = os.path.join(screenshot_dir, f"step{step_num:03d}_{suffix}.png")
+            with open(path, "wb") as f:
+                f.write(base64.b64decode(b64_data))
+        except Exception as e:
+            print(f"[cua] Screenshot dump failed: {e}", file=sys.stderr)
+
     final_answer = ""
     outcome = "failure"
 
@@ -329,6 +348,8 @@ def run_cua_agent_loop(env, config: dict, send_fn) -> None:
             print(f"[cua] Screenshot failed: {e}", file=sys.stderr)
             steps.append({"step": step_num, "action": "screenshot_error", "error": str(e)})
             continue
+
+        _dump_screenshot(screenshot_b64, step_num, "before")
 
         # 2. Build message with screenshot
         user_content = [
@@ -445,6 +466,7 @@ def run_cua_agent_loop(env, config: dict, send_fn) -> None:
             try:
                 time.sleep(0.3)  # Brief pause for page to react
                 result_b64, _, _, _ = capture_screenshot_b64(page)
+                _dump_screenshot(result_b64, step_num, f"after_{action}")
                 tool_result_content = [
                     {
                         "image": {

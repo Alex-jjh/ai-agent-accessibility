@@ -65,6 +65,8 @@ export interface BridgeTaskConfig {
   bridgeReadTimeoutMs?: number;
   /** AMT individual-mode only: operator IDs to inject. */
   operatorIds?: string[];
+  /** CUA mode only: directory to dump per-step screenshots for human review. */
+  screenshotDir?: string;
 }
 
 /** Abstraction over the bridge subprocess for testability */
@@ -452,6 +454,10 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
     bridgeReadTimeoutMs: agentConfig.observationMode === 'cua' ? wallClockTimeoutMs + 30_000 : undefined,
     // AMT individual-mode: pass operator IDs to bridge
     operatorIds,
+    // CUA mode: dump per-step screenshots for human review
+    screenshotDir: agentConfig.observationMode === 'cua'
+      ? `data/cua-screenshots/${taskId}_${variant}_${attempt}`
+      : undefined,
   });
 
   let bridgeLog = ''; // ISSUE-BR-7: will be populated from bridge stderr
