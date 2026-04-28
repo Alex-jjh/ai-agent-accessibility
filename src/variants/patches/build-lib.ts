@@ -165,6 +165,15 @@ export function buildArtefact(): string {
   }
 
   const wrapperClose = [
+    '',
+    '  // C1 sentinel: mark <body> so the Plan D MutationObserver can detect',
+    '  // whether patches are still applied. Unlike [data-variant-revert] (only',
+    '  // set by element-replacing operators L1/L6/L9/L11/ML1), this sentinel',
+    '  // is set by ALL operator runs — attribute-only operators included.',
+    '  if (allChanges.length > 0 && document.body) {',
+    '    document.body.setAttribute("data-amt-applied", ids.join(","));',
+    '  }',
+    '',
     '  return allChanges;',
     '})();',
     '',

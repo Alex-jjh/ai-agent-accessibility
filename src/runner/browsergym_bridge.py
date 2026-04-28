@@ -753,6 +753,23 @@ def main() -> None:
                 # HTML parse → RequireJS → mage/apply/main → data-mage-init → KO bindings → DOM render
                 # Our patches run AFTER step 6, on the final rendered DOM.
                 if _variant_js:
+                    # C1 fix: individual-mode operators don't all set [data-variant-revert]
+                    # markers (only element-replacing ops L1/L6/L9/L11/ML1 do). For
+                    # individual-mode, use data-amt-applied on <body> as the sentinel
+                    # instead — it's set by apply-all-individual.js after ALL operators.
+                    # For composite-mode (legacy), keep the existing [data-variant-revert]
+                    # check which is proven across N=1,040 cases.
+                    if variant_level == "individual":
+                        _sentinel_check_js = (
+                            '      // C1: individual-mode sentinel — data-amt-applied on <body>\n'
+                            '      var hasMarkers = document.body && document.body.hasAttribute("data-amt-applied");\n'
+                        )
+                    else:
+                        _sentinel_check_js = (
+                            '      // Composite-mode sentinel — data-variant-revert markers\n'
+                            '      var hasMarkers = document.querySelector("[data-variant-revert]") !== null;\n'
+                        )
+
                     # Build the deferred script that will be injected into HTML
                     _deferred_script = (
                         '<script>\n'
@@ -777,16 +794,11 @@ def main() -> None:
                         '  } else {\n'
                         '    window.addEventListener("load", schedulePatches);\n'
                         '  }\n'
-                        '  // MutationObserver guard: re-apply if Magento overwrites patches\n'
+                        '  // MutationObserver guard: re-apply if framework overwrites patches\n'
                         '  function startObserver() {\n'
                         '    var observer = new MutationObserver(function(mutations) {\n'
                         '      if (isPatching) return; // our own mutations, skip\n'
-                        '      // Check sentinel: if variant markers are gone, patches were overwritten\n'
-                        '      // ISSUE-BR-4 fix: old sentinel used nav a[href] which only works for low variant.\n'
-                        '      // For medium-low/high, nav elements are NOT removed, so the old sentinel always\n'
-                        '      // triggered, causing continuous re-application (duplicate skip-links in high).\n'
-                        '      // New sentinel checks for data-variant-revert markers set by all variant scripts.\n'
-                        '      var hasMarkers = document.querySelector("[data-variant-revert]") !== null;\n'
+                        + _sentinel_check_js +
                         '      if (!hasMarkers && document.documentElement.getAttribute("data-variant-patched")) {\n'
                         '        document.documentElement.removeAttribute("data-variant-patched");\n'
                         '        applyPatches();\n'
@@ -1077,12 +1089,19 @@ def main() -> None:
                 except Exception:
                     pass  # Timeout is OK — patches may not have fired yet on this page
 
+                # C1: use the right sentinel for the variant mode.
+                # Individual-mode: data-amt-applied on <body> (set by all operators).
+                # Composite-mode: [data-variant-revert] (set by element-replacing ops).
+                _sentinel_js = (
+                    'document.body && document.body.hasAttribute("data-amt-applied")'
+                    if variant_level == "individual"
+                    else 'document.querySelector("[data-variant-revert]") !== null'
+                )
+
                 try:
                     current_page = env.unwrapped.page
                     # Check if variant markers are present — if not, re-inject
-                    has_variant = current_page.evaluate(
-                        'document.querySelector("[data-variant-revert]") !== null'
-                    )
+                    has_variant = current_page.evaluate(_sentinel_js)
                     if not has_variant:
                         current_page.evaluate(_variant_js)
                         # Register listener on new page if not already registered
@@ -1101,9 +1120,7 @@ def main() -> None:
                 try:
                     current_page = env.unwrapped.page
                     current_page.wait_for_timeout(200)  # let page JS settle
-                    has_variant_after = current_page.evaluate(
-                        'document.querySelector("[data-variant-revert]") !== null'
-                    )
+                    has_variant_after = current_page.evaluate(_sentinel_js)
                     if not has_variant_after:
                         current_page.evaluate(_variant_js)
                         print(f"[bridge] Step {step}: re-injected variant after secondary check (page JS overwrote patches)", file=sys.stderr)
