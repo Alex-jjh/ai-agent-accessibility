@@ -92,10 +92,20 @@ export interface LlmResponse {
   latencyMs: number;
 }
 
-/** Experiment matrix defining all test case combinations */
+/** Experiment matrix defining all test case combinations.
+ *
+ * For AMT Mode A (individual-mode), use `individualVariants` to specify
+ * per-operator test cases. These are generated as a separate axis in the
+ * matrix, producing case IDs like `{app}:individual:{taskId}:{ci}:{attempt}:{opIds}`.
+ */
 export interface ExperimentMatrix {
   apps: string[];
+  /** Composite variant levels (legacy: low/medium-low/base/high/pure-semantic-low). */
   variants: VariantLevel[];
+  /** AMT individual-mode operator sets. Each entry generates cases for
+   *  one operator combination (e.g. ["L3"] for single-op, ["L3","H2"] for
+   *  compositional study). Omit or leave empty for composite-only runs. */
+  individualVariants?: string[][];
   tasksPerApp: Record<string, string[]>;
   agentConfigs: AgentConfig[];
   repetitions: number;

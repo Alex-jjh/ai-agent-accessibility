@@ -46,6 +46,8 @@ export interface TestCaseParams {
   taskId: string;
   agentConfig: AgentConfig;
   attempt: number;
+  /** AMT individual-mode only: operator IDs for this case. */
+  operatorIds?: string[];
 }
 
 /** Result returned by the runTestCase callback */
@@ -67,11 +69,18 @@ interface PersistedRunState {
 
 /**
  * Generate all test case IDs from the experiment matrix.
- * Format: `{app}:{variant}:{taskId}:{configIndex}:{attempt}`
+ *
+ * Composite-mode format: `{app}:{variant}:{taskId}:{configIndex}:{attempt}`
+ * Individual-mode format: `{app}:individual:{taskId}:{configIndex}:{attempt}:{opId1+opId2+...}`
+ *
+ * The `+` separator in operator IDs is safe because operator IDs are
+ * alphanumeric (L1..L13, ML1..ML3, H1..H8, H5a/b/c).
  * (Req 8.1)
  */
 export function generateTestCases(matrix: ExperimentMatrix): string[] {
   const cases: string[] = [];
+
+  // Composite variants (legacy)
   for (const app of matrix.apps) {
     const tasks = matrix.tasksPerApp[app] ?? [];
     for (const variant of matrix.variants) {
@@ -84,20 +93,42 @@ export function generateTestCases(matrix: ExperimentMatrix): string[] {
       }
     }
   }
+
+  // Individual variants (AMT Mode A / compositional study)
+  if (matrix.individualVariants && matrix.individualVariants.length > 0) {
+    for (const app of matrix.apps) {
+      const tasks = matrix.tasksPerApp[app] ?? [];
+      for (const opIds of matrix.individualVariants) {
+        const opKey = opIds.join('+');
+        for (const taskId of tasks) {
+          for (let ci = 0; ci < matrix.agentConfigs.length; ci++) {
+            for (let attempt = 1; attempt <= matrix.repetitions; attempt++) {
+              cases.push(`${app}:individual:${taskId}:${ci}:${attempt}:${opKey}`);
+            }
+          }
+        }
+      }
+    }
+  }
+
   return cases;
 }
 
 /**
  * Parse a test case ID back into its component parameters.
+ *
+ * Composite format (5 parts): `{app}:{variant}:{taskId}:{ci}:{attempt}`
+ * Individual format (6 parts): `{app}:individual:{taskId}:{ci}:{attempt}:{opIds}`
  */
 export function parseTestCaseId(
   caseId: string,
   matrix: ExperimentMatrix,
 ): TestCaseParams {
   const parts = caseId.split(':');
-  if (parts.length !== 5) {
+  if (parts.length !== 5 && parts.length !== 6) {
     throw new Error(`Invalid test case ID format: ${caseId}`);
   }
+
   const [app, variant, taskId, configIndexStr, attemptStr] = parts;
   const configIndex = parseInt(configIndexStr, 10);
   const attempt = parseInt(attemptStr, 10);
@@ -106,13 +137,20 @@ export function parseTestCaseId(
     throw new Error(`Invalid config index ${configIndex} in case ${caseId}`);
   }
 
-  return {
+  const params: TestCaseParams = {
     app,
     variant,
     taskId,
     agentConfig: matrix.agentConfigs[configIndex],
     attempt,
   };
+
+  // Individual-mode: 6th part is operator IDs joined by '+'
+  if (parts.length === 6 && variant === 'individual') {
+    params.operatorIds = parts[5].split('+');
+  }
+
+  return params;
 }
 
 /**
