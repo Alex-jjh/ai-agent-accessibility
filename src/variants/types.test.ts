@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { VARIANT_LEVELS } from './types.js';
 
 describe('VARIANT_LEVELS', () => {
-  it('contains exactly 4 levels', () => {
-    expect(VARIANT_LEVELS).toHaveLength(4);
+  it('contains exactly 5 levels', () => {
+    expect(VARIANT_LEVELS).toHaveLength(5);
   });
 
   it('contains low', () => {
@@ -20,5 +20,9 @@ describe('VARIANT_LEVELS', () => {
 
   it('contains high', () => {
     expect(VARIANT_LEVELS).toContain('high');
+  });
+
+  it('contains pure-semantic-low', () => {
+    expect(VARIANT_LEVELS).toContain('pure-semantic-low');
   });
 });
