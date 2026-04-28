@@ -371,30 +371,20 @@ f5b4452  test(variants): update VARIANT_LEVELS count for pure-semantic-low
 
 ### Still blocking Mode A B.1
 
-Two reviewer-audit items still on the critical path. Full details in
-`.kiro/steering/2026-04-27-chi2027-roadmap-v8.md` §11:
+~~Two reviewer-audit items still on the critical path.~~ All resolved:
 
-- **C1 Plan D sentinel coverage** — bridge's `[data-variant-revert]`
-  detection covers only 5/26 operators (L1, L6, L9, L11, ML1). The other
-  21 would trigger infinite re-injection on mutation-heavy pages. Fix:
-  add a single `data-variant-patched` sentinel set by
-  `apply-all-individual.js` after all selected operators run; update
-  bridge to key on that. 1–2h.
-- **H5 scheduler operatorIds dimension** — config schema and test-case
-  generator don't yet know how to generate cases over the operator axis.
-  Smallest-viable path: config YAML accepts
-  `variants: [{kind: individual, operatorIds: [L3]}]` entries; scheduler
-  treats them as a new matrix axis. 2–3h.
+- **C1 Plan D sentinel coverage** — ✅ FIXED. `apply-all-individual.js`
+  sets `data-amt-applied` on `<body>` after all operators run. Bridge
+  uses this for individual-mode (composite keeps `[data-variant-revert]`).
+- **H5 scheduler operatorIds dimension** — ✅ FIXED. `ExperimentMatrix`
+  gains `individualVariants: string[][]`. 6-part case IDs for individual
+  mode: `{app}:individual:{taskId}:{ci}:{attempt}:{opIds}`.
 
-### Next session's first moves (strict order)
+### Next up (Mode A ready)
 
-1. Live A.5 smoke on one WebArena URL per app (anonymous/authenticated as
-   applicable) — validates audit pipeline on real Magento/KO/GitLab pages
-   (~10 min wallclock)
-2. Fix C1 sentinel coverage → unblocks Plan D re-injection on all 26 ops
-3. Fix H5 scheduler → unblocks B.1 invocation
-4. A.5 batch wrapper: 13 URLs × 3 reps × 26 operators → `results/amt/dom_signatures.json`
-5. **Then** B.1 Mode A full run (2,808 cases × Claude Sonnet 3.5 × 8 days × ~$850)
+1. **A.5 batch wrapper**: 13 task URLs × 3 reps × 26 operators = 1,014
+   audit runs → `results/amt/dom_signatures.json`
+2. **B.1 Mode A full run**: 2,808 cases × Claude × ~8 days × ~$850
 
 
 - Added `.gitattributes` (`* text=auto eol=lf`) to prevent recurrence
