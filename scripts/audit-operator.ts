@@ -32,12 +32,12 @@
  * Spec: docs/amt-operator-spec.md §2.4 + roadmap v8 §2.4 + Task A.5.
  */
 import { chromium } from 'playwright';
-import type { Browser, BrowserContext, Page } from 'playwright';
-import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import type { Browser, Page } from 'playwright';
+import { readFileSync, writeFileSync, mkdirSync, createWriteStream } from 'node:fs';
+import type { WriteStream } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { tmpdir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
@@ -52,6 +52,49 @@ const OPERATOR_ORDER: readonly string[] = [
   'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9',
   'L10', 'L11', 'L12', 'L13',
 ] as const;
+
+// ─────────────────────────────────────────────────────────────────────
+// stderr tee — mirror all console.error output to a run-log file
+// ─────────────────────────────────────────────────────────────────────
+//
+// The audit emits ~100 lines of stderr diagnostics per run (login
+// status, per-operator timing, SSIM failures, etc.). We want to
+// persist those into the run-dir as `run.log` so the downstream
+// analyst can answer "why did L7's signature read zero?" without
+// having to re-run.
+//
+// Implementation: replace the default `stderr.write` binding with a
+// tee that also writes to a file handle. We install this ONCE per
+// `main()` invocation, right after the run-dir is known.
+
+let _runLogStream: WriteStream | null = null;
+const _origStderrWrite = process.stderr.write.bind(process.stderr);
+
+function enableRunLog(runLogPath: string): void {
+  _runLogStream = createWriteStream(runLogPath, { flags: 'w' });
+  // Monkey-patch process.stderr.write to also write to the file.
+  // We cannot literally override .write on a `tty.WriteStream` (it is
+  // a readonly method in the type system) so we capture the bound
+  // function above and route console.error / process.stderr.write
+  // both through a wrapper.
+  (process.stderr as unknown as { write: (s: unknown, ...rest: unknown[]) => boolean }).write = ((
+    chunk: unknown,
+    ...rest: unknown[]
+  ): boolean => {
+    try {
+      if (_runLogStream) _runLogStream.write(chunk as string | Buffer);
+    } catch { /* never fail the run on log write */ }
+    return _origStderrWrite(chunk as string | Buffer, ...(rest as []));
+  }) as typeof process.stderr.write;
+}
+
+function closeRunLog(): void {
+  if (_runLogStream) {
+    try { _runLogStream.end(); } catch { /* noop */ }
+    _runLogStream = null;
+  }
+  (process.stderr as unknown as { write: typeof _origStderrWrite }).write = _origStderrWrite;
+}
 
 // ─────────────────────────────────────────────────────────────────────
 // Types
@@ -102,6 +145,10 @@ interface OperatorSignature {
   // Diagnostic
   changesReturned: number;                        // how many Change records the operator produced
   durationMs: number;
+  // Screenshot paths relative to the run-dir (e.g. "screenshots/L1_before.png").
+  // Absent for the legacy --output single-file mode since that mode does not
+  // persist screenshots alongside the JSON. See docs/amt-audit-artifacts.md.
+  screenshots?: { before: string; after: string };
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -486,11 +533,17 @@ async function captureOperatorPair(
   url: string,
   operatorId: string | null,
   screenshotDir: string,
+  screenshotRelPrefix: string, // e.g. "screenshots" — prefix prepended to relative paths in the Change record
   label: string, // e.g. "base" or "L3"
   settleMs: number,
   applyAllJs: string,
   loginCookies: LoginCookie[] | null,
-): Promise<{ before: PageMetrics; after: PageMetrics | null }> {
+): Promise<{
+  before: PageMetrics;
+  after: PageMetrics | null;
+  beforeRel: string;
+  afterRel: string;
+}> {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   if (loginCookies && loginCookies.length > 0) {
     await context.addCookies(loginCookies);
@@ -506,6 +559,7 @@ async function captureOperatorPair(
     const beforeRaw: any = await page.evaluate(PAGE_METRICS_JS);
     const beforeA11y = await flattenA11yTree(page);
     const beforeShot = join(screenshotDir, `${label}_before.png`);
+    const beforeRel = `${screenshotRelPrefix}/${label}_before.png`;
     await page.screenshot({ path: beforeShot, fullPage: false });
 
     const before: PageMetrics = {
@@ -515,7 +569,7 @@ async function captureOperatorPair(
     };
 
     if (!operatorId) {
-      return { before, after: null };
+      return { before, after: null, beforeRel, afterRel: '' };
     }
 
     // Inject single operator
@@ -526,6 +580,7 @@ async function captureOperatorPair(
     const afterRaw: any = await page.evaluate(PAGE_METRICS_JS);
     const afterA11y = await flattenA11yTree(page);
     const afterShot = join(screenshotDir, `${label}_after.png`);
+    const afterRel = `${screenshotRelPrefix}/${label}_after.png`;
     await page.screenshot({ path: afterShot, fullPage: false });
 
     const after: PageMetrics = {
@@ -535,7 +590,7 @@ async function captureOperatorPair(
     };
     (after as any).__changes = changes.length;
 
-    return { before, after };
+    return { before, after, beforeRel, afterRel };
   } finally {
     await context.close();
   }
@@ -546,9 +601,10 @@ function deriveSignature(
   after: PageMetrics,
   changesReturned: number,
   durationMs: number,
+  screenshotRels: { before: string; after: string } | null,
 ): OperatorSignature {
   const ssim = computeSSIM(before.screenshotPath, after.screenshotPath);
-  return {
+  const sig: OperatorSignature = {
     D1_tagCountDeltas: tagCountDeltas(before.tagCounts, after.tagCounts),
     D2_attrChanges: attrChangeCounts(before.attrPresence, after.attrPresence),
     D3_nodeCountDelta: after.nodeCount - before.nodeCount,
@@ -566,6 +622,10 @@ function deriveSignature(
     changesReturned,
     durationMs,
   };
+  if (screenshotRels) {
+    sig.screenshots = screenshotRels;
+  }
+  return sig;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -589,17 +649,61 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const url = args['url'];
   if (!url) {
-    console.error('Usage: audit-operator.ts --url <url> [--operators L1,H2,...] [--output path.json] [--settle-ms 1500] [--login-app shopping|shopping_admin|reddit|gitlab] [--login-base-url URL]');
+    console.error('Usage: audit-operator.ts --url <url>');
+    console.error('  [--operators L1,H2,...]   default: all 26');
+    console.error('  [--login-app shopping|shopping_admin|reddit|gitlab]');
+    console.error('  [--login-base-url URL]');
+    console.error('  [--output-dir <path>]     default: data/amt-audit-runs/');
+    console.error('  [--run-id <id>]           default: amt-audit-<unix-ms>');
+    console.error('  [--settle-ms N]           default: 1500');
+    console.error('  [--output <file.json>]    LEGACY single-file JSON only, no screenshots/log');
     process.exit(2);
   }
-  const outputPath = args['output'] || join(REPO, 'results/amt/dom-signatures/audit.json');
+
+  // Two output modes:
+  //   (A) run-dir mode (default): writes data/amt-audit-runs/<run-id>/
+  //       { audit.json, run.log, screenshots/*.png }
+  //   (B) legacy single-file mode (--output passed): writes only the JSON,
+  //       screenshots land in a tmpdir that is NOT persisted. Used by the
+  //       pre-existing smoke scripts and by quick ad-hoc probes. Emits a
+  //       warning so the caller knows side-artefacts are not saved.
+  const legacyOutput = args['output'] || '';
+  const runId = args['run-id'] || `amt-audit-${Date.now()}`;
+  const outputDir = args['output-dir'] || join(REPO, 'data/amt-audit-runs');
+
+  let runDir: string;
+  let auditJsonPath: string;
+  let screenshotDir: string;
+  let screenshotRelPrefix: string;
+  let persistScreenshots: boolean;
+
+  if (legacyOutput) {
+    // Mode B — legacy single-file
+    auditJsonPath = legacyOutput;
+    // Screenshots still need a directory, but we won't persist them in
+    // the run-dir sense. Use a sibling tmp path under the output dir so
+    // the file exists long enough for SSIM computation.
+    runDir = join(dirname(legacyOutput), `_tmp-shots-${runId}`);
+    screenshotDir = runDir;
+    screenshotRelPrefix = ''; // unused — legacy mode omits screenshots from JSON
+    persistScreenshots = false;
+    mkdirSync(dirname(auditJsonPath), { recursive: true });
+    mkdirSync(screenshotDir, { recursive: true });
+  } else {
+    // Mode A — run-dir
+    runDir = join(outputDir, runId);
+    auditJsonPath = join(runDir, 'audit.json');
+    screenshotDir = join(runDir, 'screenshots');
+    screenshotRelPrefix = 'screenshots';
+    persistScreenshots = true;
+    mkdirSync(screenshotDir, { recursive: true });
+    enableRunLog(join(runDir, 'run.log'));
+  }
+
   const opsArg = args['operators'];
   const operators = opsArg ? opsArg.split(',').map(s => s.trim()).filter(Boolean) : [...OPERATOR_ORDER];
   const settleMs = parseInt(args['settle-ms'] || '1500', 10);
   const loginApp = args['login-app'] || '';
-  // If login-base-url isn't specified, derive from the target URL's
-  // scheme://host:port — this is the common case where we're auditing
-  // a single WebArena app.
   const loginBaseUrl = args['login-base-url'] || (() => {
     try {
       const u = new URL(url);
@@ -637,15 +741,16 @@ async function main(): Promise<void> {
   // Load the built artefact — fail fast if stale
   const applyAllJs = readFileSync(APPLY_ALL, 'utf-8');
 
-  const screenshotDir = join(tmpdir(), `amt-audit-${Date.now()}`);
-  mkdirSync(screenshotDir, { recursive: true });
-
-  mkdirSync(dirname(outputPath), { recursive: true });
-
   console.error(`[audit] URL:        ${url}`);
   console.error(`[audit] Operators:  ${operators.length} (${operators.slice(0, 6).join(',')}${operators.length > 6 ? ',…' : ''})`);
-  console.error(`[audit] Output:     ${outputPath}`);
-  console.error(`[audit] Screenshots: ${screenshotDir}`);
+  if (persistScreenshots) {
+    console.error(`[audit] Run dir:    ${runDir}`);
+    console.error(`[audit] JSON:       ${auditJsonPath}`);
+    console.error(`[audit] Log:        ${join(runDir, 'run.log')}`);
+  } else {
+    console.error(`[audit] Output:     ${auditJsonPath} (LEGACY mode — no screenshots/log persisted)`);
+    console.error(`[audit] Scratch:    ${screenshotDir}`);
+  }
 
   const browser = await chromium.launch({ headless: true });
   const signatures: Record<string, OperatorSignature> = {};
@@ -657,12 +762,18 @@ async function main(): Promise<void> {
       const opId = operators[i];
       const opT0 = Date.now();
       try {
-        const { before, after } = await captureOperatorPair(
-          browser, url, opId, screenshotDir, opId, settleMs, applyAllJs, loginCookies,
+        const capture = await captureOperatorPair(
+          browser, url, opId, screenshotDir, screenshotRelPrefix,
+          opId, settleMs, applyAllJs, loginCookies,
         );
-        if (!after) throw new Error('after metrics missing');
-        const changesReturned = (after as any).__changes ?? 0;
-        signatures[opId] = deriveSignature(before, after, changesReturned, Date.now() - opT0);
+        if (!capture.after) throw new Error('after metrics missing');
+        const changesReturned = (capture.after as any).__changes ?? 0;
+        const rels = persistScreenshots
+          ? { before: capture.beforeRel, after: capture.afterRel }
+          : null;
+        signatures[opId] = deriveSignature(
+          capture.before, capture.after, changesReturned, Date.now() - opT0, rels,
+        );
         console.error(`[audit] [${i + 1}/${operators.length}] ${opId} — ${signatures[opId].changesReturned} changes, ssim=${signatures[opId].V1_ssim}, bbox=${signatures[opId].V2_maxBBoxShift_px}px, ${Date.now() - opT0}ms`);
       } catch (e: any) {
         errors[opId] = String(e?.message || e);
@@ -676,6 +787,7 @@ async function main(): Promise<void> {
   const output = {
     schemaVersion: 'amt-dom-signature/v1',
     timestamp: new Date().toISOString(),
+    runId,
     fixture: {
       url,
       loginApp: loginApp || null,
@@ -687,9 +799,17 @@ async function main(): Promise<void> {
     errors,
     totalDurationMs: Date.now() - t0,
   };
-  writeFileSync(outputPath, JSON.stringify(output, null, 2));
-  console.error(`[audit] Done in ${Math.round((Date.now() - t0) / 1000)}s. Wrote ${outputPath}`);
+  writeFileSync(auditJsonPath, JSON.stringify(output, null, 2));
+  console.error(`[audit] Done in ${Math.round((Date.now() - t0) / 1000)}s. Wrote ${auditJsonPath}`);
+  if (persistScreenshots) {
+    console.error(`[audit] Upload with: bash scripts/audit-upload.sh ${runId}`);
+  }
+  closeRunLog();
   if (Object.keys(errors).length > 0) process.exit(1);
 }
 
-main().catch(e => { console.error(e); process.exit(1); });
+main().catch(e => {
+  console.error(e);
+  closeRunLog();
+  process.exit(1);
+});
