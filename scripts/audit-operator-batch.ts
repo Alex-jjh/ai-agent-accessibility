@@ -46,11 +46,11 @@ function buildTaskUrls(baseIp: string): TaskUrl[] {
     { taskId: '198', app: 'shopping_admin', loginApp: 'shopping_admin', url: `${SA}/admin/dashboard` },
     // shopping tasks
     { taskId: '23',  app: 'shopping', loginApp: 'shopping',
-      url: `${S}/6s-wireless-headphones-over-ear-noise-canceling-hi-fi-bass-foldable-stereo-wireless-kid-headsets-earbuds-with-built-in-mic-micro-sd-tf-fm-for-iphone-samsung-ipad-pc-black-gold.html` },
-    { taskId: '24',  app: 'shopping', loginApp: 'shopping',
-      url: `${S}/fujifilm-finepix-z200fd-10mp-digital-camera-with-5x-optical-dual-image-stabilized-zoom-black.html` },
-    { taskId: '26',  app: 'shopping', loginApp: 'shopping',
       url: `${S}/3-pack-samsung-galaxy-s6-screen-protector-nearpow-tempered-glass-screen-protector-with-9h-hardness-crystal-clear-easy-bubble-free-installation-scratch-resist.html` },
+    { taskId: '24',  app: 'shopping', loginApp: 'shopping',
+      url: `${S}/haflinger-men-s-wool-felt-open-back-slippers-beige-550-peat-us-7.html` },
+    { taskId: '26',  app: 'shopping', loginApp: 'shopping',
+      url: `${S}/epson-workforce-wf-3620-wifi-direct-all-in-one-color-inkjet-printer-copier-scanner-amazon-dash-replenishment-ready.html` },
     { taskId: '188', app: 'shopping', loginApp: 'shopping', url: `${S}/` },
     // reddit tasks
     { taskId: '29',  app: 'reddit', loginApp: 'reddit', url: `${R}/` },

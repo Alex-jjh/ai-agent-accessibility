@@ -770,6 +770,14 @@ def main() -> None:
                             '      var hasMarkers = document.querySelector("[data-variant-revert]") !== null;\n'
                         )
 
+                    # Python-side sentinel check (used in post-step verification).
+                    # Hoisted here so it's defined once, not inside the step loop.
+                    _sentinel_js = (
+                        'document.body && document.body.hasAttribute("data-amt-applied")'
+                        if variant_level == "individual"
+                        else 'document.querySelector("[data-variant-revert]") !== null'
+                    )
+
                     # Build the deferred script that will be injected into HTML
                     _deferred_script = (
                         '<script>\n'
@@ -1088,15 +1096,6 @@ def main() -> None:
                     )
                 except Exception:
                     pass  # Timeout is OK — patches may not have fired yet on this page
-
-                # C1: use the right sentinel for the variant mode.
-                # Individual-mode: data-amt-applied on <body> (set by all operators).
-                # Composite-mode: [data-variant-revert] (set by element-replacing ops).
-                _sentinel_js = (
-                    'document.body && document.body.hasAttribute("data-amt-applied")'
-                    if variant_level == "individual"
-                    else 'document.querySelector("[data-variant-revert]") !== null'
-                )
 
                 try:
                     current_page = env.unwrapped.page
