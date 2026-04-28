@@ -2149,3 +2149,63 @@ Two reviewer-audit items remain on the critical path (not addressed today):
   `apply-all-individual.js` after all operators run. ~1-2h.
 - **H5 scheduler operatorIds dimension**: config schema and test-case
   generator don't yet support individual-mode variants. ~2-3h.
+
+---
+
+## 2026-04-28 PM Session 2 — A.5 Live Smoke + Bootstrap Fix
+
+### A.5 Live Smoke on WebArena (4 apps)
+
+Ran `audit-operator.ts` against all 4 WebArena apps with 4 representative
+operators (L1, L6, L11, H2). Results:
+
+| App | L1 changes | L6 changes | L11 changes | H2 changes | Notes |
+|-----|-----------|-----------|------------|-----------|-------|
+| Shopping (anon) | 6 | 1 | 382 | 1 | SSIM: L1=1.000, L6=0.685, L11=0.958, H2=1.000 |
+| Reddit (anon) | 8 | 1 | 18 | 1 | bbox shift: L11=9999px (all links→spans) |
+| Admin (login) | 6 | 2 | 117 | 1 | Login via webarena_login.py worked |
+| GitLab (login) | 3 | 16 | 162 | 1 | Login via webarena_login.py worked |
+
+Key findings from live smoke:
+- **L6 SSIM=0.685 on Shopping**: heading→div removes Chromium's default heading
+  margin/padding despite CSS font-size preservation. Visual side-effect is larger
+  than expected — validates reviewer audit §11 concern about L6.
+- **L1 SSIM=1.000**: landmark→div is truly pure semantic (zero visual change).
+- **H2 SSIM=1.000**: skip-nav injection has zero visual impact (as designed).
+- **L11 bbox=1921px on Shopping**: link→span causes layout reflow on some elements
+  despite visual appearance being preserved (blue+underline CSS retained).
+
+### Bug: SSIM helper used wrong Python
+
+`audit-operator.ts` hardcoded `python3` for SSIM computation, but EC2's
+system `python3` is 3.9 (no scikit-image). scikit-image was installed under
+python3.11. Fix: added `resolvePython()` that prefers python3.11, caches
+the result to avoid probing 26 times per audit run. Commit e8a6dd2.
+
+### Bootstrap script fixes
+
+`scripts/bootstrap-platform.sh` had three issues discovered during manual
+bootstrap of burner 190777959793:
+
+1. Used `yum` instead of `dnf` — AL2023 has yum as a shim but it can
+   silently fail when python3-dnf is missing.
+2. Missing `nspr`, `nss-util`, `libXtst`, `libXScrnSaver` from Playwright
+   system deps (Chromium needs these on AL2023).
+3. Missing `scikit-image` and `requests` from Python packages — both needed
+   by audit pipeline (ssim_helper.py and webarena_login.py respectively).
+4. Added warning comment about NOT overwriting /usr/bin/python3 (breaks dnf).
+
+### Deployment Status
+
+- Burner: 190777959793
+- Platform EC2: i-0690f27dc343bfe90 (10.0.1.51, r6i.4xlarge) — bootstrapped
+- WebArena EC2: i-0e8c81dbadcc37518 (10.0.1.50, r6i.2xlarge) — 5 Docker containers healthy
+- All 4 apps reachable (shopping 200, admin 200, reddit 200, gitlab 302)
+- A.5 audit pipeline verified end-to-end with SSIM
+
+### Files Changed
+
+| Commit | Files | Purpose |
+|--------|-------|---------|
+| e8a6dd2 | `scripts/audit-operator.ts` | Fix python3.11 for SSIM |
+| (pending) | `scripts/bootstrap-platform.sh` | dnf, deps, scikit-image |
