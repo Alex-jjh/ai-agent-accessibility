@@ -1,0 +1,86 @@
+<!doctype html>
+<!--
+  Static fixture for scripts/audit-operator.ts smoke testing.
+  Rich enough to exercise every operator at least once:
+    - L1 landmarks (nav, main, header, footer, article, section, aside)
+    - L2 aria-* / role
+    - L3 label
+    - L4 inline keydown handlers
+    - L5 interactive elements (button, [role=button])
+    - L6 headings h1..h3
+    - L7 img alt / aria-label / title
+    - L8 tabindex
+    - L9 table with thead/tbody/th
+    - L10 <html lang>
+    - L11 <a href>
+    - L12 duplicate ID candidates (many [id])
+    - L13 focusable controls
+    - ML1 empty-text button, ML2 role=button, ML3 input no placeholder
+    - H1-H8 gaps for enhancement
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>AMT Audit Fixture</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 24px; }
+  header, nav, main, footer, article, section, aside { padding: 8px; border: 1px dashed #ccc; margin: 4px 0; }
+  table { border-collapse: collapse; }
+  th, td { border: 1px solid #999; padding: 6px 10px; }
+  .icon-btn { display: inline-block; padding: 4px 8px; background: #eee; cursor: pointer; }
+</style>
+</head>
+<body>
+  <header id="h">
+    <h1>AMT Audit Fixture</h1>
+  </header>
+  <nav id="nav" aria-label="Primary">
+    <a href="/">Home</a>
+    <a href="/catalog">Catalog</a>
+    <a href="/account" aria-current="page">Account</a>
+    <a href="/empty"></a>
+  </nav>
+  <main id="main">
+    <h2>Section A</h2>
+    <article id="art1">
+      <h3>Article One</h3>
+      <p>Body text. <a href="/more">More info</a>.</p>
+      <img src="/img/logo.png" alt="Logo" title="Site logo">
+      <img src="/img/unlabeled-hero.png">
+    </article>
+    <section id="sec1">
+      <h3>Form Section</h3>
+      <form action="/submit" method="post">
+        <label for="email">Email address</label>
+        <input id="email" name="email" type="email" required>
+        <input id="phone" name="phone" type="tel"><!-- no label or placeholder -->
+        <select id="region" required>
+          <option>US</option><option>EU</option>
+        </select>
+        <textarea id="notes" name="notes" placeholder="Notes"></textarea>
+        <button type="submit">Submit</button>
+        <button aria-label="close" class="icon-btn"></button>
+        <div role="button" tabindex="0" onkeydown="alert('k')" onkeyup="noop()">Custom action</div>
+        <div role="button" class="icon-btn" tabindex="0"></div>
+      </form>
+    </section>
+    <aside id="aside1">
+      <h3>Sidebar</h3>
+      <p>Related content.</p>
+    </aside>
+    <section id="sec2">
+      <h2>Table</h2>
+      <table>
+        <thead><tr><th>Order</th><th>Qty</th><th>Price</th></tr></thead>
+        <tbody>
+          <tr><th>#001</th><td>2</td><td>$10</td></tr>
+          <tr><th>#002</th><td>1</td><td>$5</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+  <footer id="footer">
+    <a href="/tos">Terms</a> · <a href="/privacy">Privacy</a>
+  </footer>
+</body>
+</html>
