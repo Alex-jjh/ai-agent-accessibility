@@ -43,6 +43,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO = join(__dirname, '..');
 const APPLY_ALL = join(REPO, 'src/variants/patches/inject/apply-all-individual.js');
 const SSIM_HELPER = join(REPO, 'analysis/ssim_helper.py');
+const LOGIN_HELPER = join(REPO, 'scripts/webarena_login.py');
 
 // Canonical order — keep in sync with build-operators.ts and spec §8.4.
 const OPERATOR_ORDER: readonly string[] = [
@@ -272,6 +273,80 @@ function computeSSIM(beforePath: string, afterPath: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Cookie shape accepted by Playwright's `context.addCookies()`.
+ * Mirrors the JSON emitted by `scripts/webarena_login.py`.
+ */
+interface LoginCookie {
+  name: string;
+  value: string;
+  domain: string;
+  path: string;
+}
+
+/**
+ * Spawn scripts/webarena_login.py to authenticate to a WebArena app
+ * and return the resulting cookies. Returns null on any failure —
+ * caller decides whether to proceed anonymously (for public URLs) or
+ * abort (for URLs known to require auth).
+ *
+ * We prefer python3.11 if present (ssm-bootstrap-platform.json installs
+ * it on EC2; Homebrew installs it on dev Macs). Falls back to python3.
+ * The login helper uses `from __future__ import annotations` so 3.9+
+ * works, but 3.11 is our documented supported floor.
+ */
+function fetchLoginCookies(app: string, baseUrl: string): LoginCookie[] | null {
+  // Resolve the Python interpreter: prefer 3.11, else fall back to python3.
+  const pyCandidates = ['python3.11', 'python3'];
+  let chosenPy: string | null = null;
+  for (const cand of pyCandidates) {
+    const probe = spawnSync(cand, ['--version'], { encoding: 'utf-8' });
+    if (probe.status === 0) { chosenPy = cand; break; }
+  }
+  if (chosenPy === null) {
+    process.stderr.write('[audit] no usable python3 interpreter on PATH\n');
+    return null;
+  }
+
+  const res = spawnSync(
+    chosenPy,
+    [LOGIN_HELPER, '--app', app, '--base-url', baseUrl],
+    { encoding: 'utf-8', timeout: 60_000 },
+  );
+  // Login helper prints diagnostics to stderr; surface a single trailing
+  // line so the audit log includes "captured N cookies" context.
+  const stderrTail = (res.stderr ?? '').trim().split('\n').slice(-3).join(' | ');
+  if (stderrTail) {
+    process.stderr.write(`[audit] login(${app}): ${stderrTail.slice(0, 400)}\n`);
+  }
+  if (res.status !== 0 && res.status !== null) {
+    // exit code 1 = login had 0 cookies (still printed JSON — parse anyway);
+    // exit code 2 = argparse error (don't try to parse); other = fatal.
+    if (res.status !== 1) {
+      process.stderr.write(
+        `[audit] webarena_login.py exited ${res.status}. stdout: ${(res.stdout ?? '').slice(0, 200)}\n`,
+      );
+      return null;
+    }
+  }
+  try {
+    const parsed = JSON.parse(res.stdout || '{}');
+    const cookies = Array.isArray(parsed.cookies) ? parsed.cookies : [];
+    if (!parsed.ok || cookies.length === 0) {
+      process.stderr.write(
+        `[audit] login(${app}): 0 cookies (ok=${parsed.ok})\n`,
+      );
+      return null;
+    }
+    return cookies as LoginCookie[];
+  } catch (e) {
+    process.stderr.write(
+      `[audit] could not parse webarena_login.py stdout: ${String(e).slice(0, 200)}\n`,
+    );
+    return null;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // Delta computation — pure Node-side
 // ─────────────────────────────────────────────────────────────────────
@@ -414,8 +489,12 @@ async function captureOperatorPair(
   label: string, // e.g. "base" or "L3"
   settleMs: number,
   applyAllJs: string,
+  loginCookies: LoginCookie[] | null,
 ): Promise<{ before: PageMetrics; after: PageMetrics | null }> {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
+  if (loginCookies && loginCookies.length > 0) {
+    await context.addCookies(loginCookies);
+  }
   const page = await context.newPage();
   try {
     await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30_000 });
@@ -510,13 +589,23 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const url = args['url'];
   if (!url) {
-    console.error('Usage: audit-operator.ts --url <url> [--operators L1,H2,...] [--output path.json] [--settle-ms 1500]');
+    console.error('Usage: audit-operator.ts --url <url> [--operators L1,H2,...] [--output path.json] [--settle-ms 1500] [--login-app shopping|shopping_admin|reddit|gitlab] [--login-base-url URL]');
     process.exit(2);
   }
   const outputPath = args['output'] || join(REPO, 'results/amt/dom-signatures/audit.json');
   const opsArg = args['operators'];
   const operators = opsArg ? opsArg.split(',').map(s => s.trim()).filter(Boolean) : [...OPERATOR_ORDER];
   const settleMs = parseInt(args['settle-ms'] || '1500', 10);
+  const loginApp = args['login-app'] || '';
+  // If login-base-url isn't specified, derive from the target URL's
+  // scheme://host:port — this is the common case where we're auditing
+  // a single WebArena app.
+  const loginBaseUrl = args['login-base-url'] || (() => {
+    try {
+      const u = new URL(url);
+      return loginApp ? `${u.protocol}//${u.host}` : '';
+    } catch { return ''; }
+  })();
 
   // Validate operator IDs
   const validSet = new Set(OPERATOR_ORDER);
@@ -525,6 +614,24 @@ async function main(): Promise<void> {
       console.error(`[audit] Unknown operator id: ${id}`);
       process.exit(2);
     }
+  }
+
+  // Fetch login cookies if requested — done ONCE before the operator
+  // loop, cookies are reused for all 26 operator contexts. If login
+  // fails, we abort rather than silently audit the login page.
+  let loginCookies: LoginCookie[] | null = null;
+  if (loginApp) {
+    if (!loginBaseUrl) {
+      console.error('[audit] --login-app specified but --login-base-url could not be derived from --url; pass --login-base-url explicitly');
+      process.exit(2);
+    }
+    console.error(`[audit] Authenticating: app=${loginApp} base=${loginBaseUrl}`);
+    loginCookies = fetchLoginCookies(loginApp, loginBaseUrl);
+    if (!loginCookies || loginCookies.length === 0) {
+      console.error('[audit] login failed — aborting. Use no --login-app for anonymous audits.');
+      process.exit(3);
+    }
+    console.error(`[audit] login: ${loginCookies.length} cookies`);
   }
 
   // Load the built artefact — fail fast if stale
@@ -551,7 +658,7 @@ async function main(): Promise<void> {
       const opT0 = Date.now();
       try {
         const { before, after } = await captureOperatorPair(
-          browser, url, opId, screenshotDir, opId, settleMs, applyAllJs,
+          browser, url, opId, screenshotDir, opId, settleMs, applyAllJs, loginCookies,
         );
         if (!after) throw new Error('after metrics missing');
         const changesReturned = (after as any).__changes ?? 0;
@@ -569,7 +676,12 @@ async function main(): Promise<void> {
   const output = {
     schemaVersion: 'amt-dom-signature/v1',
     timestamp: new Date().toISOString(),
-    fixture: { url },
+    fixture: {
+      url,
+      loginApp: loginApp || null,
+      loginBaseUrl: loginApp ? loginBaseUrl : null,
+      authenticated: !!loginCookies,
+    },
     settleMs,
     operators: signatures,
     errors,
