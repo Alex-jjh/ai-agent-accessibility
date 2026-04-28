@@ -230,7 +230,26 @@ All numbers below match the published paper (Table 4):
 | Qwen | magnifier | 60 | 0.0%** | — |
 
 *SU duration has timestamp format inconsistency in some metadata files; paper reports μ=92.3s.
-**Qwen metadata has `success` field anomalies for AT conditions; paper reports 0% for both.
+
+### ⚠️ Qwen Metadata Anomaly (discovered 2026-04-28)
+
+The Qwen `success` field in metadata is **unreliable for SR and Magnifier conditions**:
+
+| Condition | Metadata `success=true` | Paper (human-reviewed) | Discrepancy |
+|---|---|---|---|
+| Default | 12/60 = 20.0% | 20.0% | ✅ match |
+| Screen Reader | **49/60 = 81.7%** | **0.0%** | ❌ 81.7pp gap |
+| Magnifier | **53/60 = 88.3%** | **0.0%** | ❌ 88.3pp gap |
+
+**Root cause**: The metadata `success` field appears to be auto-populated by the recorder, not human-reviewed. Evidence:
+- Many "successful" SR tasks have `events=0, apps=0` (agent did nothing)
+- Many "successful" Magnifier tasks have `events=0, apps=0`
+- Paper §5.1 explicitly states: "we manually evaluated the CUA recordings for error analysis and to determine task success"
+- Default condition matches paper → likely also human-reviewed or auto-detection works for default
+
+**Impact on our analysis**: Always cite Qwen numbers from the **published paper** (Default 20%, SR 0%, Mag 0%), never from metadata computation. Add a footnote in §5.5 if referencing Qwen data.
+
+Analysis script: `scripts/analyze-a11y-cua-qwen.py`
 
 ---
 
@@ -257,17 +276,92 @@ Several A11y-CUA Web & Browsing tasks have **near-exact equivalents** achievable
 
 ---
 
-## 9. Unexplored Data: A11y-CUA Accessibility Trees (Future Work)
+## 9. A11y-CUA Accessibility Trees: Structure Analysis
 
-The Reduced-A11y-CUA dataset includes `*_a11y_tree.json` files for each session — Windows UI Automation (UIA) tree snapshots captured during task execution. These trees are **structurally analogous** to the Chrome CDP accessibility trees that BrowserGym serializes for our agents: both are derived from platform accessibility APIs and represent the same semantic layer (roles, names, states, hierarchy).
+The Reduced-A11y-CUA dataset contains **two types of accessibility trees** per session, which we examined on 2026-04-28:
 
-**Potential analysis** (not in v8 scope, but high-value future work):
-1. Download the full Reduced dataset (~3.89 GB) to get a11y tree files
-2. Compare UIA tree structure under A11y-CUA's SR-CUA condition vs AMT's low variant a11y tree
-3. Quantify structural similarity: do both degradation pathways produce similar tree distortions?
-4. If yes → "same barrier, different projection" has direct structural evidence, not just behavioral
+### 9.1 OS-Level UIA Trees (low value for our purposes)
 
-This would be a strong contribution for a follow-up paper or extended version, connecting the subject-side and environment-side perspectives at the representation level rather than just the outcome level.
+Files: `*_a11y_tree.json` at the task root level (e.g., `2_chrome.exe_1757162469594_a11y_tree.json`)
+
+**Structure**: Windows UI Automation tree dump.
+```json
+{
+  "name": "New Tab - Google Chrome",
+  "control_type": "WindowControl",
+  "automation_id": "",
+  "bounding_rectangle": {"left": 0, "top": 0, "right": 1920, "bottom": 1008},
+  "children": [
+    {"name": "", "control_type": "PaneControl", ...}
+  ]
+}
+```
+
+**Assessment**: These capture Chrome's **OS-level window structure** (WindowControl → PaneControl hierarchy), not web page content. The tree is shallow (3-5 levels) and contains only generic control types (PaneControl, WindowControl). **Not comparable to our BrowserGym a11y tree**, which captures DOM-level semantic roles (heading, link, button, etc.). Low value for cross-study comparison.
+
+### 9.2 Web-Level A11y Trees (HIGH value — the gold mine)
+
+Files: `web_logs/*_a11y_tree.json` (e.g., `web_tab1_1757162474790_a11y_tree.json`)
+
+**Structure**: Chrome extension-captured DOM-based accessibility tree.
+```json
+{
+  "tag": "BODY",
+  "id": "",
+  "class": "",
+  "role": null,
+  "ariaLabel": null,
+  "name": null,
+  "href": null,
+  "text": "Skip to Main Content\nPickup or delivery?...",
+  "children": [
+    {
+      "tag": "A",
+      "class": "slider skip-main bg-white-90",
+      "href": "#maincontent",
+      "text": "Skip to Main Content",
+      "children": []
+    },
+    {
+      "tag": "HEADER",
+      "text": "Pickup or delivery?\nAnn Arbor...",
+      "children": [...]
+    }
+  ]
+}
+```
+
+**Assessment**: This is **directly comparable** to our BrowserGym a11y tree. Both originate from Chrome's accessibility layer, just serialized differently:
+
+| Property | A11y-CUA web tree | BrowserGym a11y tree |
+|---|---|---|
+| Source | Chrome extension (DOM walk) | Chrome CDP `Accessibility.getFullAXTree` |
+| Node fields | tag, id, class, role, ariaLabel, name, href, text | role, name, description, value, focused, etc. |
+| Hierarchy | Full DOM tree with all elements | Filtered AX tree (semantic nodes only) |
+| Size | 0.5–6 MB per page (includes non-semantic nodes) | ~50–200 KB per page (semantic nodes + bid) |
+| Bid labels | None | Yes (BrowserGym-assigned `[bid]` markers) |
+
+**Key difference**: A11y-CUA's web tree preserves the **full DOM** (every `<div>`, `<span>`, etc.), while BrowserGym's tree is a **semantic projection** (only nodes with accessibility roles). This means A11y-CUA's trees are richer but noisier; BrowserGym's trees are what agents actually see.
+
+### 9.3 Potential Cross-Study Tree Analysis (Future Work)
+
+**Feasibility**: HIGH. The web a11y trees from A11y-CUA's Web & Browsing tasks (tasks 1–12) capture real Walmart/Target/YouTube/Expedia pages. We can compute structural metrics on these trees and compare to our WebArena trees:
+
+| Metric | A11y-CUA (real web) | AMT base (WebArena) | AMT low (WebArena) |
+|---|---|---|---|
+| Total nodes | Computable | Computable | Computable |
+| Semantic nodes (with role) | Computable | Computable | Computable (expect ↓) |
+| Interactive elements (a, button, input) | Computable | Computable | Computable (expect ↓) |
+| Heading count (h1–h6) | Computable | Computable | 0 under L6 |
+| Landmark count (nav, main, etc.) | Computable | Computable | 0 under L1 |
+| ARIA attribute density | Computable | Computable | 0 under L2 |
+| Tree depth | Computable | Computable | Computable |
+
+**The killer analysis**: Compare A11y-CUA's real-web tree metrics to AMT's base vs low variant metrics. If real websites' a11y tree structure is closer to AMT's **base** variant than to AMT's **low** variant, it validates that our base variant is ecologically representative. If some real websites' trees are closer to AMT's **low** variant (missing landmarks, missing ARIA), it validates that our low variant models real-world degradation.
+
+**Effort**: ~2 days to download web a11y trees for tasks 1–12 (12 tasks × ~8 users × ~3 tabs = ~288 tree files, ~1 GB) and compute metrics. Not in v8 scope but very high ROI for a camera-ready revision or follow-up.
+
+**Connection to ecological validity audit**: This analysis would complement our existing scan-a11y-audit (30 real-world sites scanned with axe-core) by adding a **tree-level** comparison to the existing **violation-level** comparison. Two independent ecological validity arguments from two different measurement approaches.
 
 ---
 
@@ -280,7 +374,8 @@ For transparency in the paper (§6.4), we should acknowledge:
 3. **Different models**: A11y-CUA uses Claude Sonnet 4.5; AMT uses Claude Sonnet 3.5. Same family but different capability levels.
 4. **Different environments**: Live web (ecological validity, no control) vs Docker containers (controlled, limited ecological validity). The tradeoffs are complementary but not equivalent.
 5. **Qwen floor effect**: Qwen3-VL's 20% baseline limits its value for cross-model comparison. Llama 4's 70.8% baseline is more informative.
-6. **~2× inflation units differ**: Actions and tokens are not directly commensurable. The convergence is suggestive of a universal property but could be coincidental at this sample size.
+6. **Qwen metadata unreliable**: Qwen SR/Magnifier `success` fields in metadata contradict the paper's human-reviewed results (81.7%/88.3% in metadata vs 0%/0% in paper). Always cite paper numbers, not metadata. See §7 for details.
+7. **~2× inflation units differ**: Actions and tokens are not directly commensurable. The convergence is suggestive of a universal property but could be coincidental at this sample size.
 
 ---
 
