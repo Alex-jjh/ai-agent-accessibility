@@ -1860,3 +1860,158 @@ behavior — quantitative divergence analysis."
 | `scripts/smoke-psl-a11y-tree.py` | Chromium ARIA behavior verification |
 | `src/variants/patches/inject/apply-pure-semantic-low.js` | PSL patch implementation |
 
+
+## 2026-04-28: v8 AMT Phase A — Operator Extraction + DOM Audit
+
+### Context
+
+CHI 2027 roadmap was rescoped 2026-04-27 to the "Accessibility Manipulation
+Taxonomy (AMT)" framing (see `.kiro/steering/2026-04-27-chi2027-roadmap-v8.md`).
+Phase A prepares the tooling needed for Mode A's 2,808 cases: individual
+operator injection + 12-dim DOM signature audit.
+
+### Deliverables
+
+1. `docs/amt-operator-spec.md` — normative spec for 26 operators (13 L + 3 ML
+   + 10 H). Paper appendix-ready.
+2. `src/variants/patches/operators/*.js` — 26 human-readable operator source
+   files, each a self-contained IIFE that returns Change[].
+3. `scripts/build-operators.ts` + `npm run build:operators` — deterministic
+   concatenator producing `src/variants/patches/inject/apply-all-individual.js`.
+4. `src/variants/patches/operators/operators.test.ts` — 57 tests across 4
+   categories (contract / composite parity / idempotence / non-commutativity).
+5. `scripts/audit-operator.ts` + `analysis/ssim_helper.py` — 12-dim DOM
+   signature auditor.
+6. `results/amt/dom-signatures/fixture-full.json` — 26-operator smoke output
+   on a static fixture (105s, 0 failures).
+
+### Architectural decisions
+
+- **Single build artefact, many source files** (γ-折中). Operator authors
+  edit `operators/L3.js`; the runtime (Plan D HTML injection) reads a single
+  concatenated `apply-all-individual.js`. Single runtime evaluate() per
+  injection even when composing multiple operators — Plan D re-injection
+  pipeline unchanged.
+- **Canonical order H → ML → L** (spec §8.4). "High enhances, then Low
+  degrades" models the real-world regression pattern. Order fixed in the
+  build artefact; caller's `__OPERATOR_IDS` order is ignored.
+- **Build wrapper injects `operatorId`**. Operator bodies copy-paste
+  verbatim from legacy composite files; they don't know their own ID. The
+  `if (should('L3')) { ... }` wrapper post-processes returned changes and
+  tags each with `operatorId='L3'`. Keeps source files maximally simple.
+- **Legacy files untouched**. `apply-low.js`, `apply-medium-low.js`,
+  `apply-high.js`, `apply-pure-semantic-low.js`, `apply-low-individual.js`
+  keep running existing N=1,040 pipelines. New individual-mode data is
+  tagged `batch="individual-v1"` per spec §10; existing data is
+  `batch="composite-v1"`. Composite parity test guarantees they're
+  mergeable.
+
+### Composite parity (load-bearing invariant)
+
+Validated across fresh JSDOM fixture:
+- `apply-low.js` ≡ __OPERATOR_IDS=[L1..L13]: both produce 29 changes, same
+  per-type counts
+- `apply-medium-low.js` ≡ __OPERATOR_IDS=[ML1..ML3]: identical
+- `apply-high.js` ≡ __OPERATOR_IDS=[H1..H8,H5a,H5b,H5c]: identical
+
+This is the single most important invariant in A.4 — it guarantees that
+future individual-mode data can be pooled with existing N=1,040 composite
+data for the paper.
+
+### Bugs found + fixed
+
+#### BUG-V8-1: L12 duplicate-ID operator not idempotent (P1)
+
+- **File**: `src/variants/patches/operators/L12.js`
+- **Symptom**: running L12 twice on same DOM produces fresh duplications
+  on the second run (different adjacent pairs), violating spec §2.4
+- **Impact**: Plan D's MutationObserver re-invokes the variant script
+  when the DOM looks "unpatched"; without idempotence, L12 would accumulate
+  duplicate-ID victims indefinitely
+- **Fix**: L12 appends a hidden `<meta data-variant-L12-sentinel>` child
+  to `<body>` after first run; subsequent runs short-circuit if the
+  sentinel is present. Sentinel lives under body (not documentElement) so
+  that test fixtures' `body.innerHTML = '...'` resets clear it cleanly.
+- **Parity impact**: none — legacy L12 block and new L12 both produce 2
+  changes on a fresh DOM in our fixture; the sentinel is a hidden `<meta>`
+  that doesn't appear in the a11y tree.
+
+#### BUG-V8-2: Playwright 1.59 removed `page.accessibility.snapshot()` (P0 for A.5)
+
+- **File**: `scripts/audit-operator.ts` (original draft)
+- **Symptom**: `await page.accessibility.snapshot({interestingOnly:false})`
+  threw "Cannot read properties of undefined (reading 'snapshot')"; A1/A2
+  dimensions silently returned empty arrays, yielding all-zero role/name
+  deltas even for operators that obviously changed the a11y tree
+- **Root cause**: Playwright deprecated the `page.accessibility` namespace
+  at 1.48; 1.59 (current) removes it entirely. Release notes flagged it;
+  we missed it during A.5 implementation
+- **Fix**: switched to CDP directly —
+  `cdp = await page.context().newCDPSession(page); cdp.send('Accessibility.enable'); cdp.send('Accessibility.getFullAXTree')`.
+  Works on Chromium; would need adapting for Firefox (not currently needed).
+- **Secondary fix**: switched A1/A2 deltas from index-pair diff to
+  multiset symmetric difference (index-pair misses node removals because
+  everything shifts up one index).
+
+#### BUG-V8-3: Windows→Mac transfer CRLF + node_modules platform mismatch (housekeeping)
+
+- **Symptom**: 278 files showed as "modified" with `git diff --ignore-cr-at-eol`
+  returning empty; vitest crashed with "Cannot find module @rollup/rollup-darwin-arm64"
+- **Root cause**: repo copied from Windows machine; Windows stored CRLF
+  and node_modules had Windows-native binaries
+- **Fix**:
+  - `git restore .` (no content lost — CRLF only)
+  - `.gitattributes` with `* text=auto eol=lf` to prevent recurrence
+  - `.gitignore` extended for root-level `data.tar`/`terraform-apply.log`
+  - `rm -rf node_modules package-lock.json && npm install` (254 MB reinstall)
+  - `npm install --save-dev jsdom` for operator test environment
+  - `chmod +x node_modules/.bin/*` after reinstall (executable bit lost)
+
+### A.5 smoke findings (paper §5.2 material)
+
+First pass on the static fixture — the 12-dim signature already reveals two
+publishable misalignment cases vs roadmap's prior-layer hypotheses:
+
+| Operator | Prior (roadmap §2.1) | Observed signature | Misalignment |
+|----------|----------------------|--------------------|--------------|
+| L11 a→span | "semantic only" | A1=14 **+ F1=-7, F2=+7, F3=-7** | Adds functional breakage (href removed → -7 focusables) — agrees with CUA data from Pilot 4 showing reddit:29 link→span 0/5 success |
+| H4 add landmark role | "semantic positive" | **0 in all 12 dims** | No-op: Chromium already auto-assigns `role=navigation` to `<nav>` etc. Adding explicit role doesn't change the a11y tree. |
+
+These two findings alone justify the AMT "signature alignment" analysis in
+§5.3 of the paper.
+
+### Test count
+
+392/392 repo tests passing (was 391 before; added 57 new operator tests,
+fixed one pre-existing off-by-one in `src/variants/types.test.ts` where
+VARIANT_LEVELS length expectation was stale after pure-semantic-low was
+added).
+
+### Files added
+
+| Path | Purpose |
+|------|---------|
+| `docs/amt-operator-spec.md` | Normative spec for 26 operators (paper appendix) |
+| `src/variants/patches/operators/README.md` | Contributor guide |
+| `src/variants/patches/operators/{H1-H8,H5a-c,ML1-3,L1-13}.js` | 26 operator sources |
+| `src/variants/patches/operators/operators.test.ts` | 57-test severity suite |
+| `src/variants/patches/inject/apply-all-individual.js` | Build artefact (DO NOT EDIT) |
+| `scripts/build-operators.ts` | Build script |
+| `scripts/audit-operator.ts` | 12-dim DOM audit CLI |
+| `scripts/amt-audit-fixture.html` | Static fixture for local A.5 smoke |
+| `analysis/ssim_helper.py` | scikit-image SSIM subprocess |
+| `.gitattributes` | CRLF→LF normalization |
+
+### Outstanding (non-blocking for Mode A)
+
+- A.5 on a live WebArena URL (WebArena Docker booting on new burner account)
+- A.5 batch wrapper for 13 URLs × 3 reps (roadmap §2.4 noise reduction)
+- A.1 `replay-url-screenshots.py` admin login fix (only needed for
+  visual-equivalence Phase B/C, not for Mode A)
+
+### Next session gates
+
+1. WebArena Docker responds → live audit smoke (~2 min)
+2. Batch wrapper lands → `results/amt/dom_signatures.json` with mean±stddev
+3. **Then** B.1 Mode A full run (24 operators × 13 tasks × 3 agents × 3 reps
+   = 2,808 cases, 8 days wall, ~$850 LLM)

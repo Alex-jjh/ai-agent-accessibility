@@ -255,6 +255,112 @@ Timeline:
   Aug: Complete draft
   Sep: LaTeX formatting + CHI 2027 submission
 
+## v8 AMT Refactor — Phase A progress (2026-04-28)
+
+Following the 2026-04-27 roadmap rescope to the "Accessibility Manipulation
+Taxonomy (AMT)" framing. Phase A is the foundation for Mode A's 2,808 cases
+and the signature-alignment paper core contribution.
+
+### A.4 — 26 operators extracted (COMPLETE)
+
+See `docs/amt-operator-spec.md` for the normative spec. Design:
+- 26 operator source files in `src/variants/patches/operators/` (13 L + 3 ML + 10 H)
+- Build artefact `src/variants/patches/inject/apply-all-individual.js` generated
+  by `npm run build:operators` (= `scripts/build-operators.ts`)
+- Runtime protocol: set `window.__OPERATOR_IDS = ["L3","H2"]` before
+  `page.evaluate(applyAllIndividualJs)` to select any subset; wrapper auto-injects
+  `operatorId` into every Change record; canonical application order is
+  H → ML → L (source §8.4)
+- Legacy files (`apply-low.js`, `apply-medium-low.js`, `apply-high.js`,
+  `apply-pure-semantic-low.js`, `apply-low-individual.js`) UNTOUCHED — existing
+  N=1,040 experiments and visual-equivalence replay keep running against them
+
+Severity-verified by 57 automated tests:
+- §9.1 contract — each file parses, is a single IIFE, returns Change[]
+- §9.2 **composite parity** (LOAD-BEARING) — `apply-low.js` ≡ __OPERATOR_IDS=
+  [L1..L13] by change count/type; same for ML and H. Validates the new
+  individual-mode data can be merged with existing composite-mode N=1,040.
+- §9.3 idempotence — every operator produces stable DOM on second run
+  (Plan D re-injection safety). Fixed a latent non-idempotence in L12 by
+  adding a `<meta data-variant-L12-sentinel>` body child as a guard.
+- §9.4 non-commutativity — at least one commuting pair (L2↔L10) and one
+  non-commuting pair (H5c↔L11) detected, confirming the composition study
+  is measuring real order effects
+
+All 392 repo tests pass. `tsc --noEmit` clean.
+
+### A.5 — 12-dim DOM signature audit (COMPLETE)
+
+See `scripts/audit-operator.ts` + `analysis/ssim_helper.py`. For each operator,
+opens a fresh Playwright context, captures BEFORE metrics, injects the
+operator, captures AFTER metrics, computes 12-dim delta:
+
+- DOM (D1-D3): tag-count delta, attribute added/removed, node count delta
+- A11y (A1-A3): role changes, accessible-name changes, ARIA state changes
+  — A1/A2 use **multiset symmetric difference** not index-pair diff (index
+  method misses node removals because everything shifts up)
+- Visual (V1-V3): SSIM (Python scikit-image subprocess), max bbox shift px,
+  mean contrast delta over sampled interactive elements
+- Functional (F1-F3): interactive count delta, inline-handler delta,
+  focusable (tabIndex ≥ 0) delta
+
+Implementation tripwire fixed: Playwright 1.59 REMOVED
+`page.accessibility.snapshot()` API (it was deprecated in 1.48). A.5 uses CDP
+`Accessibility.getFullAXTree` directly via `newCDPSession(page)`.
+
+Smoke validation (26 operators × static fixture, 105s wall-clock):
+| Op  | A1 roles | V1 SSIM | F1 interactives | prior vs observed |
+|-----|----------|---------|-----------------|-------------------|
+| L1  | 12       | 0.82    | 0               | ✓ sem+vis (matches) |
+| L11 | 14       | 0.999   | -7              | **misalignment** — prior said "semantic only", data shows sem+FUN (href deleted, -7 focusables) |
+| H4  | 0        | 1.0     | 0               | **misalignment** — prior said "semantic positive"; actual no-op because Chromium auto-assigns role=navigation to `<nav>` already |
+
+These two misalignments are paper §5.2 material directly.
+
+### A.1 / A.3 — visual-equivalence admin rerun (NOT STARTED)
+
+Not blocking Mode A. Defer until Mode A wrapper is ready; Mode A does not use
+`replay-url-screenshots.py`. Root cause already diagnosed in
+`docs/analysis/visual-equivalence-decision-memo.md` §Addendum:
+Magento admin session TTL < Phase B duration, session-lost detection uses URL
+pattern (won't catch Magento's URL-stable login render). Fix is 1-hour effort
+when we return to Phase B.
+
+### Deployment — new burner 190777959793 (PARTIAL)
+
+- `ada credentials update` + `terraform apply` succeeded
+- Platform + WebArena EC2 both spinning up; first `RunInstances` rejected with
+  `PendingVerification` (AWS new-account check, clears in ~20 min); retry
+  succeeded
+- Both instance IDs in `infra/terraform.tfstate`; WebArena Docker bootstrap runs
+  via cloud-init — needs ~10-15 min before shopping/admin/reddit/gitlab respond
+- TODO when bootstrap completes: `bash scripts/bootstrap-platform.sh` on
+  Platform EC2, run smoke test against a real WebArena URL through
+  `scripts/audit-operator.ts` (expect SSIMs similar to static fixture but with
+  real CSS in play)
+
+### Repo hygiene
+
+- Worked around Windows→Mac transfer: dropped CRLF working-tree diff on 278
+  tracked files via `git restore .` (no real content changes)
+- Added `.gitattributes` (`* text=auto eol=lf`) to prevent recurrence
+- `.gitignore` extended to ignore root-level data archives (`data.tar`,
+  `data.tar.gz`, `scan-a11y-audit/results.tar`, `terraform-apply.log`)
+- Reinstalled `node_modules` for darwin-arm64 (old install was Windows-native);
+  added `jsdom` as devDep (needed by the operator test suite under
+  `@vitest-environment jsdom`)
+
+### Next up (blocks Mode A)
+
+1. Smoke A.5 audit on a live WebArena URL once bootstrap finishes (not on the
+   fixture, to catch DOM quirks specific to Magento/KnockoutJS/GitLab/Postmill)
+2. **A.5 batch wrapper**: roadmap §2.4 asks for per-operator signatures averaged
+   across 13 task URLs × 3 page-load reps = 78 audit runs per operator = ~2,028
+   total. Build `scripts/audit-operator-batch.ts` that loops over URLs + reps
+   and produces `results/amt/dom_signatures.json` with mean + stddev per dim
+3. Only after (2) → start B.1 (Mode A full run: 24 operators × 13 tasks × 3
+   agents × 3 reps = 2,808 cases). This is the big cost (~$850, 8 days wall)
+
 ## Task Expansion Workflow
 
 When adding new tasks to the experiment, follow this incremental validation process:
