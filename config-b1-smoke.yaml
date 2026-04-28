@@ -1,0 +1,69 @@
+# B.1 Mode A Smoke Test — individual-mode operator injection
+#
+# Minimal matrix to verify the individual-mode pipeline end-to-end:
+#   2 operators (L1, L11) × 2 tasks (23, 29) × 2 agents (text-only, cua) × 1 rep = 8 cases
+#
+# Validates:
+#   1. Bridge receives operatorIds and injects correctly
+#   2. Agent sees operator effects in a11y tree (text-only) / screenshot (CUA)
+#   3. data-amt-applied sentinel works (no infinite re-injection)
+#   4. Case JSON has variant="individual" + operatorIds
+#   5. Reward is reasonable (L11 on task 23 should fail, L1 on task 29 may pass)
+#
+# Run on EC2:
+#   nohup npx tsx scripts/run-pilot3.ts --config config-b1-smoke.yaml > b1-smoke.log 2>&1 &
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.50:7770"
+    reddit:
+      url: "http://10.0.1.50:9999"
+
+  tasksPerApp:
+    ecommerce: ["23"]
+    reddit: ["29"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  # No composite variants — individual-mode only for this smoke test
+  levels: []
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+  individualVariants:
+    - ["L1"]
+    - ["L11"]
+
+runner:
+  repetitions: 1
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    - observationMode: "cua"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/b1-smoke"
+  exportFormats: ["json", "csv"]
