@@ -382,9 +382,12 @@ f5b4452  test(variants): update VARIANT_LEVELS count for pure-semantic-low
 
 ### Next up (Mode A ready)
 
-1. **A.5 batch wrapper**: 13 task URLs × 3 reps × 26 operators = 1,014
-   audit runs → `results/amt/dom_signatures.json`
+1. ~~**A.5 batch wrapper**~~: ✅ Running on EC2 — 13 task URLs × 3 reps
+   × 26 operators = 1,014 audit runs → `results/amt/dom_signatures.json`
 2. **B.1 Mode A full run**: 2,808 cases × Claude × ~8 days × ~$850
+   All blockers cleared. operatorIds wired end-to-end through
+   executor → bridge. Config supports `individualVariants` in YAML.
+   411/411 TS tests (9 new individual-mode scheduler tests).
 
 
 - Added `.gitattributes` (`* text=auto eol=lf`) to prevent recurrence

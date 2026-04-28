@@ -2209,3 +2209,51 @@ bootstrap of burner 190777959793:
 |--------|-------|---------|
 | e8a6dd2 | `scripts/audit-operator.ts` | Fix python3.11 for SSIM |
 | (pending) | `scripts/bootstrap-platform.sh` | dnf, deps, scikit-image |
+
+### Reviewer Audit Round 2 — All Issues Resolved
+
+Ran 3 parallel review sub-agents against the C1/H5/batch commits.
+Found 4 CRITICAL + 4 HIGH + 4 MEDIUM issues. All 12 resolved:
+
+| ID | Severity | Issue | Fix |
+|----|----------|-------|-----|
+| C-1 | CRITICAL | batch task URLs 23/24/26 wrong product pages | Verified against test.raw.json, corrected |
+| C-2 | CRITICAL | operatorIds not wired executor→bridge | Added to ExecuteTaskOptions + BridgeTaskConfig |
+| C-3 | CRITICAL | no config path for individualVariants | Added to ExperimentConfig.variants |
+| H-1 | HIGH | 0-change operator infinite MutationObserver loop | Removed allChanges.length>0 guard on sentinel |
+| H-2 | HIGH | runTrackA uses legacy applyVariant for individual | Detects operatorIds, calls applyVariantSpec |
+| H-3 | HIGH | 6-part non-individual case ID silently accepted | Now throws with descriptive error |
+| H-4 | HIGH | D1/A3 dropped from batch aggregation (10-dim not 12) | Added D1_totalTagChanges + A3_totalAriaStateChanges |
+| M-1 | MEDIUM | _sentinel_js defined in step-loop if block | Hoisted to deferred-script construction scope |
+| M-2 | MEDIUM | population stddev instead of sample | Changed to n-1 divisor |
+| M-3 | MEDIUM | no validation on ID separator chars | Added validation for ':', '+', alphanumeric |
+| M-4 | MEDIUM | zero individual-mode test coverage | Added 9 tests (27 total scheduler tests) |
+
+### A.5 Batch Launched
+
+Full batch running on EC2 (PID 363798):
+- 13 task URLs × 26 operators × 3 reps = 39 audit runs (1,014 individual audits)
+- Output: `results/amt/dom_signatures.json`
+- Estimated runtime: ~2 hours
+- First run completed successfully (26 operators, 0 errors)
+
+### Test State (EOD)
+
+- TS: 411/411 across 25 files (was 402, +9 individual-mode scheduler tests)
+- Python: 13/13 assertions
+- `tsc --noEmit`: clean
+
+### Commits (2026-04-28 PM session 2)
+
+| Commit | Purpose |
+|--------|---------|
+| e8a6dd2 | fix(audit): prefer python3.11 for SSIM helper |
+| fe83955 | fix(bootstrap): use dnf, add scikit-image and system deps |
+| 7987fe8 | fix(variants): C1 Plan D sentinel coverage for all 26 operators |
+| 23bc05c | feat(runner): H5 scheduler support for individual-mode operators |
+| 483e21c | docs: A.5 live smoke results + bootstrap fixes in eng log |
+| 6d8417c | docs: update roadmap and steering — C1+H5 resolved |
+| dfec666 | feat(audit): A.5 batch wrapper for 13 tasks × 26 operators × N reps |
+| 7e6f94c | fix(audit+variants): reviewer audit fixes — URLs, sentinel, scoping |
+| f1b2cdd | feat(runner): wire operatorIds end-to-end for Mode A |
+| 16072ea | fix(audit+scheduler): remaining reviewer items M-2/3/4 + H-4 |
