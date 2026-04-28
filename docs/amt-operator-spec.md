@@ -196,6 +196,34 @@ deterministic — a clean source tree produces a byte-identical artefact.
   scoped (caught by the `{ ... }` block wrapper — we verify no symbols
   leak via a static-analysis assertion).
 
+### 5.4 Audit artefacts (Task A.5)
+
+The DOM-signature audit tool `scripts/audit-operator.ts` consumes the
+build artefact and produces a per-run output directory under
+`data/amt-audit-runs/<run-id>/` containing:
+
+- `audit.json` — per-operator 12-dim signatures (D1-D3, A1-A3, V1-V3,
+  F1-F3) plus `runId`, `fixture` metadata, and for each operator a
+  `screenshots: { before, after }` block with **paths relative to the
+  run-dir**.
+- `run.log` — stderr stream mirroring what the operator sees on
+  console during the run. Captures login diagnostics, per-operator
+  timing, and any warnings.
+- `screenshots/<opId>_{before,after}.png` — the actual 1280×720
+  PNGs used to compute V1 (SSIM), V2 (bbox), V3 (contrast).
+
+S3 upload / local download pipeline: see `docs/amt-audit-artifacts.md`
+for the full spec. Key points:
+
+- S3 prefix is `s3://<bucket>/audits/` (parallel to but separate from
+  `experiments/`, so audit and experiment listings don't cross-contaminate)
+- `bash scripts/audit-upload.sh <run-id>` (on EC2)
+- `bash scripts/audit-download.sh <run-id>` (on local)
+
+The older single-file mode (`--output file.json`) still works for the
+pre-existing smoke callers but emits a warning and does NOT persist
+screenshots or run.log. New code should use the run-dir default.
+
 ---
 
 ## 6. Versioning & deprecation
