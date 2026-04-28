@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "build:operators": "tsx scripts/build-operators.ts",
+    "build:operators": "tsx scripts/amt/build-operators.ts",
     "test": "vitest --run",
     "test:watch": "vitest",
     "lint": "tsc --noEmit"
