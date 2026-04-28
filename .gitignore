@@ -31,3 +31,13 @@ terraform-apply.log
 *.tfstate.backup
 .terraform/
 .terraform.lock.hcl
+
+# Editor / IDE (local config, not shared)
+.vscode/
+
+# Terraform account-rotation backups (previous burner's state, kept locally for forensic value)
+infra/.terraform.*.bak/
+infra/terraform.tfstate.*.bak
+
+# AMT audit outputs (regenerable from source; can include absolute paths in file:// URLs)
+results/amt/
