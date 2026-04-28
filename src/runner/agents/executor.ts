@@ -520,8 +520,11 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
 
       return {
         taskId, variant, agentConfig, attempt,
-        success: lastReward > 0 || mappedOutcome === 'success',
-        outcome: lastReward > 0 ? 'success' : mappedOutcome,
+        // BrowserGym reward is ground truth. CUA agent may self-report
+        // "success" via task_complete but get reward=0 (wrong answer).
+        // Reward takes precedence over agent self-report.
+        success: lastReward > 0,
+        outcome: lastReward > 0 ? 'success' : (mappedOutcome === 'timeout' ? 'timeout' : 'failure'),
         steps,
         totalSteps: steps.length,
         totalTokens,
