@@ -148,6 +148,8 @@ export function parseTestCaseId(
   // Individual-mode: 6th part is operator IDs joined by '+'
   if (parts.length === 6 && variant === 'individual') {
     params.operatorIds = parts[5].split('+');
+  } else if (parts.length === 6 && variant !== 'individual') {
+    throw new Error(`6-part case ID has variant "${variant}" instead of "individual": ${caseId}`);
   }
 
   return params;

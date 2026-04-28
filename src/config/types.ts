@@ -14,6 +14,10 @@ export interface ExperimentConfig {
   variants: {
     levels: VariantLevel[];
     scoreRanges: Record<VariantLevel, { min: number; max: number }>;
+    /** AMT individual-mode operator sets. Each entry is an operator ID list
+     *  (e.g. ["L3"] for single-op, ["L3","H2"] for compositional study).
+     *  Omit for composite-only runs. */
+    individualVariants?: string[][];
   };
   runner: {
     agentConfigs: AgentConfig[];

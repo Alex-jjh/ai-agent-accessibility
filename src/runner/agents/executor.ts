@@ -35,6 +35,8 @@ export interface ExecuteTaskOptions {
   variant: VariantLevel;
   agentConfig: AgentConfig;
   attempt: number;
+  /** AMT individual-mode only: operator IDs for this case. */
+  operatorIds?: string[];
   /** Path to the BrowserGym bridge Python script */
   bridgeScriptPath?: string;
   /** Override for testing: inject a custom LLM caller */
@@ -61,6 +63,8 @@ export interface BridgeTaskConfig {
   observationMode?: string;
   /** Override bridge read timeout in ms (default 120s). CUA mode needs longer. */
   bridgeReadTimeoutMs?: number;
+  /** AMT individual-mode only: operator IDs to inject. */
+  operatorIds?: string[];
 }
 
 /** Abstraction over the bridge subprocess for testability */
@@ -428,6 +432,7 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
     variant,
     agentConfig,
     attempt,
+    operatorIds,
     bridgeScriptPath = 'src/runner/browsergym_bridge.py',
     llmCaller = callLlm,
     bridgeSpawner = defaultBridgeSpawner,
@@ -445,6 +450,8 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
     observationMode: agentConfig.observationMode,
     // CUA mode: bridge runs its own agent loop (5-10 min), needs longer read timeout
     bridgeReadTimeoutMs: agentConfig.observationMode === 'cua' ? wallClockTimeoutMs + 30_000 : undefined,
+    // AMT individual-mode: pass operator IDs to bridge
+    operatorIds,
   });
 
   let bridgeLog = ''; // ISSUE-BR-7: will be populated from bridge stderr

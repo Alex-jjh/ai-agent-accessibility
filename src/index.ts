@@ -23,7 +23,7 @@ import { scanTier1, scanTier2, waitForA11yTreeStable, computeCompositeScore } fr
 import type { ScanResult, CompositeScoreOptions, Tier1ScanOptions } from './scanner/types.js';
 
 // Variants
-import { applyVariant } from './variants/index.js';
+import { applyVariant, applyVariantSpec } from './variants/index.js';
 import type { VariantLevel } from './variants/types.js';
 
 // Runner
@@ -189,6 +189,7 @@ export async function runTrackA(options: TrackAOptions): Promise<TrackAResult> {
     {
       apps: Object.keys(config.webarena.apps),
       variants: config.variants.levels,
+      individualVariants: config.variants.individualVariants,
       tasksPerApp: buildTasksPerApp(config),
       agentConfigs: config.runner.agentConfigs,
       repetitions: config.runner.repetitions,
@@ -213,8 +214,10 @@ export async function runTrackA(options: TrackAOptions): Promise<TrackAResult> {
 
           // Apply variant
           const variantLevel = params.variant as VariantLevel;
-          const variantDiff = await applyVariant(page, variantLevel, params.app);
-          log(`[Pipeline] Variant ${variantLevel} applied: ${variantDiff.changes.length} changes, DOM hash ${variantDiff.domHashBefore === variantDiff.domHashAfter ? 'unchanged' : 'changed'}`);
+          const variantDiff = params.operatorIds
+            ? await applyVariantSpec(page, { kind: 'individual', operatorIds: params.operatorIds }, params.app)
+            : await applyVariant(page, variantLevel, params.app);
+          log(`[Pipeline] Variant ${params.operatorIds ? `individual(${params.operatorIds.join('+')})` : variantLevel} applied: ${variantDiff.changes.length} changes, DOM hash ${variantDiff.domHashBefore === variantDiff.domHashAfter ? 'unchanged' : 'changed'}`);
 
           // Scan the page
           const scanResults = await fullScan(page, cdpSession, appUrl, config, options.lighthouseCdpPort);
@@ -227,6 +230,7 @@ export async function runTrackA(options: TrackAOptions): Promise<TrackAResult> {
             targetUrl: appUrl,
             variant: variantLevel,
             attempt: params.attempt,
+            operatorIds: params.operatorIds,
           });
 
           // Determine task outcome — use the full outcome from the trace,
