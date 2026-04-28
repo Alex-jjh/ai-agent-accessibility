@@ -41,3 +41,6 @@ infra/terraform.tfstate.*.bak
 
 # AMT audit outputs (regenerable from source; can include absolute paths in file:// URLs)
 results/amt/
+
+# macOS Finder metadata
+.DS_Store
