@@ -80,6 +80,30 @@ interface PersistedRunState {
 export function generateTestCases(matrix: ExperimentMatrix): string[] {
   const cases: string[] = [];
 
+  // Validate that app names and task IDs don't contain separator chars
+  for (const app of matrix.apps) {
+    if (app.includes(':')) throw new Error(`App name "${app}" contains ':' which conflicts with case ID separator`);
+  }
+  for (const [, tasks] of Object.entries(matrix.tasksPerApp)) {
+    for (const tid of tasks) {
+      if (tid.includes(':')) throw new Error(`Task ID "${tid}" contains ':' which conflicts with case ID separator`);
+    }
+  }
+  // Validate that "individual" is not used as a composite variant name
+  for (const v of matrix.variants) {
+    if (v === ('individual' as string)) throw new Error('"individual" cannot be used as a composite variant name');
+  }
+  // Validate operator IDs in individualVariants
+  if (matrix.individualVariants) {
+    for (const opIds of matrix.individualVariants) {
+      for (const id of opIds) {
+        if (!/^[A-Za-z0-9]+$/.test(id)) {
+          throw new Error(`Operator ID "${id}" contains invalid characters (must be alphanumeric)`);
+        }
+      }
+    }
+  }
+
   // Composite variants (legacy)
   for (const app of matrix.apps) {
     const tasks = matrix.tasksPerApp[app] ?? [];

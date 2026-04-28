@@ -97,7 +97,8 @@ function aggregate(values: number[]): AggregatedDim {
   const n = values.length;
   if (n === 0) return { mean: 0, stddev: 0, n: 0, values: [] };
   const mean = values.reduce((a, b) => a + b, 0) / n;
-  const variance = values.reduce((a, v) => a + (v - mean) ** 2, 0) / n;
+  // Sample stddev (n-1) for paper reporting; falls back to population (n) when n=1.
+  const variance = values.reduce((a, v) => a + (v - mean) ** 2, 0) / (n > 1 ? n - 1 : n);
   return { mean: Number(mean.toFixed(4)), stddev: Number(Math.sqrt(variance).toFixed(4)), n, values };
 }
 
@@ -105,19 +106,29 @@ function aggregateSignatures(
   sigs: OperatorSignature[],
 ): Record<string, AggregatedDim> {
   const dims: Record<string, number[]> = {
+    // D1 is a Record<string, number> — flatten to total absolute tag count changes
+    D1_totalTagChanges: [],
     D2_added: [], D2_removed: [], D3_nodeCountDelta: [],
     A1_rolesChanged: [], A2_namesChanged: [],
+    // A3 is a Record<string, number> — flatten to total absolute ARIA state changes
+    A3_totalAriaStateChanges: [],
     V1_ssim: [], V2_maxBBoxShift_px: [], V3_meanContrastDelta: [],
     F1_interactiveCountDelta: [], F2_inlineHandlerDelta: [], F3_focusableCountDelta: [],
     changesReturned: [],
   };
 
   for (const sig of sigs) {
+    // D1: sum of absolute tag count deltas across all tags
+    const d1Sum = Object.values(sig.D1_tagCountDeltas).reduce((a, v) => a + Math.abs(v), 0);
+    dims.D1_totalTagChanges.push(d1Sum);
     dims.D2_added.push(sig.D2_attrChanges.added);
     dims.D2_removed.push(sig.D2_attrChanges.removed);
     dims.D3_nodeCountDelta.push(sig.D3_nodeCountDelta);
     dims.A1_rolesChanged.push(sig.A1_rolesChanged);
     dims.A2_namesChanged.push(sig.A2_namesChanged);
+    // A3: sum of absolute ARIA state changes across all state attributes
+    const a3Sum = Object.values(sig.A3_ariaStateChanges).reduce((a, v) => a + Math.abs(v), 0);
+    dims.A3_totalAriaStateChanges.push(a3Sum);
     if (sig.V1_ssim !== null) dims.V1_ssim.push(sig.V1_ssim);
     dims.V2_maxBBoxShift_px.push(sig.V2_maxBBoxShift_px);
     dims.V3_meanContrastDelta.push(sig.V3_meanContrastDelta);

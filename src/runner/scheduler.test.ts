@@ -185,6 +185,90 @@ describe('parseTestCaseId', () => {
   it('throws on invalid config index', () => {
     expect(() => parseTestCaseId('reddit:low:t1:99:1', smallMatrix)).toThrow(/Invalid config index/);
   });
+
+  it('throws on malformed 6-part non-individual ID', () => {
+    expect(() => parseTestCaseId('reddit:low:t1:0:1:garbage', smallMatrix)).toThrow(/6-part case ID has variant "low" instead of "individual"/);
+  });
+});
+
+describe('individual-mode variants', () => {
+  const individualMatrix: ExperimentMatrix = {
+    ...smallMatrix,
+    individualVariants: [['L3'], ['L3', 'H2']],
+  };
+
+  it('generates individual-mode cases with 6-part IDs', () => {
+    const cases = generateTestCases(individualMatrix);
+    // Composite: 2 apps × 2 variants × 1 task × 1 config × 2 reps = 8
+    // Individual: 2 apps × 2 opSets × 1 task × 1 config × 2 reps = 8
+    expect(cases.length).toBe(16);
+    const individualCases = cases.filter(c => c.includes(':individual:'));
+    expect(individualCases.length).toBe(8);
+    for (const c of individualCases) {
+      const parts = c.split(':');
+      expect(parts.length).toBe(6);
+      expect(parts[1]).toBe('individual');
+      expect(parts[5]).toMatch(/^[A-Za-z0-9+]+$/);
+    }
+  });
+
+  it('round-trips individual-mode case IDs through parseTestCaseId', () => {
+    const cases = generateTestCases(individualMatrix);
+    const individualCases = cases.filter(c => c.includes(':individual:'));
+    for (const caseId of individualCases) {
+      const params = parseTestCaseId(caseId, individualMatrix);
+      expect(params.variant).toBe('individual');
+      expect(params.operatorIds).toBeDefined();
+      expect(params.operatorIds!.length).toBeGreaterThan(0);
+      expect(params.operatorIds!.every(id => /^[A-Za-z0-9]+$/.test(id))).toBe(true);
+    }
+  });
+
+  it('preserves operator ID order in round-trip', () => {
+    const cases = generateTestCases(individualMatrix);
+    const multiOpCase = cases.find(c => c.includes('L3+H2'));
+    expect(multiOpCase).toBeDefined();
+    const params = parseTestCaseId(multiOpCase!, individualMatrix);
+    expect(params.operatorIds).toEqual(['L3', 'H2']);
+  });
+
+  it('composite cases have no operatorIds', () => {
+    const cases = generateTestCases(individualMatrix);
+    const compositeCases = cases.filter(c => !c.includes(':individual:'));
+    for (const caseId of compositeCases) {
+      const params = parseTestCaseId(caseId, individualMatrix);
+      expect(params.operatorIds).toBeUndefined();
+    }
+  });
+
+  it('empty individualVariants produces zero individual cases', () => {
+    const matrix: ExperimentMatrix = { ...smallMatrix, individualVariants: [] };
+    const cases = generateTestCases(matrix);
+    expect(cases.length).toBe(8); // only composite
+    expect(cases.every(c => !c.includes(':individual:'))).toBe(true);
+  });
+
+  it('throws on operator ID with invalid characters', () => {
+    const matrix: ExperimentMatrix = { ...smallMatrix, individualVariants: [['L3:bad']] };
+    expect(() => generateTestCases(matrix)).toThrow(/invalid characters/);
+  });
+
+  it('throws on app name containing colon', () => {
+    const matrix: ExperimentMatrix = {
+      ...smallMatrix,
+      apps: ['bad:app'],
+      tasksPerApp: { 'bad:app': ['t1'] },
+    };
+    expect(() => generateTestCases(matrix)).toThrow(/contains ':'/);
+  });
+
+  it('throws on task ID containing colon', () => {
+    const matrix: ExperimentMatrix = {
+      ...smallMatrix,
+      tasksPerApp: { reddit: ['bad:task'], gitlab: ['g1'] },
+    };
+    expect(() => generateTestCases(matrix)).toThrow(/contains ':'/);
+  });
 });
 
 describe('fisherYatesShuffle', () => {
