@@ -28,9 +28,12 @@ echo "=== Platform Bootstrap ==="
 # --- 1. Python 3.11 (BrowserGym requires 3.10+ for match/case syntax) ---
 echo "[1/6] Installing Python 3.11..."
 if ! python3.11 --version &>/dev/null; then
-  sudo yum install -y python3.11 python3.11-pip
+  # AL2023 uses dnf, not yum. yum is a shim that can silently fail.
+  sudo dnf install -y python3.11 python3.11-pip
 fi
 # Make 'python' point to 3.11 (BrowserGym bridge uses 'python')
+# IMPORTANT: do NOT overwrite /usr/bin/python3 — that breaks dnf/yum.
+# Only create a 'python' symlink (which doesn't exist by default on AL2023).
 sudo ln -sf /usr/bin/python3.11 /usr/bin/python
 echo "  Python: $(python --version)"
 
@@ -57,9 +60,11 @@ echo "  Node: $(node --version)"
 
 # --- 3. Playwright + system deps ---
 echo "[3/6] Installing Playwright and system dependencies..."
-# Amazon Linux uses yum, not apt — Playwright's --with-deps won't work
-sudo yum install -y nss atk at-spi2-atk cups-libs libdrm libXcomposite \
-  libXdamage libXrandr mesa-libgbm pango alsa-lib libxkbcommon 2>/dev/null || true
+# AL2023 uses dnf. Playwright's --with-deps targets apt/yum, not dnf.
+# Install Chromium's transitive deps manually.
+sudo dnf install -y nss nspr nss-util atk at-spi2-atk cups-libs libdrm \
+  libXcomposite libXdamage libXrandr libXtst libXScrnSaver \
+  mesa-libgbm pango alsa-lib libxkbcommon 2>/dev/null || true
 
 npm install
 npx playwright install chromium
@@ -69,8 +74,11 @@ echo "[4/6] Installing Python packages..."
 # LiteLLM proxy (needs [proxy] extras for websockets/uvicorn)
 python -m pip install --user 'litellm[proxy]'
 
-# BrowserGym + WebArena
-python -m pip install --user gymnasium browsergym-webarena Pillow numpy
+# BrowserGym + WebArena + analysis deps
+python -m pip install --user gymnasium browsergym-webarena Pillow numpy requests
+
+# scikit-image for SSIM computation (audit-operator.ts → ssim_helper.py)
+python -m pip install --user scikit-image
 
 # Python Playwright browsers (separate from Node's npx playwright install)
 python -m playwright install chromium
