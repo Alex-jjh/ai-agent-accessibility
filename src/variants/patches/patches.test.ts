@@ -681,3 +681,117 @@ describe('deterministic output (Req 5.7)', () => {
     expect(diff1).toEqual(diff2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// applyVariantSpec — AMT v8 individual-mode (Task A.4)
+// ---------------------------------------------------------------------------
+
+import { applyVariantSpec } from './index.js';
+
+/**
+ * Create a mock Playwright Page that tolerates the 4-call sequence of
+ * individual-mode applyVariantSpec:
+ *   0: computeDomHash (before)
+ *   1: setting __OPERATOR_IDS + __OPERATOR_STRICT globals
+ *   2: evaluating apply-all-individual.js (returns changes)
+ *   3: computeDomHash (after)
+ */
+function createIndividualMockPage(opts: {
+  hashBefore: string;
+  hashAfter: string;
+  changes: DomChange[];
+}) {
+  let call = 0;
+  const evaluateFn = vi.fn(async (_script: unknown, _arg?: unknown) => {
+    const idx = call++;
+    if (idx === 0) return opts.hashBefore;
+    if (idx === 1) return undefined; // setting globals, no return value
+    if (idx === 2) return opts.changes; // apply-all-individual result
+    return opts.hashAfter;
+  });
+  return { evaluate: evaluateFn, __evaluate: evaluateFn } as any;
+}
+
+describe('applyVariantSpec — individual mode', () => {
+  it('records operatorIds in the returned VariantDiff', async () => {
+    const page = createIndividualMockPage({
+      hashBefore: 'hashA',
+      hashAfter: 'hashB',
+      changes: [
+        {
+          selector: 'label[for="q"]',
+          changeType: 'remove-element',
+          original: '<label for="q">Search</label>',
+          modified: '',
+        },
+      ],
+    });
+    const diff = await applyVariantSpec(
+      page,
+      { kind: 'individual', operatorIds: ['L3'] },
+      'shopping',
+    );
+    expect(diff.operatorIds).toEqual(['L3']);
+    expect(diff.variantLevel).toBe('low'); // placeholder for individual-mode
+    expect(diff.changes).toHaveLength(1);
+    expect(diff.domHashBefore).toBe('hashA');
+    expect(diff.domHashAfter).toBe('hashB');
+    expect(diff.appName).toBe('shopping');
+  });
+
+  it('preserves operator order from caller (stored, even though runtime applies canonical order)', async () => {
+    const page = createIndividualMockPage({
+      hashBefore: 'h1',
+      hashAfter: 'h2',
+      changes: [],
+    });
+    const diff = await applyVariantSpec(
+      page,
+      { kind: 'individual', operatorIds: ['L11', 'H2'] },
+      'reddit',
+    );
+    expect(diff.operatorIds).toEqual(['L11', 'H2']);
+  });
+
+  it('composite mode is byte-equivalent to legacy applyVariant', async () => {
+    const lowChanges = makeLowChanges();
+    const pageA = createMockPage({
+      hashBefore: 'X',
+      hashAfter: 'Y',
+      changes: lowChanges,
+    });
+    const pageB = createMockPage({
+      hashBefore: 'X',
+      hashAfter: 'Y',
+      changes: lowChanges,
+    });
+    const legacy = await applyVariant(pageA, 'low', 'gitlab');
+    const spec = await applyVariantSpec(
+      pageB,
+      { kind: 'composite', level: 'low' },
+      'gitlab',
+    );
+    expect(spec).toEqual(legacy);
+    // operatorIds MUST NOT appear on composite-mode diffs
+    expect('operatorIds' in spec).toBe(false);
+  });
+
+  it('individual mode throws if evaluate returns non-array (guards against silent no-op)', async () => {
+    let call = 0;
+    const evaluateFn = vi.fn(async () => {
+      const idx = call++;
+      if (idx === 0) return 'hashA';
+      if (idx === 1) return undefined;
+      if (idx === 2) return 'oops-not-an-array'; // misbehaving page.evaluate
+      return 'hashB';
+    });
+    const page = { evaluate: evaluateFn } as any;
+    await expect(
+      applyVariantSpec(
+        page,
+        { kind: 'individual', operatorIds: ['L3'] },
+        'shopping',
+      ),
+    ).rejects.toThrow(/non-array/);
+  });
+});

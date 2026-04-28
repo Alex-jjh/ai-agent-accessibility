@@ -245,29 +245,79 @@ VARIANT_SCRIPTS = {
     "medium-low": "apply-medium-low.js",
     "high": "apply-high.js",
     "pure-semantic-low": "apply-pure-semantic-low.js",
+    # AMT v8 individual-mode: file is loaded, but the caller MUST provide
+    # operatorIds in the task config (see _build_variant_js below).
+    "individual": "apply-all-individual.js",
 }
 
 
-def apply_variant(page, variant_level: str) -> list:
-    """Apply variant DOM patches on the BrowserGym Playwright page.
+def _build_variant_js(variant_level: str, config: dict) -> str | None:
+    """Assemble the JavaScript payload for a variant level.
 
-    Reads the same JS files used by the TypeScript variant engine,
-    ensuring the agent sees the same DOM state as the scanner.
+    Returns a self-contained JS string that can be evaluated in any
+    page context (Plan D injection, page-load listener, per-step
+    re-inject). Returns None for 'base' or unknown levels.
+
+    For the individual-mode (AMT v8, Task A.4), the returned JS
+    prepends a preamble that sets `window.__OPERATOR_IDS` and
+    `window.__OPERATOR_STRICT` before invoking the IIFE. This lets
+    Plan D re-injection work correctly on every HTML response
+    without the caller having to set the globals separately.
+
+    config["operatorIds"]: required for variant_level == "individual".
+    A list of operator IDs from docs/amt-operator-spec.md §7 (e.g.
+    ["L3"], ["H2", "L11"]). Operators apply in canonical H → ML → L
+    source order regardless of list order.
     """
     if variant_level == "base":
-        return []  # No-op for base variant
+        return None
 
     script_file = VARIANT_SCRIPTS.get(variant_level)
     if not script_file:
         print(f"[bridge] Unknown variant level: {variant_level}", file=sys.stderr)
-        return []
+        return None
 
     js_path = INJECT_DIR / script_file
     if not js_path.exists():
         print(f"[bridge] Variant script not found: {js_path}", file=sys.stderr)
-        return []
+        return None
 
     js_code = js_path.read_text(encoding="utf-8")
+
+    if variant_level == "individual":
+        operator_ids = config.get("operatorIds")
+        if not isinstance(operator_ids, list) or len(operator_ids) == 0:
+            print(
+                "[bridge] variant=individual requires config.operatorIds "
+                "(non-empty list of operator IDs). Treating as no-op.",
+                file=sys.stderr,
+            )
+            return None
+        # Serialize via json.dumps for safe embedding; IDs are simple
+        # alphanumeric strings (L1..L13, ML1..ML3, H1..H8, H5a/b/c) so
+        # no escaping surprises.
+        ids_literal = json.dumps(operator_ids)
+        preamble = (
+            f"window.__OPERATOR_IDS = {ids_literal};\n"
+            f"window.__OPERATOR_STRICT = true;\n"
+        )
+        return preamble + js_code
+
+    return js_code
+
+
+def apply_variant(page, variant_level: str, config: dict | None = None) -> list:
+    """Apply variant DOM patches on the BrowserGym Playwright page.
+
+    Reads the same JS files used by the TypeScript variant engine,
+    ensuring the agent sees the same DOM state as the scanner.
+
+    `config` is optional for backward compatibility with existing legacy
+    variant_level calls; required for variant_level == "individual".
+    """
+    js_code = _build_variant_js(variant_level, config or {})
+    if js_code is None:
+        return []
     changes = page.evaluate(js_code)
     return changes or []
 
@@ -682,15 +732,15 @@ def main() -> None:
         if variant_level != "base":
             try:
                 bg_page = env.unwrapped.page
-                changes = apply_variant(bg_page, variant_level)
+                changes = apply_variant(bg_page, variant_level, config)
                 print(f"[bridge] Applied variant '{variant_level}': {len(changes)} DOM changes", file=sys.stderr)
 
-                # Cache the variant JS for re-injection after navigation
-                script_file = VARIANT_SCRIPTS.get(variant_level)
-                if script_file:
-                    js_path = INJECT_DIR / script_file
-                    if js_path.exists():
-                        _variant_js = js_path.read_text(encoding="utf-8")
+                # Cache the variant JS (with preamble, if individual-mode)
+                # for Plan D injection and per-step re-injection. Using
+                # _build_variant_js ensures the cached string is identical
+                # to what apply_variant ran — important for individual-mode
+                # where the preamble carries __OPERATOR_IDS.
+                _variant_js = _build_variant_js(variant_level, config)
 
                 # === PLAN D: NETWORK-LAYER HTML INTERCEPTION + DELAYED PATCH + MUTATIONOBSERVER ===
                 # Inject a deferred variant script into HTML responses that:
