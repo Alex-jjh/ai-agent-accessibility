@@ -156,6 +156,112 @@ interface OperatorSignature {
 // ─────────────────────────────────────────────────────────────────────
 
 /**
+ * Wait for the DOM to be "quiet" — no mutations for `quietMs`
+ * continuous milliseconds, or until `maxWaitMs` elapses.
+ *
+ * Designed to replace a fixed `waitForTimeout(300)` after operator
+ * injection. JS frameworks like KnockoutJS (Magento admin) and Vue
+ * (GitLab) can continue to reconcile the DOM for seconds after our
+ * synchronous injection returns; snapshotting too early means the
+ * AFTER state still has framework work in flight, and the signature
+ * reflects an intermediate state rather than the operator's true
+ * observable effect.
+ *
+ * Strategy: install a `MutationObserver` in the page, sample the
+ * "time since last mutation" every 100ms, and resolve when the sample
+ * exceeds `quietMs`. If `maxWaitMs` elapses first we resolve anyway —
+ * some pages have animations or polling timers that never go quiet,
+ * and infinite wait would block the whole audit.
+ *
+ * Does not throw. On any browser error, falls back to a fixed wait of
+ * `quietMs` to keep the audit moving.
+ */
+async function waitForDomQuiet(
+  page: Page,
+  quietMs: number,
+  maxWaitMs: number,
+): Promise<{ quiet: boolean; elapsedMs: number; maxQuietSeen: number; mutationCount: number }> {
+  const startedAt = Date.now();
+  try {
+    // Install a MutationObserver in the page that records the timestamp
+    // of the most recent mutation in a global slot. We then poll from
+    // Node side — simpler than doing the whole wait loop inside the
+    // page (which requires a handle to a long-lived Promise whose
+    // resolution the caller depends on).
+    await page.evaluate(() => {
+      const w = window as unknown as {
+        __amtQuietLast: number;
+        __amtQuietCount: number;
+        __amtQuietObs?: MutationObserver;
+      };
+      if (w.__amtQuietObs) w.__amtQuietObs.disconnect();
+      w.__amtQuietLast = performance.now();
+      w.__amtQuietCount = 0;
+      w.__amtQuietObs = new MutationObserver((mutations) => {
+        w.__amtQuietLast = performance.now();
+        w.__amtQuietCount += mutations.length;
+      });
+      w.__amtQuietObs.observe(document.documentElement, {
+        childList: true, subtree: true, attributes: true, characterData: true,
+      });
+    });
+
+    let maxQuietSeen = 0;
+    let mutationCount = 0;
+    let quiet = false;
+    while (Date.now() - startedAt < maxWaitMs) {
+      const sample = await page.evaluate(() => {
+        const w = window as unknown as {
+          __amtQuietLast: number;
+          __amtQuietCount: number;
+        };
+        const now = performance.now();
+        return {
+          now,
+          lastMutation: w.__amtQuietLast,
+          mutationCount: w.__amtQuietCount,
+        };
+      });
+      const quietElapsed = sample.now - sample.lastMutation;
+      if (quietElapsed > maxQuietSeen) maxQuietSeen = quietElapsed;
+      mutationCount = sample.mutationCount;
+      if (quietElapsed >= quietMs) {
+        quiet = true;
+        break;
+      }
+      // Sleep 100ms between samples. Short enough to catch quiet windows
+      // just above `quietMs`; long enough to avoid hammering the browser.
+      await new Promise((r) => setTimeout(r, 100));
+    }
+
+    // Detach observer.
+    try {
+      await page.evaluate(() => {
+        const w = window as unknown as { __amtQuietObs?: MutationObserver };
+        if (w.__amtQuietObs) w.__amtQuietObs.disconnect();
+      });
+    } catch { /* noop */ }
+
+    return {
+      quiet,
+      elapsedMs: Date.now() - startedAt,
+      maxQuietSeen: Math.round(maxQuietSeen),
+      mutationCount,
+    };
+  } catch {
+    // Browser error — fallback to fixed wait so we still progress.
+    const remaining = Math.max(0, quietMs - (Date.now() - startedAt));
+    await page.waitForTimeout(remaining);
+    return {
+      quiet: false,
+      elapsedMs: Date.now() - startedAt,
+      maxQuietSeen: 0,
+      mutationCount: 0,
+    };
+  }
+}
+
+/**
  * Collects every DOM/a11y/functional metric we need from inside the page.
  * Returns a single object; Playwright serializes it back to Node.
  *
@@ -536,6 +642,7 @@ async function captureOperatorPair(
   screenshotRelPrefix: string, // e.g. "screenshots" — prefix prepended to relative paths in the Change record
   label: string, // e.g. "base" or "L3"
   settleMs: number,
+  quietMs: number,
   applyAllJs: string,
   loginCookies: LoginCookie[] | null,
 ): Promise<{
@@ -575,7 +682,21 @@ async function captureOperatorPair(
     // Inject single operator
     await page.evaluate(`window.__OPERATOR_IDS = ${JSON.stringify([operatorId])}; window.__OPERATOR_STRICT = true;`);
     const changes = (await page.evaluate(applyAllJs)) as Array<any>;
-    await page.waitForTimeout(300); // let layout settle
+
+    // Wait for the DOM to settle after injection. Frameworks (KnockoutJS,
+    // Vue) can continue to reconcile for seconds; a fixed 300ms was too
+    // short in Pilot experience. maxWait of 3x quietMs gives noisy pages
+    // a way out without blocking forever.
+    const quietResult = await waitForDomQuiet(page, quietMs, quietMs * 3);
+    if (!quietResult.quiet) {
+      // Not an error — the page may have background animations or
+      // polling timers that never idle. AFTER snapshot will still be
+      // captured; worst case it reflects a slightly unsettled state.
+      process.stderr.write(
+        `[audit]   ${label}: DOM quiet threshold not met within ${quietMs * 3}ms ` +
+        `(mutations=${quietResult.mutationCount}, maxQuietSeen=${quietResult.maxQuietSeen}ms); proceeding\n`,
+      );
+    }
 
     const afterRaw: any = await page.evaluate(PAGE_METRICS_JS);
     const afterA11y = await flattenA11yTree(page);
@@ -655,7 +776,8 @@ async function main(): Promise<void> {
     console.error('  [--login-base-url URL]');
     console.error('  [--output-dir <path>]     default: data/amt-audit-runs/');
     console.error('  [--run-id <id>]           default: amt-audit-<unix-ms>');
-    console.error('  [--settle-ms N]           default: 1500');
+    console.error('  [--settle-ms N]           default: 5000 (initial page-load settle)');
+    console.error('  [--quiet-ms N]            default: 500 (post-injection DOM-quiet window)');
     console.error('  [--output <file.json>]    LEGACY single-file JSON only, no screenshots/log');
     process.exit(2);
   }
@@ -702,7 +824,14 @@ async function main(): Promise<void> {
 
   const opsArg = args['operators'];
   const operators = opsArg ? opsArg.split(',').map(s => s.trim()).filter(Boolean) : [...OPERATOR_ORDER];
-  const settleMs = parseInt(args['settle-ms'] || '1500', 10);
+  // settleMs = initial fixed wait after page load before BEFORE snapshot.
+  // 5000ms is the Pilot-validated floor for Magento/KnockoutJS; some
+  // fixtures (local static HTML) can override with a smaller value.
+  const settleMs = parseInt(args['settle-ms'] || '5000', 10);
+  // quietMs = mutation-free window required before AFTER snapshot after
+  // operator injection. 500ms is enough for modern frameworks to finish
+  // one reconciliation cycle in response to our synchronous DOM writes.
+  const quietMs = parseInt(args['quiet-ms'] || '500', 10);
   const loginApp = args['login-app'] || '';
   const loginBaseUrl = args['login-base-url'] || (() => {
     try {
@@ -764,7 +893,7 @@ async function main(): Promise<void> {
       try {
         const capture = await captureOperatorPair(
           browser, url, opId, screenshotDir, screenshotRelPrefix,
-          opId, settleMs, applyAllJs, loginCookies,
+          opId, settleMs, quietMs, applyAllJs, loginCookies,
         );
         if (!capture.after) throw new Error('after metrics missing');
         const changesReturned = (capture.after as any).__changes ?? 0;
@@ -795,6 +924,7 @@ async function main(): Promise<void> {
       authenticated: !!loginCookies,
     },
     settleMs,
+    quietMs,
     operators: signatures,
     errors,
     totalDurationMs: Date.now() - t0,
