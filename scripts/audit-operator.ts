@@ -413,8 +413,22 @@ async function flattenA11yTree(page: Page): Promise<Array<{ role: string; name: 
  *
  * Returns a float in [0, 1]; 1.0 means pixel-identical.
  */
+// Resolve python interpreter once — prefer python3.11 (EC2 has skimage
+// installed there), fall back to python3.
+let _cachedPyBin: string | null = null;
+function resolvePython(): string {
+  if (_cachedPyBin) return _cachedPyBin;
+  for (const c of ['python3.11', 'python3']) {
+    const p = spawnSync(c, ['--version'], { encoding: 'utf-8' });
+    if (p.status === 0) { _cachedPyBin = c; return c; }
+  }
+  _cachedPyBin = 'python3';
+  return 'python3';
+}
+
 function computeSSIM(beforePath: string, afterPath: string): number | null {
-  const res = spawnSync('python3', [SSIM_HELPER, beforePath, afterPath], {
+  const pyBin = resolvePython();
+  const res = spawnSync(pyBin, [SSIM_HELPER, beforePath, afterPath], {
     encoding: 'utf-8',
     timeout: 20_000,
   });
