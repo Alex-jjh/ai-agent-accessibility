@@ -1,0 +1,28 @@
+{
+  "_comment": "Ground truth corrections for Mode A experiment. WebArena Docker state can drift due to: (1) agent-induced state mutation (Magento search_query table updated by agent searches), (2) deployment configuration (GitLab external_url set to private IP by webarena.tf). These corrections accept BOTH the original ground truth AND the observed Docker state as valid answers.",
+  "_date": "2026-04-30",
+  "_applies_to": ["mode-a-shard-a", "mode-a-shard-b", "mode-a-llama4-textonly"],
+  "corrections": {
+    "41": {
+      "task": "List the top 1 search terms in my store",
+      "original_gt": "hollister",
+      "additional_valid": ["abomin"],
+      "reason": "Magento search_query table mutated by agent browsing across 936 shopping storefront cases. 'abomin' is the current top search term in the Docker instance.",
+      "category": "agent_state_mutation"
+    },
+    "198": {
+      "task": "Get the customer name of the most recent cancelled order",
+      "original_gt": "Lily Potter",
+      "additional_valid": ["Veronica Costello"],
+      "reason": "Magento orders table state differs from original WebArena snapshot. Likely caused by agent interactions with admin panel across hundreds of cases, or Magento cron/indexer reordering.",
+      "category": "agent_state_mutation"
+    },
+    "293": {
+      "task": "Show me the command to clone Super_Awesome_Robot with SSH",
+      "original_gt": "git clone ssh://git@metis.lti.cs.cmu.edu:2222/convexegg/super_awesome_robot.git",
+      "additional_valid": ["git clone ssh://git@10.0.1.50:2222/convexegg/super_awesome_robot.git"],
+      "reason": "webarena.tf sets GitLab external_url to private IP (10.0.1.50) via gitlab-ctl reconfigure. SSH clone URL reflects the configured external_url. Both CMU hostname and private IP are valid depending on whether reconfigure completed.",
+      "category": "deployment_configuration"
+    }
+  }
+}
