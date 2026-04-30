@@ -454,9 +454,11 @@ export async function executeAgentTask(options: ExecuteTaskOptions): Promise<Act
     bridgeReadTimeoutMs: agentConfig.observationMode === 'cua' ? wallClockTimeoutMs + 30_000 : undefined,
     // AMT individual-mode: pass operator IDs to bridge
     operatorIds,
-    // CUA mode: dump per-step screenshots for human review
+    // CUA mode: dump per-step screenshots for human review.
+    // Path includes variant + operator IDs to prevent overwrites when
+    // multiple operators run on the same task+attempt combination.
     screenshotDir: agentConfig.observationMode === 'cua'
-      ? `data/cua-screenshots/${taskId}_${variant}_${attempt}`
+      ? `data/cua-screenshots/${taskId}_${variant}${operatorIds ? '_' + operatorIds.join('+') : ''}_${attempt}`
       : undefined,
   });
 
