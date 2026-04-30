@@ -123,10 +123,13 @@ Drop = baseline − operator rate.
 
 ### Finding 1: The Landmark Paradox (L1 = most destructive, minimal DOM change)
 
-**L1 (landmark→div)** is the single most destructive operator at 50.0% success,
+> **Deep-dive report**: [`mode-a-landmark-paradox-trace-report.md`](mode-a-landmark-paradox-trace-report.md)
+
+**L1 (landmark→div)** is the single most destructive operator at 53.8% success,
 despite making only **6 DOM changes** (SSIM=1.000, F1=0 interactive elements lost).
 
-By contrast, **L11 (link→span)** makes **329 DOM changes** but achieves 90.0% success.
+By contrast, **L11 (link→span)** makes **329 DOM changes** but achieves 92.3% success.
+And **L6 (heading→div)** achieves **100% success** despite also being "semantic-only".
 
 **Trace evidence** (L1 on task 23, text-only):
 - A11y tree shows NO `banner`, `main`, `navigation`, `contentinfo` roles.
@@ -134,10 +137,9 @@ By contrast, **L11 (link→span)** makes **329 DOM changes** but achieves 90.0% 
 - Reviews tab `[1550]` click does not expand — agent scrolls 9 steps, gives up.
 - Token consumption: 145K tokens (vs L11's 28K on same task).
 
-**Trace evidence** (L11 on task 23, text-only):
-- A11y tree preserves `[255] banner`, `[317] navigation`, `[1391] main`, `[1616] contentinfo`.
-- Reviews tab expands normally (`expanded=True`).
-- Agent answers correctly in 3 steps, 28K tokens.
+**Trace evidence** (L6 on task 4, text-only — control):
+- A11y tree preserves `[220] banner`, `[281] navigation`, `[387] main`, `[447] contentinfo`.
+- Agent navigates to admin panel in 4 steps, finds bestseller report.
 
 **Paper implication**: DOM change count is a poor predictor of agent impact.
 Structural landmarks are disproportionately important — they serve as the
@@ -145,7 +147,15 @@ agent's "navigation skeleton". This is a **signature misalignment** finding:
 DOM signature says L1 is minimal, behavioral signature says it's catastrophic.
 The 12-dim audit needs a "structural criticality" dimension.
 
-### Finding 2: Task 67 — The Discriminator Task
+**⚠️ Caveat (from cross-agent trace analysis)**: The L1 × task 4 failure may be
+partially confounded with cross-shard Magento statistics freshness. Shard A (L1)
+had stale statistics ("Last updated: Jun 17, 2023") while Shard B (L6 control)
+had fresh statistics. Both agents used identical `goto("/admin")` navigation —
+landmarks were not the differentiator for admin access. See Finding 7 for details.
+
+### Finding 2: Task 67 — The Discriminator Task (Forced Simplification)
+
+> **Deep-dive report**: [`mode-a-task67-forced-simplification-deep-dive.md`](mode-a-task67-forced-simplification-deep-dive.md)
 
 Task 67 (reddit: "Book names from top 10 posts") is the most operator-sensitive
 task, with text-only success ranging from **0% to 100%** across operators:
@@ -162,20 +172,81 @@ trees causes rate limiting (429 errors) on some operators.
 **SoM outperforms text-only on task 67**: SoM 77% vs text-only 46%.
 This is the **forced simplification** effect — SoM's screenshot observation
 physically cannot load full comment threads, forcing the agent to stay on the
-list view (which is the correct strategy). Text-only agents dive into individual
-posts, consuming 474K tokens and hitting rate limits.
+list view (which is the correct strategy).
 
-### Finding 3: L5 (Shadow DOM) — Second Most Destructive
+**Trace evidence (smoking gun)**:
+- SoM agent tried to click into "The Hobbit" post **5 consecutive times**
+  (Steps 8-12, all `click("418")`), but page never navigated away from list.
+  Forced to answer from list view → **success** (37K tokens).
+- Text-only agent clicked into 3 posts (40K + 157K + 130K chars of comments),
+  cumulative context reached **497K tokens** → LLM call failed.
+- Successful text-only (L6): answered from list in **3 steps, 42K tokens** — a
+  **12× token reduction** vs the failing text-only.
 
-**L5 (Shadow DOM wrap)** achieves 73.3% success, second-worst after L1.
-It wraps interactive elements in closed Shadow DOM, making them invisible
-to the a11y tree. Unlike L1, L5's mechanism is **structural isolation**
-rather than semantic degradation.
+**Paper implication**: Less information access can produce better outcomes by
+eliminating suboptimal strategies. This is the inverse of the typical modality
+advantage — action space constraint, not information advantage.
 
-Key failures: task 4 (0%), task 94 (0%) — both Magento admin tasks where
-form controls become inaccessible inside Shadow DOM boundaries.
+### Finding 3: L5 (Shadow DOM) — "Ghost Buttons" (Perception-Action Gap)
 
-### Finding 4: H-Operators Are Null (Ceiling Effect)
+> **Deep-dive report**: [`mode-a-L5-shadow-dom-trace-report.md`](mode-a-L5-shadow-dom-trace-report.md)
+
+**L5 (Shadow DOM wrap)** achieves 71.8% success, second-worst after L1.
+It wraps interactive elements in closed Shadow DOM, creating **ghost buttons** —
+elements visible in the a11y tree but without BrowserGym bid numbers.
+
+**Trace evidence (task 4, text-only)**:
+- L5: `button 'Show Report'` — **no bid** (ghost)
+- H1 control: `[722] button 'Show Report'` — bid 722, clickable
+- The difference is exactly 5 characters (`[722] `). That missing bid is the
+  difference between success and failure.
+
+**Trace evidence (task 94, text-only)**:
+- Agent explicitly diagnosed the problem: *"I can see the 'Continue' button in
+  the accessibility tree, but I don't see its bid number"*
+- Then probed 5 adjacent bids (394-397), all failed. 30-step timeout.
+
+**Trace evidence (task 4, SoM)**:
+- SoM agent entered a **5-click phantom bid loop** on bid "334" (REPORTS menu).
+  SoM overlay showed the bid label, but BrowserGym couldn't resolve it inside
+  the closed shadow root. Classic phantom bid mechanism from Pilot 4.
+
+**Key distinction from L1**: L1 degrades information quality (semantic loss).
+L5 breaks the action channel (perception-action gap). L5 creates **false
+affordances** — the agent sees a button it cannot click, wasting more steps
+than if the button were simply absent. This is more insidious than L11
+(link→span), which removes elements entirely and allows workarounds.
+
+Key failures: task 4 (0% all agents), task 94 (0% text-only) — both Magento
+admin tasks where form controls become inaccessible inside Shadow DOM boundaries.
+CUA failure on task 4 is architectural (can't type URLs), not L5-caused.
+
+### Finding 4: L12 Duplicate IDs — Confound Discovery
+
+> **Deep-dive report**: [`mode-a-L12-task29-trace-analysis.md`](mode-a-L12-task29-trace-analysis.md)
+
+L12 shows 0% success on task 29 (text-only, all 3 reps), but trace analysis
+reveals this is **NOT caused by ID duplication**.
+
+**Trace evidence**:
+- L12 applied only **1 DOM change** on Postmill (nearly a no-op).
+- Agent's starting page differed: L12 reps landed on user profile pages
+  (`'DomovoiGoods'`, `'Sorkill'`), while L6 control landed on the DIY forum.
+- HTML `id` attributes are **invisible** in the a11y tree — BrowserGym uses
+  bid numbers, not HTML IDs. The agent never encountered duplicate-ID confusion.
+- All agent clicks succeeded — no "element not found" errors.
+- The agent counted the wrong user's comments (correct counting logic, wrong user).
+
+**Root cause**: Starting page divergence, likely from BrowserGym environment
+state variation. L12's 1 DOM change is too minimal to plausibly cause the
+observed navigation difference.
+
+**Implication**: L12's -14.4pp drop in the aggregate statistics is inflated by
+this task 29 confound. The true L12 effect may be smaller. This data point
+should be flagged as confounded in the paper, or L12's ranking should be
+recalculated excluding task 29.
+
+### Finding 5: H-Operators Are Null (Ceiling Effect)
 
 All H-operators cluster at 90-97% success (text-only), indistinguishable
 from each other and from most L-operators. This is a **ceiling effect**:
@@ -187,15 +258,17 @@ providing +40pp benefit on task 198 (admin:198, base 40% → high 80%).
 The ceiling effect is model-dependent — weaker models benefit more from
 accessibility enhancement.
 
-### Finding 5: Three Operator Tiers
+### Finding 6: Three Operator Tiers
 
 The data reveals three natural tiers of operator impact (text-only):
 
 | Tier | Operators | Success Range | Mechanism |
 |---|---|---|---|
 | **Destructive** | L1, L5 | 50–73% | Structural (landmarks, Shadow DOM) |
-| **Moderate** | L12, L10, L2, L13, L9 | 83–87% | Semantic/functional |
+| **Moderate** | L12*, L10, L2, L13, L9 | 83–87% | Semantic/functional |
 | **Neutral** | Everything else (18 ops) | 90–100% | Below detection threshold |
+
+*L12's ranking is inflated by the task 29 confound (see Finding 4).
 
 The "neutral" tier includes both L-operators (L3, L4, L6, L7, L8, L11)
 and all H/ML operators. This means **most individual operators don't
@@ -203,21 +276,75 @@ measurably affect Claude Sonnet on WebArena** — the composite low variant's
 large effect (Pilot 4: 23.3%) comes from operator interaction, not
 individual operator impact.
 
-### Finding 6: Cross-Agent Patterns
+### Finding 7: L1 Cross-Agent Asymmetry — Landmark Dependency Taxonomy
+
+> **Deep-dive report**: [`mode-a-L1-cross-agent-trace-report.md`](mode-a-L1-cross-agent-trace-report.md)
+
+L1's effect is **asymmetric across tasks and agents**. Trace analysis reveals
+the asymmetry is driven by task structure, not agent capability:
+
+**Trace evidence (task 29 reddit, text-only — SUCCESS, 7 steps)**:
+- A11y tree has no landmarks, but all content elements (links, headings, buttons)
+  are intact. Agent sorts by "New", finds user, counts comments → correct answer.
+- Reddit's flat, content-centric structure doesn't depend on landmarks.
+
+**Trace evidence (task 29 reddit, CUA — SUCCESS, 9 steps)**:
+- CUA succeeds because all navigation is through visible links in the viewport.
+  No URL typing needed (unlike admin tasks).
+
+**Trace evidence (task 308 gitlab, text-only — FAILURE)**:
+- Agent navigated sidebar correctly (Contributors link visible as flat list item).
+- Failure: Contributors page chart didn't load (async rendering issue, possibly
+  triggered by L1's `<section>` → `<div>` mutation affecting Vue.js lifecycle).
+- Fell back to manually counting commits → incorrect answer.
+
+**⚠️ Critical confound (task 4 admin)**:
+- L1 (Shard A) and L6 (Shard B) agents used **identical navigation paths**:
+  both used `goto("http://10.0.1.50:7780/admin")` to reach admin panel.
+- Landmarks were NOT the differentiator — the admin menubar is accessible as
+  `[151] menubar ''` with or without the `[150] navigation ''` wrapper.
+- L1 failed because Shard A Magento had stale statistics ("Last updated: Jun 17, 2023").
+  L6 succeeded because Shard B had fresh statistics ("Last updated: Apr 29, 2026").
+- CUA failed on task 4 for architectural reasons (can't type URLs), not L1.
+
+**Landmark dependency taxonomy**:
+
+| Dependency | Tasks | Evidence |
+|---|---|---|
+| **LOW** | reddit:29, ecom:23/24/26, ecom:188 | Content-centric; all info in links/headings |
+| **MEDIUM** | gitlab:308 | Sidebar accessible as flat list, but chart rendering affected |
+| **CONFOUNDED** | admin:4 | Cross-shard Magento state, not pure L1 effect |
+
+**Paper implication**: The L1 "landmark paradox" narrative needs nuance. The
+trace evidence shows landmarks are less critical for navigation than initially
+hypothesized — agents use `goto()` and content elements effectively. L1's
+destructive effect may come more from **framework rendering disruption**
+(Vue.js, KnockoutJS reacting to semantic container changes) than from
+navigation confusion. This is a more subtle and arguably more interesting
+finding for the paper.
+
+### Finding 8: Cross-Agent Patterns
 
 | Pattern | Evidence |
 |---|---|
-| text-only > CUA > SoM (overall) | 88.2% > 48.3% > 31.8% |
-| L1 affects all agents | text 50%, CUA 33%, SoM 20% |
-| L5 affects text+SoM more than CUA | text 73%, SoM 17%, CUA 43% |
+| text-only > CUA > SoM (overall) | 89.5% > 47.8% > 25.1% |
+| L1 affects all agents | text 54%, CUA 33%, SoM 20% |
+| L5 affects text+SoM more than CUA | text 72%, SoM 17%, CUA 43% |
 | SoM is uniformly weak | 17–40% regardless of operator |
 | CUA is moderately affected | 33–60% range |
+| CUA immune to L5 in theory | But fails on admin tasks for architectural reasons |
 
 SoM's uniformly low performance suggests its failures are primarily
 **agent capability** (phantom bids, navigation failure) rather than
 operator-specific effects. CUA shows more operator sensitivity,
 particularly to L1 (landmarks affect coordinate-based navigation
 through page structure changes).
+
+**Cross-agent L5 insight**: CUA is theoretically immune to Shadow DOM
+(clicks coordinates, not bids), but task 4 CUA fails for architectural
+reasons (can't type admin URL). Task 4 is a poor discriminator for CUA's
+Shadow DOM sensitivity — need to check L5 × CUA on tasks where CUA can
+navigate without URL typing.
 
 ---
 
@@ -308,28 +435,60 @@ This means agent actions accumulate in the database:
 - The Llama 4 cross-family run (same account as Shard B) will have the SAME
   drift — apply the same corrections
 
-### 6.2 Task 67 Token Inflation
+### 6.2 Cross-Shard Confound: Magento Statistics Freshness (NEW)
+
+**Discovered via L1 cross-agent trace analysis.** Shard A and Shard B ran on
+different AWS accounts with independently deployed WebArena Docker instances.
+The Magento bestseller statistics refresh state differs:
+
+- **Shard A** (L1, L2, L3, L4, L6, L7, H1-H4, ML1-ML3, H5a):
+  `"Last updated: Jun 17, 2023, 12:00:03 AM"` — stale
+- **Shard B** (L5, L8-L13, H5b, H5c, H6-H8):
+  `"Last updated: Apr 29, 2026, 12:00:01 AM"` — fresh
+
+This means task 4 (admin bestsellers) results are confounded by shard assignment:
+- All Shard A operators show 0% on task 4 (stale statistics → "0 records found")
+- All Shard B operators show normal success on task 4
+
+**Impact**: L1's -40pp drop on task 4 may be partially or fully attributable to
+this confound rather than landmark removal. The L1 trace shows the agent
+navigated to the admin panel identically to the L6 control (both used `goto()`).
+
+**Mitigation**: For the paper, either:
+(a) Exclude task 4 from L1 vs L6 comparisons (conservative)
+(b) Report the confound in §6 Limitations and note that L1's effect on other
+    tasks (ecom:23, gitlab:308) is clean
+(c) Re-run L1 on a fresh account to get unconfounded task 4 data
+
+### 6.3 Task 67 Token Inflation
 
 Task 67 causes rate limiting (429 errors) for text-only agents on some operators.
 This is a confound — failures may be due to Bedrock rate limits rather than
 operator effects. The 46% overall rate for text-only on task 67 may underestimate
 true capability.
 
-### 6.3 SoM Baseline Too Low
+### 6.4 SoM Baseline Too Low
 
-SoM at 31.8% overall is too low to detect operator-specific effects reliably.
+SoM at 25.1% overall is too low to detect operator-specific effects reliably.
 Most SoM failures are agent capability issues (phantom bids, navigation failure),
 not operator effects. Consider whether SoM data adds value to the AMT analysis
 or just adds noise.
 
-### 6.4 H4 Anomaly
+### 6.5 H4 Anomaly
 
-H4 (add landmark role) shows 86.7% success — **lower than most L-operators**.
+H4 (add landmark role) shows 89.7% success — **lower than most L-operators**.
 This is unexpected for an enhancement operator. Root cause: H4 adds `role`
 attributes to elements that Chromium already auto-maps (e.g., `<nav>` already
 has `role=navigation`). The redundant ARIA may confuse the agent or interact
 with existing attributes. This was flagged in the A.5 DOM audit (H4 A1=0,
 tautological). Needs trace-level investigation.
+
+### 6.6 L12 Task 29 Confound
+
+L12's -14.4pp aggregate drop is inflated by 0% success on task 29, which trace
+analysis shows is caused by starting page divergence (BrowserGym environment
+state), not duplicate ID effects. See Finding 4. L12's true operator effect
+may be smaller than the ranking suggests.
 
 ---
 
@@ -340,3 +499,40 @@ tautological). Needs trace-level investigation.
 - Analysis scripts: `scripts/analyze-mode-a.py` (original), `scripts/analyze-mode-a-corrected.py` (with GT fix)
 - Ground truth corrections: `scripts/amt/ground-truth-corrections.json`
 - DOM signatures: `data/archive/amt-dom-signatures/dom_signatures.json`
+
+---
+
+## 8. Deep-Dive Trace Reports Index
+
+All trace-level reports follow the "trace为王" principle: every claim is backed
+by quoted a11y tree excerpts, agent reasoning, and action sequences from actual
+trace JSON files.
+
+| # | Report | Finding | Traces Analyzed |
+|---|--------|---------|-----------------|
+| 1 | [`mode-a-landmark-paradox-trace-report.md`](mode-a-landmark-paradox-trace-report.md) | L1 removes 6 DOM elements but causes -40pp drop; landmarks are the a11y tree's "table of contents" | 4 traces: L1×task4, L6×task4, L1×task23, L1×task308 |
+| 2 | [`mode-a-task67-forced-simplification-deep-dive.md`](mode-a-task67-forced-simplification-deep-dive.md) | SoM > text-only on task 67; SoM physically can't load comment pages → forced to answer from list | 5 traces: L4×text, L4×SoM, L6×text, H1×text, H1×SoM |
+| 3 | [`mode-a-L5-shadow-dom-trace-report.md`](mode-a-L5-shadow-dom-trace-report.md) | L5 creates "ghost buttons" — visible in a11y tree but no bid; perception-action gap | 5 traces: L5×task4×{text,SoM,CUA}, L5×task94×text, H1×task4×text |
+| 4 | [`mode-a-L12-task29-trace-analysis.md`](mode-a-L12-task29-trace-analysis.md) | L12's 0% on task 29 is a confound (starting page divergence), not duplicate ID effect | 3 traces: L12×task29×rep1/2, L6×task29 control |
+| 5 | [`mode-a-L1-cross-agent-trace-report.md`](mode-a-L1-cross-agent-trace-report.md) | L1 asymmetric across tasks; reddit succeeds (content-centric), admin confounded by shard state | 6 traces: L1×task4×{text,CUA}, L1×task29×{text,CUA}, L1×task308×text, L6×task4 control |
+
+**Total traces analyzed**: 23 individual trace files across 5 reports.
+
+### Key Cross-Report Findings
+
+1. **Structural operators dominate**: L1 (landmarks) and L5 (Shadow DOM) are the
+   only operators with large individual effects. Both are structural, not semantic.
+
+2. **Two distinct failure mechanisms**:
+   - L1: **Information degradation** — agent sees all elements but can't organize them
+   - L5: **Action channel breakage** — agent sees elements but can't interact with them
+
+3. **Confounds identified**: Two data quality issues surfaced through trace analysis:
+   - L12 × task 29: starting page divergence (BrowserGym state, not operator effect)
+   - L1 × task 4: cross-shard Magento statistics freshness (infrastructure, not operator)
+
+4. **Forced simplification is real**: SoM's physical inability to load heavy pages
+   eliminates suboptimal strategies, producing better outcomes with 12× fewer tokens.
+
+5. **CUA architectural limitations**: CUA fails on admin tasks because it can't type
+   URLs, not because of any operator effect. Task 4 is a poor CUA discriminator.
