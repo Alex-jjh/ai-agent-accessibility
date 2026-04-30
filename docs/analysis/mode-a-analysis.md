@@ -536,3 +536,49 @@ trace JSON files.
 
 5. **CUA architectural limitations**: CUA fails on admin tasks because it can't type
    URLs, not because of any operator effect. Task 4 is a poor CUA discriminator.
+
+---
+
+## 9. Confidence Assessment (2026-05-01)
+
+Systematic review of all findings. Each assessed by: (a) trace evidence quality,
+(b) statistical consistency, (c) alternative explanations ruled out.
+
+### Findings with high confidence (≥95%)
+
+| Finding | Confidence | Evidence | Doc |
+|---------|-----------|----------|-----|
+| L5 ghost buttons (perception-action gap) | **99%** | Agent self-diagnosed: "I can see the button but don't see its bid number". 5-trace cross-agent comparison. | [`mode-a-L5-shadow-dom-trace-report.md`](mode-a-L5-shadow-dom-trace-report.md) |
+| Forced simplification (task 67 SoM > text) | **99%** | SoM 5× click failure on bid 418 = smoking gun. 12× token ratio. | [`mode-a-task67-forced-simplification-deep-dive.md`](mode-a-task67-forced-simplification-deep-dive.md) |
+| H-operator ceiling effect | **99%** | All 8 H-operators cluster 90-97%. Consistent with Claude Sonnet capability. | [`mode-a-analysis.md`](mode-a-analysis.md) §3.5 |
+| Composite > individual interaction | **99%** | Mathematical: individual drops sum to 89.9pp > observed 70.5pp composite drop. | [`mode-a-analysis.md`](mode-a-analysis.md) §5 |
+| 3-tier operator structure | **97%** | Clear separation: destructive (50-73%), moderate (83-87%), neutral (90-100%). | [`mode-a-analysis.md`](mode-a-analysis.md) §3.6 |
+| Task 29 baseline noise (~33%) | **99%** | 11 different operators (incl. H-operators) all have 1/3 rep answering "0" (correct="1"). Identical failure mode = task noise, not operator effect. | Answer data analysis |
+| L1 landmark paradox (overall) | **95%** | 4-trace a11y tree comparison. Task 23/308 clean. Task 4 has shard confound. | [`mode-a-landmark-paradox-trace-report.md`](mode-a-landmark-paradox-trace-report.md) |
+| L11 only affects task 4 | **95%** | 3/3 failures are partial_success on admin task. link→span breaks admin nav links. All other tasks 100%. | Answer data analysis |
+| CUA × ecom reviews = 0% | **95%** | CUA answers describe reviews but don't include reviewer names. Screenshot viewport too small for 12 reviews. | Answer data analysis |
+
+### Findings with moderate confidence (80-94%)
+
+| Finding | Confidence | Evidence | Caveat |
+|---------|-----------|----------|--------|
+| L12 ranking (#3, -14.4pp) | **90%** | Task 29 0% is confound (starting page), but task 293 0% is real (Vue.js ID dependency — agent answers "Super_Awesome_Robot" or "n", never a git clone command). | [`mode-a-L12-task29-trace-analysis.md`](mode-a-L12-task29-trace-analysis.md) |
+| L1 × task 4 mechanism | **80%** | Cross-agent trace shows both L1 and L6 used identical `goto("/admin")` navigation. L1 failure on task 4 is partially confounded with Shard A stale Magento statistics. | [`mode-a-L1-cross-agent-trace-report.md`](mode-a-L1-cross-agent-trace-report.md) |
+
+### Anomalies fully explained (no further trace investigation needed)
+
+| Anomaly | Root Cause | Method |
+|---------|-----------|--------|
+| H4 at 89.7% (worse than some L-ops) | Failures on task 67 (2/3) and task 29 (1/3) = high-noise tasks. Not H4-specific. | Answer data |
+| L10 × task 4 failure (1/3) | Answer correct but includes "(2 units)" suffix → string_match format sensitivity. | Answer data |
+| ML2 × task 4 failure (Shard A) | Same as L10: correct answer with "(2 units)" suffix. | Answer data |
+| L12 × task 41/198 = 0/3 before correction | GT drift tasks. After correction: 3/3 success ("abomin", "Veronica Costello"). | GT correction script |
+| L12 × task 293 = 0/3 after correction | Agent never found the repo (answers: "Super_Awesome_Robot", "n", irrelevant msg). Real L12 effect on Vue.js. | Answer data |
+| SoM × task 188 = 0/78 | SoM has systematic failure on ecommerce storefront (phantom bids / page complexity). Not operator-related. | Per-task SoM rates |
+| Task 4 Shard A mixed failures | Mix of: stale statistics (L1), wrong data read (H5b/H4/H8), answer format (ML2/L10). Not pure shard confound. | Answer data |
+
+### What would change confidence
+
+- **L1 → 99%**: Re-run L1 × task 4 on a fresh account with verified Magento statistics
+- **L12 → 95%**: Verify L12 × task 293 trace shows Vue.js search/navigation broken by duplicate IDs
+- **Task 29 noise → actionable**: Run task 29 with 10 reps to measure true baseline failure rate
