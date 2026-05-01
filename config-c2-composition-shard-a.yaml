@@ -2,8 +2,9 @@
 # 8 operators: L1, L2, L4, L5, L6, L9, L11, L12
 # C(8,2) = 28 pairs total, this shard = first 14 (all L1× and L2× pairs + L4×L5)
 #
-# 14 pairs × 13 tasks × 3 agents × 3 reps = 1,638 cases
-# Estimated: ~3-4 days, ~$490
+# 14 pairs × 13 tasks × 2 agents (text-only + CUA, no SoM) × 3 reps = 1,092 cases
+# Estimated: ~1.5 days, ~$330
+# Account: 190777959793 (expires May 04 23:56 UTC)
 #
 # Run on EC2:
 #   nohup npx tsx scripts/run-pilot3.ts --config config-c2-composition-shard-a.yaml > c2-shard-a.log 2>&1 &
@@ -64,12 +65,6 @@ runner:
   agentConfigs:
     - observationMode: "text-only"
       llmBackend: "claude-sonnet"
-      maxSteps: 30
-      retryCount: 3
-      retryBackoffMs: 1000
-      temperature: 0.0
-    - observationMode: "vision-only"
-      llmBackend: "claude-sonnet-vision"
       maxSteps: 30
       retryCount: 3
       retryBackoffMs: 1000
