@@ -1,0 +1,90 @@
+# C.2 Compositional Study — Shard A (14 pairwise combinations)
+# 8 operators: L1, L2, L4, L5, L6, L9, L11, L12
+# C(8,2) = 28 pairs total, this shard = first 14 (all L1× and L2× pairs + L4×L5)
+#
+# 14 pairs × 13 tasks × 3 agents × 3 reps = 1,638 cases
+# Estimated: ~3-4 days, ~$490
+#
+# Run on EC2:
+#   nohup npx tsx scripts/run-pilot3.ts --config config-c2-composition-shard-a.yaml > c2-shard-a.log 2>&1 &
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.50:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.50:7780"
+    reddit:
+      url: "http://10.0.1.50:9999"
+    gitlab:
+      url: "http://10.0.1.50:8023"
+
+  tasksPerApp:
+    ecommerce_admin: ["4", "41", "94", "198"]
+    ecommerce: ["23", "24", "26", "188"]
+    reddit: ["29", "67"]
+    gitlab: ["132", "293", "308"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: []
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+  individualVariants:
+    # All L1× pairs (7)
+    - ["L1", "L2"]
+    - ["L1", "L4"]
+    - ["L1", "L5"]
+    - ["L1", "L6"]
+    - ["L1", "L9"]
+    - ["L1", "L11"]
+    - ["L1", "L12"]
+    # All L2× pairs excluding L1 (6)
+    - ["L2", "L4"]
+    - ["L2", "L5"]
+    - ["L2", "L6"]
+    - ["L2", "L9"]
+    - ["L2", "L11"]
+    - ["L2", "L12"]
+    # L4×L5
+    - ["L4", "L5"]
+
+runner:
+  repetitions: 3
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    - observationMode: "vision-only"
+      llmBackend: "claude-sonnet-vision"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    - observationMode: "cua"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/c2-composition-shard-a"
+  exportFormats: ["json", "csv"]

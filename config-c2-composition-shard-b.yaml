@@ -1,0 +1,92 @@
+# C.2 Compositional Study — Shard B (14 pairwise combinations)
+# 8 operators: L1, L2, L4, L5, L6, L9, L11, L12
+# C(8,2) = 28 pairs total, this shard = last 14 (L4×L6+ through L11×L12)
+#
+# 14 pairs × 13 tasks × 3 agents × 3 reps = 1,638 cases
+# Estimated: ~3-4 days, ~$490
+#
+# Run on EC2:
+#   nohup npx tsx scripts/run-pilot3.ts --config config-c2-composition-shard-b.yaml > c2-shard-b.log 2>&1 &
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.50:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.50:7780"
+    reddit:
+      url: "http://10.0.1.50:9999"
+    gitlab:
+      url: "http://10.0.1.50:8023"
+
+  tasksPerApp:
+    ecommerce_admin: ["4", "41", "94", "198"]
+    ecommerce: ["23", "24", "26", "188"]
+    reddit: ["29", "67"]
+    gitlab: ["132", "293", "308"]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: []
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+  individualVariants:
+    # L4× pairs excluding L1, L2, L5 (3)
+    - ["L4", "L6"]
+    - ["L4", "L9"]
+    - ["L4", "L11"]
+    - ["L4", "L12"]
+    # L5× pairs excluding L1, L2, L4 (4)
+    - ["L5", "L6"]
+    - ["L5", "L9"]
+    - ["L5", "L11"]
+    - ["L5", "L12"]
+    # L6× pairs excluding L1, L2, L4, L5 (3)
+    - ["L6", "L9"]
+    - ["L6", "L11"]
+    - ["L6", "L12"]
+    # L9× pairs excluding earlier (2)
+    - ["L9", "L11"]
+    - ["L9", "L12"]
+    # L11×L12 (1)
+    - ["L11", "L12"]
+
+runner:
+  repetitions: 3
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    - observationMode: "vision-only"
+      llmBackend: "claude-sonnet-vision"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+    - observationMode: "cua"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/c2-composition-shard-b"
+  exportFormats: ["json", "csv"]
