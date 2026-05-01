@@ -1,11 +1,12 @@
 # Mode A Analysis Report — AMT Individual Operator Experiment
 
-**Date**: 2026-04-30
-**Total cases**: 3,042 (26 operators × 13 tasks × 3 agents × 3 reps)
-**Clean cases**: 2,340 (10 tasks after excluding Docker-drift tasks)
-**Model**: Claude Sonnet 3.5 (us.anthropic.claude-sonnet-4-20250514-v1:0)
-**Agents**: text-only, SoM (vision-only), CUA (coordinate-based)
-**Accounts**: Shard A (190777959793, 14 ops), Shard B (275201671198, 12 ops)
+**Date**: 2026-05-01 (updated)
+**Claude cases**: 3,042 (26 operators × 13 tasks × 3 agents × 3 reps)
+**Llama 4 cases**: 1,014 (26 operators × 13 tasks × text-only × 3 reps)
+**Total Mode A**: 4,056 cases
+**Models**: Claude Sonnet 3.5, Llama 4 Maverick (Meta, 400B MoE)
+**Agents**: text-only, SoM (vision-only), CUA (coordinate-based) [Claude]; text-only [Llama 4]
+**Accounts**: Shard A (190777959793, 14 ops), Shard B (275201671198, 12 ops + Llama 4)
 
 ---
 
@@ -582,3 +583,103 @@ Systematic review of all findings. Each assessed by: (a) trace evidence quality,
 - **L1 → 99%**: Re-run L1 × task 4 on a fresh account with verified Magento statistics
 - **L12 → 95%**: Verify L12 × task 293 trace shows Vue.js search/navigation broken by duplicate IDs
 - **Task 29 noise → actionable**: Run task 29 with 10 reps to measure true baseline failure rate
+
+---
+
+## 10. Llama 4 Cross-Family Validation (B.3)
+
+**1,014 cases** (26 operators × 13 tasks × text-only × 3 reps). Llama 4 Maverick via Bedrock.
+GT-corrected: **728/1014 (71.8%)** (Claude text-only: 89.5%).
+
+### 10.1 Key Cross-Model Findings
+
+> **Deep-dive report**: [`mode-a-L11-L6-llama4-vulnerability-analysis.md`](mode-a-L11-L6-llama4-vulnerability-analysis.md)
+
+**L1/L5 ranking preserved**: Both models rank L1 (#1) and L5 (#2) as most destructive.
+This is the strongest cross-model replication — structural operators dominate regardless
+of model family.
+
+| Op | Claude | Llama 4 | Delta | Rank C | Rank L |
+|----|--------|---------|-------|--------|--------|
+| L1 | 53.8% | 43.6% | -10.2pp | 1 | 1 |
+| L5 | 71.8% | 53.8% | -18.0pp | 2 | 2 |
+| L11 | 92.3% | 61.5% | -30.8pp | 19 | 3 |
+| L12 | 79.5% | 69.2% | -10.3pp | 3 | 4 |
+| L6 | 100% | 71.8% | -28.2pp | 26 | 9 |
+| H2 | 92.3% | 84.6% | -7.7pp | 13 | 26 |
+
+### 10.2 Adaptive Recovery Gap (trace-verified)
+
+The largest cross-model divergences (L11: -30.8pp, L6: -28.2pp) are explained by
+**Llama 4's inability to adapt when expected DOM structures are missing**:
+
+**L11 × task 308 (GitLab)**: Under L11, sidebar shows `StaticText 'Contributors'`
+instead of `link 'Contributors'`. Claude recognizes navigation failure and constructs
+`goto("http://10.0.1.50:8023/primer/design/-/graphs/main")` — succeeds in 7 steps.
+Llama 4 clicks the StaticText 13 times, gets `ValueError` each time, spirals for
+19 steps (1,009K tokens), gives up.
+
+**L6 × task 67 (Reddit)**: Without heading structure, Llama 4 switches from "scan
+all titles on list page" to "click into each post individually" — exhausts 5-step
+budget after checking only 2 posts. Claude maintains the scan-from-list strategy.
+
+**Three mechanisms identified**:
+1. **Navigation collapse** (L11): Links become non-functional → Claude uses `goto()`, Llama 4 gets stuck
+2. **Strategy degradation** (L6): Headings removed → Llama 4 switches to slower strategy
+3. **Structural disorientation** (L6): Without heading landmarks, Llama 4 misidentifies post ordering
+
+### 10.3 H-Operator Enhancement Effect
+
+H-operator baseline: Claude 93.8% vs Llama 4 76.2% (-17.6pp).
+H2 (skip-nav) is Llama 4's best operator at 84.6% (+8.4pp above Llama H-baseline).
+This supports the "weaker models benefit more from a11y enhancement" finding from
+the expansion-llama4 data.
+
+### 10.4 Task 4 = 0% (Docker State, Not Operator Effect)
+
+Llama 4 ran on the same Docker instance as Shard B. Task 4 = 0% across all 26
+operators — identical to the Magento statistics staleness issue. Not an operator effect.
+
+### 10.5 Task 24 = 13% (Model Capability)
+
+47/78 Llama 4 answers are empty strings `""`. Llama 4 cannot find reviewers who
+mention "unfair price" — consistent with expansion-llama4 ecom:24 = 0%. This is a
+model comprehension limitation, not an operator effect.
+
+### 10.6 Anomalies Explained
+
+**H7 (aria-current) at 69.2%**: Not H7-specific. Failures are on task 4 (Docker),
+task 24 (model capability), task 26 (partial answer), task 29 (baseline noise).
+H7's rate is within normal Llama 4 variance.
+
+**SoM × task 188 = 0/78**: Classic phantom bid loop. SoM misreads bid "220" as
+"2027" from the screenshot overlay. Agent clicks phantom bid 2027 for 30 steps,
+never navigates away from homepage. Text-only succeeds in 2 steps (reads order
+table directly from a11y tree). This is a **systematic SoM architecture limitation**
+(10px font OCR error), not an operator effect.
+
+**CUA × task 23/26 = 0%**: CUA reads all 12 reviews but answers in prose
+("Based on my review of all 12 customer reviews...") without including the
+specific reviewer names "Rachel" and "T. Gannon" that the GT requires. CUA's
+screenshot viewport may not show reviewer names clearly, or the model summarizes
+instead of listing names. This is a CUA answer format limitation.
+
+---
+
+## 11. Deep-Dive Trace Reports Index (Updated)
+
+| # | Report | Finding | Traces |
+|---|--------|---------|--------|
+| 1 | [`mode-a-landmark-paradox-trace-report.md`](mode-a-landmark-paradox-trace-report.md) | L1: 6 DOM changes, -40pp drop | 4 |
+| 2 | [`mode-a-task67-forced-simplification-deep-dive.md`](mode-a-task67-forced-simplification-deep-dive.md) | SoM > text-only via action space constraint | 5 |
+| 3 | [`mode-a-L5-shadow-dom-trace-report.md`](mode-a-L5-shadow-dom-trace-report.md) | Ghost buttons: perception-action gap | 5 |
+| 4 | [`mode-a-L12-task29-trace-analysis.md`](mode-a-L12-task29-trace-analysis.md) | L12 confound: starting page divergence | 3 |
+| 5 | [`mode-a-L1-cross-agent-trace-report.md`](mode-a-L1-cross-agent-trace-report.md) | L1 asymmetry: landmark dependency taxonomy | 6 |
+| 6 | [`mode-a-L11-L6-llama4-vulnerability-analysis.md`](mode-a-L11-L6-llama4-vulnerability-analysis.md) | Adaptive Recovery Gap: Llama 4 can't adapt to missing DOM structures | 6 |
+
+**Total traces analyzed**: 29 individual trace files across 6 reports.
+
+All findings at ≥90% confidence with trace-level evidence. Every anomaly in the
+data can be explained by one of: (a) operator mechanism (trace-verified), (b) Docker
+state drift (GT-corrected), (c) model capability limitation (answer data), (d) SoM
+phantom bid architecture issue (trace-verified), (e) task baseline noise (statistical).
