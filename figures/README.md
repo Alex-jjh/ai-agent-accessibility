@@ -10,9 +10,9 @@ hand-refined in a vector editor for camera-ready.
 
 | # | Title | Purpose | Status |
 |---|-------|---------|--------|
-| F1 | AMT Framework Overview | Teaser: 26 operators → dual signature → alignment | 🔲 TODO |
-| F2 | Injection Pipeline & Causal Decomposition | How operators are injected + three-agent causal logic | 🔲 TODO |
-| F3 | Web Page Variant Example | Before/after showing a real page under Low vs Base | 🔲 TODO |
+| F1 | AMT Framework Overview | Teaser: 26 operators → dual signature → alignment | ✅ v1 |
+| F2 | Injection Pipeline & Causal Decomposition | How operators are injected + three-agent causal logic | ✅ v1 |
+| F3 | Web Page Variant Example | Before/after showing a real page under Low vs Base | ✅ v1 |
 
 ### Data Figures (matplotlib/seaborn)
 
@@ -26,8 +26,8 @@ the design rationale. Regenerable from CSV data in `results/amt/`.
 | F5 | DOM Signature Heatmap | `generate_F5_dom_heatmap.py` | ✅ DONE |
 | F6 | Signature Alignment Scatter | `generate_F6_alignment_scatter.py` | ✅ DONE |
 | F7 | Cross-Model Comparison | `generate_F7_cross_model.py` | ✅ DONE |
-| F8 | Compositional Scatter | `generate_F8_composition.py` | 🔲 TODO |
-| F9 | Per-Task × Operator Heatmap | `generate_F9_task_heatmap.py` | 🔲 TODO |
+| F8 | Compositional Scatter | `generate_F8_composition.py` | ✅ DONE |
+| F9 | Per-Task × Operator Heatmap | `generate_F9_task_heatmap.py` | ✅ DONE |
 
 ### Retained from Previous Work
 
@@ -64,6 +64,8 @@ python3.11 figures/generate_F4_behavioral_drop.py
 python3.11 figures/generate_F5_dom_heatmap.py
 python3.11 figures/generate_F6_alignment_scatter.py
 python3.11 figures/generate_F7_cross_model.py
+python3.11 figures/generate_F8_composition.py
+python3.11 figures/generate_F9_task_heatmap.py
 
 # Each script is self-contained with:
 # - Detailed docstring explaining PURPOSE, DESIGN RATIONALE, and WHY THIS DESIGN
@@ -110,10 +112,17 @@ figures/
 ├── generate_F5_dom_heatmap.py         ← §4.X DOM fingerprint matrix
 ├── generate_F6_alignment_scatter.py   ← §5.2 core contribution figure
 ├── generate_F7_cross_model.py         ← §5.3 Claude vs Llama 4
+├── generate_F8_composition.py         ← §5.4 expected vs observed pair drop
+├── generate_F9_task_heatmap.py        ← supplementary: 13×26 full matrix
 ├── F4_behavioral_drop.{png,pdf}       ← output
 ├── F5_dom_heatmap.{png,pdf}           ← output
 ├── F6_alignment_scatter.{png,pdf}     ← output
 ├── F7_cross_model.{png,pdf}           ← output
+├── F8_composition.{png,pdf}           ← output
+├── F9_task_heatmap.{png,pdf}          ← output
+├── F1_amt_framework_gpt_v1.png        ← GPT Image 2 output
+├── F2_injection_gpt_v1.png            ← GPT Image 2 output
+├── F3_page_variant_gpt_v1.png         ← GPT Image 2 output
 ├── generate_figure2.py                ← retained: composite results
 ├── figure2_main_results.png           ← retained: composite bar chart
 ├── figure2_stats.csv                  ← retained: stats for figure 2
