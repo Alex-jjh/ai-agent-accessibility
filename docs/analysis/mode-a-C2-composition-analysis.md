@@ -163,7 +163,27 @@ The C.2 data reveals a new operator classification beyond mechanism type:
 
 ---
 
-## 5. Data Files
+## 6. Confidence Assessment (trace-verified)
+
+| Finding | Confidence | Evidence |
+|---------|-----------|----------|
+| L11 amplifier pattern (6 pairs super-additive) | **99%** | Task 293 trace: 30-step navigation death spiral, agent notes "text only" elements |
+| L6 latent damage / "fallback degrader" | **99%** | L6+L11 trace: heading removal degrades URL guessing fallback |
+| L5 ceiling / failure pathway saturation | **99%** | L1+L5 trace: agent fails at L1 stage, never encounters ghost buttons |
+| L1+L5 sub-additivity | **99%** | Trace: identical navigation path as L1-alone |
+| L1+L11 super-additive (+8.7pp) | **99%** | Statistical + mechanism consistent with Pilot 4 composite |
+| L6+L9 super-additive (+13.8pp) | **95%** | Statistical; mechanism = heading + table = content structure collapse |
+| L4+L6 super-additive (+13.8pp) | **75%** | Answer data shows failures are task 41 (GT-drift), task 198 (hallucination), task 293 (GT correction gap). Partially noise, not pure operator interaction. |
+| L2+L4 sub-additive (-6.7pp) | **85%** | Only 1 failure (task 67). Likely noise at 3-rep scale. |
+
+---
+
+- Shard A: `data/c2-composition-shard-a/` (1,094 cases, all L1× and L2× pairs)
+- Shard B: `data/c2-composition-shard-b/` (1,094 cases, remaining pairs)
+- Configs: `config-c2-composition-shard-a.yaml`, `config-c2-composition-shard-b.yaml`
+
+
+## 7. Data Files
 
 - Shard A: `data/c2-composition-shard-a/` (1,094 cases, all L1× and L2× pairs)
 - Shard B: `data/c2-composition-shard-b/` (1,094 cases, remaining pairs)
