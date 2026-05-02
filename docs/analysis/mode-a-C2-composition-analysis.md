@@ -19,6 +19,13 @@
 | Sub-additive pairs | 5/28 (18%) |
 | Prediction accuracy | 11/28 (39%) |
 
+**Note on GT corrections**: Applying ground truth corrections (task 41/198/293
+Docker drift) changes 48/1092 text-only cases from failure to success. This
+reclassifies 4 pairs: L2+L11 (SUPER→add), L2+L4 (add→SUB), L2+L5 (add→SUB),
+L2+L6 (SUB→add). Core findings (L11 amplifier, L6 latent damage, L5 ceiling)
+are unaffected — all L1× pairs and L5/L6/L11 interaction pairs have identical
+numbers before and after correction.
+
 ---
 
 ## 2. Core Finding: Operator Interaction is Predominantly Super-Additive

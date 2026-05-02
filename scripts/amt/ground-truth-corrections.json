@@ -1,7 +1,7 @@
 {
   "_comment": "Ground truth corrections for Mode A experiment. WebArena Docker state can drift due to: (1) agent-induced state mutation (Magento search_query table updated by agent searches), (2) deployment configuration (GitLab external_url set to private IP by webarena.tf). These corrections accept BOTH the original ground truth AND the observed Docker state as valid answers.",
   "_date": "2026-04-30",
-  "_applies_to": ["mode-a-shard-a", "mode-a-shard-b", "mode-a-llama4-textonly"],
+  "_applies_to": ["mode-a-shard-a", "mode-a-shard-b", "mode-a-llama4-textonly", "c2-composition-shard-a", "c2-composition-shard-b"],
   "corrections": {
     "41": {
       "task": "List the top 1 search terms in my store",
