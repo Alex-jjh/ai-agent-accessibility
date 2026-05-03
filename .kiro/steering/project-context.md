@@ -800,8 +800,8 @@ scan-a11y-audit/  — Ecological validity audit (axe-core scan of 30+ real websi
 - `docs/new-account-migration-guide.md` — Complete guide for deploying to new AWS accounts
 - `docs/ma11y-operator-mapping.md` — Ma11y operator audit + novel extensions
 - `docs/aegis-taxonomy-comparison.md` — Failure taxonomy comparison with Aegis
-- `docs/pilot2-trace-deep-dive.md` — Pilot 2 trace analysis
-- `docs/screening-analysis.md` — Task screening results
+- `docs/archive/pilot2-trace-deep-dive.md` — Pilot 2 trace analysis
+- `docs/archive/screening-analysis.md` — Task screening results
 - `docs/analysis/` — All experiment analysis reports (git tracked):
   - pilot4-full-analysis.md, pilot4-cua-analysis.md, pilot4-deep-dives.md, etc.
   - expansion-claude-trace-deep-dive.md — Claude expansion low-variant failure attribution
@@ -818,7 +818,7 @@ scan-a11y-audit/  — Ecological validity audit (axe-core scan of 30+ real websi
   - visual-equivalence-architecture.md — System topology + data pipeline for replay
   - visual-equivalence-validation.md — §6 Limitations drop-in template
   - Write NEW analysis reports here (not in data/)
-- `docs/task-expansion-plan.md` — Task expansion from 6→13 tasks (selection rationale + execution plan)
+- `docs/task-expansion-plan.md` → **archived** to `docs/archive/task-expansion-plan.md`
 - `figures/figure4_layer_model_spec.md` — Five-layer architecture text spec
 - `analysis/` — Python analysis code (CLMM, GEE, SHAP, semantic density) — git tracked
 - `data/` — Raw experiment traces (JSON, CSV) — NOT git tracked, synced via S3
