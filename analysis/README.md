@@ -48,9 +48,13 @@ analysis/
 ## Active Script Taxonomy
 
 ### Paper-wide statistics
-- `run_statistics.py` — Main statistical runner (orchestrates all tests)
+- `run_statistics.py` — Main statistical runner (orchestrates all tests on composite variants)
 - `compute_primary_stats.py` — Primary (Fisher/chi²) + secondary (Cochran-Armitage) tests
 - `glmm_analysis.py` — GLMM mixed-effects via statsmodels GEE + BinomialBayesMixedGLM
+- `amt_statistics.py` — **AMT paper tests** (individual operators + composition + cross-model)
+  - §5.1: Fisher's exact per operator, Holm-Bonferroni corrected
+  - §5.3: Breslow-Day cross-model OR homogeneity
+  - §5.4: Compositional additivity departure tests
 
 ### Cross-model replication
 - `breslow_day.py` — Breslow-Day test for odds-ratio homogeneity (Claude vs Llama 4)
