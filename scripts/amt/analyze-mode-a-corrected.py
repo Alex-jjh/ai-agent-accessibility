@@ -9,13 +9,13 @@ Three tasks have ground truth mismatches due to:
 See scripts/amt/ground-truth-corrections.json for details.
 
 Usage:
-  python3.11 scripts/analyze-mode-a-corrected.py [--data-dirs dir1 dir2 ...]
+  python3.11 scripts/amt/analyze-mode-a-corrected.py [--data-dirs dir1 dir2 ...]
 """
 import json, glob, sys, os
 from collections import defaultdict, Counter
 
 # Load ground truth corrections
-CORRECTIONS_PATH = os.path.join(os.path.dirname(__file__), "amt", "ground-truth-corrections.json")
+CORRECTIONS_PATH = os.path.join(os.path.dirname(__file__), "ground-truth-corrections.json")
 with open(CORRECTIONS_PATH) as f:
     corrections = json.load(f)["corrections"]
 

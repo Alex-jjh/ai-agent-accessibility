@@ -14,13 +14,13 @@ Outputs:
   - results/amt/signature_alignment_report.md
 
 Usage:
-  python3.11 scripts/amt-signature-analysis.py
+  python3.11 scripts/amt/amt-signature-analysis.py
 """
 import json, glob, os, sys, math
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 DATA_DIR = ROOT / "data"
 DOM_SIG_PATH = DATA_DIR / "archive" / "amt-dom-signatures" / "dom_signatures.json"
 CORRECTIONS_PATH = ROOT / "scripts" / "amt" / "ground-truth-corrections.json"

@@ -1,6 +1,6 @@
 # scripts/ — Directory Guide
 
-57 scripts organized into 9 subdirectories by function.
+Organized into 10 subdirectories by function.
 
 ```
 scripts/
@@ -8,10 +8,11 @@ scripts/
 ├── launchers/      nohup wrappers for EC2 (survive SSM disconnect)
 ├── infra/          AWS deployment & EC2 bootstrap
 ├── data-pipeline/  S3 upload/download for experiments & audits
-├── amt/            AMT operator taxonomy (v8 paper core)
+├── amt/            AMT operator taxonomy + paper analysis (v8 paper core)
+├── a11y-cua/       A11y-CUA human baseline integration
 ├── visual-equiv/   Visual equivalence validation (Phase 7)
 ├── smoke/          Quick subsystem verification
-├── analysis/       Post-experiment trace analysis & task selection
+├── analysis/       Pre-AMT analysis (historical) & task selection
 └── ssm/            AWS SSM command documents (JSON)
 ```
 
@@ -57,7 +58,7 @@ All use `run-pilot3.ts` as the primary engine (accepts `--config` for any YAML).
 | `audit-download.sh` | Local | Download audit runs. `--list`, `--latest` |
 | `sync-to-s3.sh` | EC2 | Simple `aws s3 sync` (older, less structured) |
 
-## amt/ — AMT Operator Taxonomy
+## amt/ — AMT Operator Taxonomy + Analysis
 
 | Script | Lang | Purpose |
 |--------|------|---------|
@@ -66,6 +67,20 @@ All use `run-pilot3.ts` as the primary engine (accepts `--config` for any YAML).
 | `audit-operator-batch.ts` | TS | Batch: 13 tasks × N reps × 26 operators → `dom_signatures.json` |
 | `webarena_login.py` | Python | Shared auth helper — emits cookies as JSON on stdout |
 | `amt-audit-fixture.html` | HTML | Static fixture exercising all 26 operators |
+| `ground-truth-corrections.json` | JSON | GT corrections for Docker-drift tasks (41, 198, 293) |
+| `amt-signature-analysis.py` | Python | D.1/D.2/D.3 — DOM + behavioral + alignment matrices |
+| `audit-paper-numbers.py` | Python | Reproducibility audit — verifies every paper number from raw JSON |
+| `analyze-mode-a.py` | Python | Mode A analysis (no GT corrections) — historical reference |
+| `analyze-mode-a-corrected.py` | Python | Mode A analysis with GT corrections applied |
+| `extract-l1-traces.py` | Python | Extract L1 operator traces for deep-dive analysis |
+
+## a11y-cua/ — A11y-CUA Human Baseline Integration
+
+| Script | Lang | Purpose |
+|--------|------|---------|
+| `download-a11y-cua.sh` | Bash | Download A11y-CUA dataset from HuggingFace to `data/a11y-cua/` |
+| `analyze-a11y-cua-metadata.py` | Python | Parse A11y-CUA metadata JSONs → per-task summary stats |
+| `analyze-a11y-cua-qwen.py` | Python | Extract Qwen baseline numbers for §5.5 comparison |
 
 ## visual-equiv/ — Visual Equivalence Validation
 

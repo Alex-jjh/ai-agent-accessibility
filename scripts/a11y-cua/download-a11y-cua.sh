@@ -2,10 +2,10 @@
 # Download the Reduced-A11y-CUA dataset from HuggingFace
 # Target: data/a11y-cua/ (~3.89 GB)
 #
-# Usage: bash scripts/download-a11y-cua.sh
+# Usage: bash scripts/a11y-cua/download-a11y-cua.sh
 #
 # To download only metadata JSONs (much smaller, ~3 MB):
-#   bash scripts/download-a11y-cua.sh --metadata-only
+#   bash scripts/a11y-cua/download-a11y-cua.sh --metadata-only
 
 set -e
 

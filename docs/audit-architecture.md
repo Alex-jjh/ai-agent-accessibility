@@ -30,7 +30,7 @@ Raw case JSON → audit script → PASS/FAIL per claim
 ┌─────────────────────────────────────────────────────────────────┐
 │  Layer 2: AUDIT SCRIPT (git-tracked, deterministic)             │
 │                                                                  │
-│  scripts/audit-paper-numbers.py                                  │
+│  scripts/amt/audit-paper-numbers.py                              │
 │                                                                  │
 │  - Reads raw JSON directly (zero intermediate file dependency)   │
 │  - GT corrections INLINE (no external file needed)               │
@@ -43,7 +43,7 @@ Raw case JSON → audit script → PASS/FAIL per claim
 ┌─────────────────────────────────────────────────────────────────┐
 │  Layer 3: FIGURE SCRIPTS (git-tracked, regenerable)             │
 │                                                                  │
-│  scripts/amt-signature-analysis.py → results/amt/*.csv           │
+│  scripts/amt/amt-signature-analysis.py → results/amt/*.csv       │
 │  figures/generate_F4_behavioral_drop.py → F4.png/pdf             │
 │  figures/generate_F5_dom_heatmap.py → F5.png/pdf                 │
 │  figures/generate_F6_alignment_scatter.py → F6.png/pdf           │
@@ -123,7 +123,7 @@ to ensure the script is fully self-contained.
 
 ```bash
 # Full audit (reads ~6,200 JSON files, takes ~30s)
-python3.11 scripts/audit-paper-numbers.py
+python3.11 scripts/amt/audit-paper-numbers.py
 
 # Expected output: "28 passed, 0 failed"
 # If any check fails: exit code 1 + ❌ markers showing expected vs actual
@@ -148,7 +148,7 @@ If the audit fails:
 ## Relationship to Figure Scripts
 
 The figure scripts (F4-F9) read from `results/amt/*.csv` which is generated
-by `scripts/amt-signature-analysis.py`. This creates a dependency:
+by `scripts/amt/amt-signature-analysis.py`. This creates a dependency:
 
 ```
 Raw JSON → amt-signature-analysis.py → results/amt/*.csv → generate_F*.py → figures
@@ -163,6 +163,6 @@ figures show different numbers than the audit, the bug is in
 When the paper repo moves to a CI system, add:
 ```yaml
 # .github/workflows/audit.yml
-- run: python3.11 scripts/audit-paper-numbers.py
+- run: python3.11 scripts/amt/audit-paper-numbers.py
 ```
 This ensures no PR can merge if paper numbers are inconsistent with data.

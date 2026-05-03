@@ -212,7 +212,7 @@ The two studies fill each other's gaps:
 - **License**: CC-BY-4.0
 - **Citation**: Gubbi Mohanbabu et al., CHI 2026, DOI: 10.1145/3772318.3791896
 - **Local path**: `data/a11y-cua/`
-- **Analysis script**: `scripts/analyze-a11y-cua-metadata.py`
+- **Analysis script**: `scripts/a11y-cua/analyze-a11y-cua-metadata.py`
 
 ### Verified Statistics (from our metadata parse)
 
@@ -249,7 +249,7 @@ The Qwen `success` field in metadata is **unreliable for SR and Magnifier condit
 
 **Impact on our analysis**: Always cite Qwen numbers from the **published paper** (Default 20%, SR 0%, Mag 0%), never from metadata computation. Add a footnote in §5.5 if referencing Qwen data.
 
-Analysis script: `scripts/analyze-a11y-cua-qwen.py`
+Analysis script: `scripts/a11y-cua/analyze-a11y-cua-qwen.py`
 
 ---
 

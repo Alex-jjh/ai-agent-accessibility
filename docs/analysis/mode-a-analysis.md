@@ -54,7 +54,7 @@ task 41 (23 cases with correct "abomin" answer).
 
 **Approach**: Accept both original AND current Docker answers as valid.
 Ground truth corrections stored in `scripts/amt/ground-truth-corrections.json`.
-Analysis script `scripts/analyze-mode-a-corrected.py` applies corrections at
+Analysis script `scripts/amt/analyze-mode-a-corrected.py` applies corrections at
 post-processing time (BrowserGym's real-time eval uses original GT only).
 
 Root causes:
@@ -497,7 +497,7 @@ may be smaller than the ranking suggests.
 
 - Raw data: `data/mode-a-shard-a/`, `data/mode-a-shard-b/`
 - CUA screenshots: `data/mode-a-shard-a-screenshots/`, `data/mode-a-shard-b-screenshots/`
-- Analysis scripts: `scripts/analyze-mode-a.py` (original), `scripts/analyze-mode-a-corrected.py` (with GT fix)
+- Analysis scripts: `scripts/amt/analyze-mode-a.py` (original), `scripts/amt/analyze-mode-a-corrected.py` (with GT fix)
 - Ground truth corrections: `scripts/amt/ground-truth-corrections.json`
 - DOM signatures: `data/archive/amt-dom-signatures/dom_signatures.json`
 

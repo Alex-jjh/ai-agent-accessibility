@@ -51,7 +51,7 @@ WHAT IT CHECKS:
     - L1+L5 sub-additivity (-17.0pp)
 
 USAGE:
-  python3.11 scripts/audit-paper-numbers.py
+  python3.11 scripts/amt/audit-paper-numbers.py
 
   Exit code 0 = all checks pass
   Exit code 1 = at least one check failed
@@ -60,7 +60,7 @@ import json, glob, sys, os
 from collections import defaultdict
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parent.parent.parent
 
 # ════════════════════════════════════════════════════════════════
 # Ground Truth Corrections (inline for zero-dependency)
