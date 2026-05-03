@@ -12,6 +12,7 @@ scan-a11y-audit/node_modules
 
 # Python
 __pycache__/
+.pytest_cache/
 *.py[cod]
 *.egg-info/
 .venv/
