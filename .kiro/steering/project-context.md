@@ -6,16 +6,56 @@ Empirical research platform studying web accessibility vs AI agent task success.
 Dual-track: Track A (WebArena controlled experiments), Track B (HAR replay ecological survey).
 Six modules: Scanner, Variants, Runner, Classifier, Recorder, Analysis (Python).
 
-## Current Status
+## Current Status (as of 2026-05-02 EOD)
 
-Tasks 1–22 complete (all 6 modules implemented, 334 TS + 67 Python tests passing).
-Scanner verified on real websites (EC2 + local). LiteLLM → Bedrock verified.
-Infrastructure: private subnet + SSM (no public access, burner account compliant).
-Pilot 1 completed 2026-04-01 — 54 cases, 4 successes (7.4% raw / 66.7% effective).
-Root cause analysis identified 5 failure categories; 3 P0 code fixes applied and pushed.
-Round 5 regression (2026-04-02): task ID mapping corrected from test.raw.json,
-BrowserGym 500ms→3000ms timeout fixed, wikipedia excluded (map dependency),
-agent prompt tuned for concise answers, send_msg_to_user sanitized.
+**AMT Paper Phase D complete.** Repo is publication-ready.
+
+### Experimental data (all analyzed, GT-corrected, auditable)
+- Pilot 1-4 + expansion: N=1,040 composite variants (preserved, historical)
+- Mode A Claude: 3,042 cases (26 ops × 13 tasks × 3 agents × 3 reps)
+- Mode A Llama 4: 1,014 cases (cross-model replication)
+- C.2 Composition: 2,188 cases (28 pairs × 13 tasks × 2 agents × 3 reps)
+- **Total: ~7,476 cases**
+
+### Analysis pipeline (all git-tracked)
+- `scripts/amt/amt-signature-analysis.py` — D.1/D.2/D.3 matrices
+- `scripts/amt/audit-paper-numbers.py` — 28/28 reproducibility checks
+- `analysis/amt_statistics.py` — Fisher exact + Breslow-Day + compositional additivity tests
+- `analysis/` — statistical package (CLMM, GEE, GLMM, visual equivalence, human baseline)
+
+### Figures (9 complete, all reproducible)
+- F1-F3 conceptual (GPT Image 2 v1): framework, injection+causal, page variant
+- F4-F9 data figures (matplotlib, 300dpi PNG + vector PDF):
+  behavioral drop bar, DOM heatmap, alignment scatter (CORE), cross-model,
+  composition scatter, per-task heatmap
+
+### Repository state
+- 440 tracked files, clean working tree, 28/28 audit checks pass
+- 6-phase cleanup completed (see docs/repo-cleanup-plan.md + docs/repo-readiness-audit.md)
+- Configs organized: 13 active at root, 16 historical in `configs/archive/`
+- Scripts organized: `scripts/amt/`, `scripts/a11y-cua/`, `scripts/analysis/`, etc.
+- Docs organized: active at `docs/` root, 7 historical in `docs/archive/`
+- Analysis package organized: 18 active + 9 archived in `analysis/archive/`
+- Figures organized: active + GPT Image outputs at `figures/` root, 9 old in `figures/archive/`
+
+### Reproducibility
+- Every paper number traceable to raw JSON via `python3.11 scripts/amt/audit-paper-numbers.py`
+- All figures regenerable from `results/amt/*.csv`
+- Raw data gitignored, S3-backed via `scripts/data-pipeline/experiment-{upload,download}.sh`
+
+### Key findings (paper §5)
+- **L1 vs L11 paradox**: L1 makes 6 DOM changes, drops 40pp; L11 makes 365 changes,
+  drops 1.5pp (Claude). DOM magnitude is anti-correlated with behavioral impact.
+- **Signature alignment**: 42% of operators show DOM-active/behavior-null misalignment
+  (agent adaptation); 15% show DOM-minimal/behavior-active (structural criticality).
+- **Cross-model**: L1/L5 destructive in both Claude and Llama 4. L11 adaptive recovery
+  gap — Claude +1.5pp vs Llama 4 +14.6pp (Claude uses goto() workaround).
+- **Compositional**: 15/28 super-additive, binomial p=0.019 rejects symmetric additivity.
+  Operators amplify each other (not saturate).
+
+Next: Phase C narrative (paper writing, 05-03 → 06-07).
+See `docs/platform-engineering-log.md` for full bug/fix history and
+`.kiro/steering/2026-04-27-chi2027-roadmap-v8.md` §12-§13 for current plan.
 
 Screening completed (2026-04-03):
 - ecommerce_admin: 2/12 success (16.7%) — tasks 4, 14. Admin routing fixed (/admin path).
