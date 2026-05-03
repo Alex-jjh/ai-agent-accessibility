@@ -20,7 +20,7 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$PROJECT_DIR/data/pilot3b"
 LOG_FILE="$LOG_DIR/pilot3b.log"
 PID_FILE="$LOG_DIR/pilot3b.pid"
-CONFIG="./config-pilot3b.yaml"
+CONFIG="./configs/archive/config-pilot3b.yaml"
 
 # Load nvm
 export NVM_DIR="$HOME/.nvm"

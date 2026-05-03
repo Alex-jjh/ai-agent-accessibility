@@ -22,7 +22,7 @@ import { executeAgentTask } from '../../src/runner/agents/executor.js';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
 const args = process.argv.slice(2);
-const configPath = args.find((_, i) => args[i - 1] === '--config') ?? './config-regression.yaml';
+const configPath = args.find((_, i) => args[i - 1] === '--config') ?? './configs/archive/config-regression.yaml';
 
 // Targeted task list — IDs from webarena/test.raw.json (interleaved, NOT contiguous ranges)
 // App names must match config-regression.yaml keys

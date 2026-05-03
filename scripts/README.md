@@ -33,10 +33,10 @@ All use `run-pilot3.ts` as the primary engine (accepts `--config` for any YAML).
 
 | Script | Config | Cases |
 |--------|--------|-------|
-| `launch-pilot3.sh` | config-pilot3.yaml | 120 |
-| `launch-pilot3b.sh` | config-pilot3b.yaml | 240 |
-| `launch-pilot4.sh` | config-pilot4.yaml | 240 |
-| `launch-pilot4-cua.sh` | config-pilot4-cua.yaml | 120 |
+| `launch-pilot3.sh` | configs/archive/config-pilot3.yaml | 120 |
+| `launch-pilot3b.sh` | configs/archive/config-pilot3b.yaml | 240 |
+| `launch-pilot4.sh` | configs/archive/config-pilot4.yaml | 240 |
+| `launch-pilot4-cua.sh` | configs/archive/config-pilot4-cua.yaml | 120 |
 
 ## infra/ — Deployment & Bootstrap
 

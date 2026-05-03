@@ -10,7 +10,7 @@ LOG="data/pilot4-cua.log"
 mkdir -p data
 
 echo "=== Pilot 4 CUA Launch ==="
-echo "Config: config-pilot4-cua.yaml"
+echo "Config: configs/archive/config-pilot4-cua.yaml"
 echo "Cases: 120 (6 tasks × 4 variants × 5 reps)"
 echo "Log: $LOG"
 echo ""
@@ -18,7 +18,7 @@ echo ""
 # Source nvm for node
 source ~/.nvm/nvm.sh
 
-nohup npx tsx scripts/runners/run-pilot3.ts --config config-pilot4-cua.yaml > "$LOG" 2>&1 &
+nohup npx tsx scripts/runners/run-pilot3.ts --config configs/archive/config-pilot4-cua.yaml > "$LOG" 2>&1 &
 PID=$!
 echo "Started PID: $PID"
 echo "$PID" > data/pilot4-cua.pid

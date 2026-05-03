@@ -10,10 +10,10 @@
 #
 # Examples:
 #   bash scripts/data-pipeline/experiment-run-and-upload.sh pilot5 ./data/pilot5 \
-#       npx tsx scripts/runners/run-pilot3.ts --config config-pilot4.yaml
+#       npx tsx scripts/runners/run-pilot3.ts --config configs/archive/config-pilot4.yaml
 #
 #   bash scripts/data-pipeline/experiment-run-and-upload.sh pilot5-cua ./data/pilot5-cua \
-#       npx tsx scripts/runners/run-pilot3.ts --config config-pilot4-cua.yaml
+#       npx tsx scripts/runners/run-pilot3.ts --config configs/archive/config-pilot4-cua.yaml
 #
 # The launch-*.sh scripts can call this instead of raw nohup.
 # ============================================================================

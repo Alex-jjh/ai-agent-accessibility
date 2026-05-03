@@ -21,7 +21,7 @@ import { chromium } from 'playwright';
 import { runTrackA } from '../../src/index.js';
 
 const args = process.argv.slice(2);
-const configPath = args.find((_, i) => args[i - 1] === '--config') ?? './config-pilot.yaml';
+const configPath = args.find((_, i) => args[i - 1] === '--config') ?? './configs/archive/config-pilot.yaml';
 const resumeRunId = args.find((_, i) => args[i - 1] === '--resume');
 const cdpPort = parseInt(args.find((_, i) => args[i - 1] === '--cdp-port') ?? '9222');
 

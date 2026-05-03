@@ -26,7 +26,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 const args = process.argv.slice(2);
-const CONFIG_PATH = args.find((_, i) => args[i - 1] === '--config') ?? './config-pilot3.yaml';
+const CONFIG_PATH = args.find((_, i) => args[i - 1] === '--config') ?? './configs/archive/config-pilot3.yaml';
 const resumeRunId = args.find((_, i) => args[i - 1] === '--resume');
 const dryRun = args.includes('--dry-run');
 const cdpPort = parseInt(args.find((_, i) => args[i - 1] === '--cdp-port') ?? '9222');

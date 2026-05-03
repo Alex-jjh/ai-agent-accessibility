@@ -21,7 +21,7 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_DIR="$PROJECT_DIR/data/pilot4"
 LOG_FILE="$LOG_DIR/pilot4.log"
 PID_FILE="$LOG_DIR/pilot4.pid"
-CONFIG="./config-pilot4.yaml"
+CONFIG="./configs/archive/config-pilot4.yaml"
 
 export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"

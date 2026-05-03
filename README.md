@@ -175,7 +175,7 @@ Experiments are configured via YAML and run on EC2 via nohup (SSM sessions disco
 bash scripts/launch-pilot4.sh
 
 # Or directly
-nohup npx tsx scripts/run-pilot3.ts --config config-pilot4.yaml > pilot4.log 2>&1 &
+nohup npx tsx scripts/runners/run-pilot3.ts --config configs/archive/config-pilot4.yaml > pilot4.log 2>&1 &
 ```
 
 ## Testing

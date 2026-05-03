@@ -18,7 +18,7 @@ import { executeAgentTask } from '../../src/runner/agents/executor.js';
 import { writeFileSync, mkdirSync } from 'node:fs';
 
 const args = process.argv.slice(2);
-const configPath = args.find((_, i) => args[i - 1] === '--config') ?? './config-regression.yaml';
+const configPath = args.find((_, i) => args[i - 1] === '--config') ?? './configs/archive/config-regression.yaml';
 
 const APP = 'ecommerce';
 const TASK_ID = '3';
