@@ -278,3 +278,52 @@ All 5 phases executed in order. Each phase verified with
 
 All 5 commits verify: `python3.11 scripts/amt/audit-paper-numbers.py`
 returns "28 passed, 0 failed" and figure regeneration works.
+
+
+### Phase 6 (commit d969834) — Organize analysis/ package
+
+**Context**: `analysis/` and `scripts/amt/` are complementary, not duplicate:
+- `analysis/` = Python statistical package (CLMM, GEE, GLMM, visualization)
+- `scripts/amt/` = AMT operator tooling + paper audit
+
+**Moved** 9 historical pilot/expansion analysis scripts to `analysis/archive/`:
+- `pilot3b_190_analysis.py`
+- `pilot4_{analysis,cross_pilot_stats,deep_dives,token_analysis}.py`
+- `expansion_{smoke_comparison,som_full_deep_dive,cua_full_deep_dive,cross_agent_comparison}.py`
+
+These scripts produced final reports in `docs/analysis/` and are not part of
+the active CHI 2027 AMT paper pipeline.
+
+**Active scripts remain in `analysis/`** (18 files):
+- Paper-wide stats: `run_statistics.py`, `compute_primary_stats.py`, `glmm_analysis.py`
+- Cross-model: `breslow_day.py`, `bootstrap_decomposition.py`
+- Sensitivity: `majority_vote_sensitivity.py`, `cua_failure_trace_validation.py`
+- Data: `export_combined_data.py`, `verify_all_data_points.py`, `paper_consistency_audit.py`, `generate_results_tables.py`
+- Metrics: `semantic_density.py` + test, `ssim_helper.py`
+- Visual equiv: `visual_equivalence_analysis.py`, `visual_equivalence_gallery.py`
+- Human baseline: `griffith_triangulation.py` + Griffith Excel
+- Plus `models/` subdir (primary.py, secondary.py) and `viz/` subdir
+
+Updated `analysis/README.md` with relationship table, active script taxonomy.
+Added `analysis/archive/README.md`. Added `.pytest_cache/` to `.gitignore`.
+
+## Updated Final State (after Phase 6)
+
+| Location | Before | After |
+|----------|--------|-------|
+| Root entries | 43 | 34 |
+| Root config YAMLs | 29 | 13 |
+| Loose scripts at `scripts/` root | 9 | 0 |
+| `docs/` root files | 23 | 17 |
+| `analysis/` root files | 27 | 18 |
+| Stale artifacts | 660MB tarballs + test dirs | 0 |
+
+**Commit history**:
+```
+d969834  Phase 6: organize analysis/ (9 pilot/expansion → archive)
+ee8f1f2  docs(cleanup): log actual execution
+c9ed880  Phase 4: archive historical docs
+ae1bee7  Phase 2: archive historical configs
+d2de134  Phase 3: consolidate scripts/
+54faad4  Phase 1+5: delete stale, document drafts/
+```
