@@ -223,3 +223,58 @@ Freed disk space: ~660MB (tarballs) + dist cache
 Every `git mv` is reversible via `git mv` back. If a phase breaks something,
 `git reset --hard HEAD~1` undoes it cleanly (these are local-only changes,
 no force-push concern).
+
+
+---
+
+## Execution Log — 2026-05-02
+
+All 5 phases executed in order. Each phase verified with
+`python3.11 scripts/amt/audit-paper-numbers.py` before proceeding.
+
+### Phase 1 (commit 54faad4) — Delete stale artifacts
+- Removed `data.tar` (630MB), `data.tar.gz` (27MB) — regenerable from S3
+- Removed `terraform-apply.log`, `.DS_Store`, `test-tmp/`, `dist/`, `.pytest_cache/`
+- All were untracked or gitignored, no code impact
+- Result: ~660MB freed
+
+### Phase 5 (commit 54faad4) — Document drafts/
+- `drafts/` kept with new README documenting its aspirational role
+  (Phase C/D paper writing artifacts will land here)
+
+### Phase 3 (commit d2de134) — Consolidate scripts/
+- Moved 5 scripts from `scripts/` → `scripts/amt/`:
+  amt-signature-analysis.py, audit-paper-numbers.py, analyze-mode-a{,-corrected}.py, extract-l1-traces.py
+- Moved 3 scripts from `scripts/` → `scripts/a11y-cua/` (new dir):
+  download-a11y-cua.sh, analyze-a11y-cua-metadata.py, analyze-a11y-cua-qwen.py
+- Path fixes: `ROOT = parent.parent.parent` for moved scripts
+- Updated 9 files with new paths (figures, docs, scripts, steering)
+
+### Phase 2 (commit ae1bee7) — Archive configs
+- Moved 16 historical config YAMLs to `configs/archive/`
+- Root has 13 active configs (down from 29)
+- Updated 10 scripts with `configs/archive/` fallback paths
+- Added `configs/archive/README.md`
+
+### Phase 4 (commit c9ed880) — Archive docs
+- Moved 7 historical docs to `docs/archive/`:
+  pilot-analysis, pilot2-findings, pilot2-trace-deep-dive,
+  bugfix-2026-04-02-all, screening-analysis, task-expansion-{plan,phase2-candidates}
+- Added `docs/README.md` as navigation index with lookup table
+- Added `docs/archive/README.md`
+- Conservative approach: kept 17 active docs at docs/ root
+  (amt-*, audit-architecture, platform-*, deployment, etc.)
+  to avoid breaking 20+ source code references
+
+## Final State
+
+| Location | Before | After |
+|----------|--------|-------|
+| Root entries | 43 | 34 |
+| Root config YAMLs | 29 | 13 |
+| Loose scripts at `scripts/` root | 9 | 0 |
+| `docs/` root files | 23 | 17 |
+| Stale artifacts | 660MB tarballs + test dirs | 0 |
+
+All 5 commits verify: `python3.11 scripts/amt/audit-paper-numbers.py`
+returns "28 passed, 0 failed" and figure regeneration works.
