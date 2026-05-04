@@ -15,13 +15,13 @@
 
 ### Dataset 1: AMT Operator Audit (PRIORITY — use this)
 
-**Location**: `data/archive/amt-audit-batch/`
+**Location**: `data/amt-audit-batch/`
 
 **Structure**: 39 directories (13 tasks × 3 reps), each containing
 before/after screenshots for all 26 operators.
 
 ```
-data/archive/amt-audit-batch/
+data/amt-audit-batch/
   batch-t4-r1/screenshots/
     L1_before.png    L1_after.png
     L2_before.png    L2_after.png
