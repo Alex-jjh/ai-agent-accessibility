@@ -181,7 +181,7 @@ Any value not on this list that looks like an experimental result is suspect.
 
 ### Ecological Validity
 - 34 sites audited
-- 83.3% with L3 structural violations
+- 82.4% with Tier 3 structural violations (28/34)
 
 ### Task Selection Funnel
 - 812 total WebArena tasks
