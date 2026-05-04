@@ -35,7 +35,17 @@ Six modules: Scanner, Variants, Runner, Classifier, Recorder, Analysis (Python).
 - **Fisher exact**: Only L1 and L5 significant after Holm-Bonferroni. Framed as "sparsity is the finding" — most operators benign individually, destructive in combination.
 - **Severity tier naming**: L1/L2/L3 tiers renamed to Tier 1/2/3 to avoid collision with operator IDs L1-L13.
 
-### Deep research results (2026-05-04)
+### Pending items (noted 2026-05-04)
+- **Screenshot audit**: Per-operator screenshots (base vs operator) exist from visual
+  equivalence pipeline but have not been human-reviewed. Need Alex to visually inspect
+  L5 (Shadow DOM visual change), L6 (heading→div font change), L11 (link→span blue
+  underline preservation). These are screenshots of the web pages, not paper figures.
+- **Trace audit for new findings**: 23 traces analyzed across 5 deep-dive reports.
+  May contain additional discoveries (agent reasoning contradicting success rate data).
+  Lower priority — already reviewed multiple rounds, but worth revisiting after paper
+  stabilizes.
+- **Conclusion restructured**: No longer duplicates abstract. Now focuses on implications
+  (landmark priority, non-linear remediation returns, capability × environment interaction).
 - **Novelty safe**: No competitor does individual WCAG operator × AI agent testing
 - **Theory frameworks**: Hatano adaptive expertise, Chou-Talalay synergy, Reason Swiss cheese
 - **WebAIM update**: 94.8% → 95.9% (2026 data)
