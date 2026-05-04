@@ -434,6 +434,127 @@ def test_compositional_interaction(claude_cases, c2_cases, agent="text-only"):
 
 
 # ════════════════════════════════════════════════════════════════
+# §5.1b GEE for Mode A (task-level clustering)
+# ════════════════════════════════════════════════════════════════
+def test_gee_mode_a(claude_cases, agent="text-only"):
+    """
+    GEE with exchangeable correlation clustered on task identity.
+    Tests whether operator family (L/ML/H) predicts success after
+    accounting for task-level clustering.
+
+    Reuses the same GEE approach as the composite study (glmm_analysis.py)
+    but applied to Mode A individual operator data.
+    """
+    import pandas as pd
+    from statsmodels.genmod.generalized_estimating_equations import GEE
+    from statsmodels.genmod.families import Binomial
+    from statsmodels.genmod.cov_struct import Exchangeable
+
+    rows = [c for c in claude_cases if c["agent"] == agent]
+    df = pd.DataFrame(rows)
+    df["success_int"] = df["success"].astype(int)
+    df["is_destructive"] = df["opId"].isin(["L1", "L5"]).astype(int)
+    df["is_low_family"] = df["opId"].str.startswith("L").astype(int)
+    df["is_h_family"] = df["opId"].str.startswith("H").astype(int)
+
+    results = {}
+
+    # Model 1: Binary destructive indicator (L1/L5 vs rest)
+    m1 = GEE.from_formula(
+        "success_int ~ is_destructive",
+        groups="taskId", data=df,
+        family=Binomial(), cov_struct=Exchangeable(),
+    ).fit()
+    results["M1_destructive"] = {
+        "formula": "success ~ is_destructive + (exch|task)",
+        "beta": round(m1.params["is_destructive"], 4),
+        "z": round(m1.tvalues["is_destructive"], 3),
+        "p": m1.pvalues["is_destructive"],
+        "OR": round(np.exp(m1.params["is_destructive"]), 3),
+    }
+
+    # Model 2: Low-family indicator (all L-operators vs H-baseline)
+    m2 = GEE.from_formula(
+        "success_int ~ is_low_family",
+        groups="taskId", data=df,
+        family=Binomial(), cov_struct=Exchangeable(),
+    ).fit()
+    results["M2_low_family"] = {
+        "formula": "success ~ is_low_family + (exch|task)",
+        "beta": round(m2.params["is_low_family"], 4),
+        "z": round(m2.tvalues["is_low_family"], 3),
+        "p": m2.pvalues["is_low_family"],
+        "OR": round(np.exp(m2.params["is_low_family"]), 3),
+    }
+
+    return results
+
+
+# ════════════════════════════════════════════════════════════════
+# §5.1c Majority-vote sensitivity for Mode A
+# ════════════════════════════════════════════════════════════════
+def test_majority_vote_mode_a(claude_cases, agent="text-only"):
+    """
+    Aggregates 3 reps per (task, operator) cell into a single majority-vote
+    outcome (success if ≥2 of 3 reps succeed). Re-runs Fisher exact on
+    L1 and L5 to verify robustness.
+
+    Reuses the same majority-vote logic as the composite study
+    (majority_vote_sensitivity.py) but adapted for 3-rep Mode A cells.
+    """
+    # Group by (task, operator) → majority vote
+    cells = defaultdict(lambda: {"ok": 0, "total": 0})
+    for c in claude_cases:
+        if c["agent"] != agent:
+            continue
+        key = (c["taskId"], c["opId"])
+        cells[key]["total"] += 1
+        if c["success"]:
+            cells[key]["ok"] += 1
+
+    mv_cells = []
+    for (tid, opId), counts in cells.items():
+        majority = 1 if counts["ok"] >= 2 else 0  # ≥2/3 = success
+        mv_cells.append({"taskId": tid, "opId": opId, "success": majority})
+
+    # H-baseline under majority vote
+    h_mv = [c for c in mv_cells if c["opId"].startswith("H")]
+    h_ok = sum(c["success"] for c in h_mv)
+    h_n = len(h_mv)
+    h_rate = h_ok / h_n if h_n > 0 else 0
+
+    # Test L1 and L5 under majority vote
+    results = {}
+    for op in ["L1", "L5", "L12"]:
+        op_mv = [c for c in mv_cells if c["opId"] == op]
+        op_ok = sum(c["success"] for c in op_mv)
+        op_n = len(op_mv)
+        if op_n == 0:
+            continue
+        op_rate = op_ok / op_n
+        table = np.array([[op_ok, op_n - op_ok], [h_ok, h_n - h_ok]])
+        _, p = stats.fisher_exact(table)
+        results[op] = {
+            "rate": op_rate, "n": op_n, "ok": op_ok,
+            "h_rate": h_rate, "h_n": h_n,
+            "p_fisher": p,
+            "preserves": p < 0.05,
+        }
+
+    # Variance cells (cells where not all 3 reps agree)
+    variance_count = sum(1 for (_, _), c in cells.items()
+                         if 0 < c["ok"] < c["total"])
+    total_cells = len(cells)
+
+    return results, {
+        "total_cells": total_cells,
+        "variance_cells": variance_count,
+        "variance_pct": round(100 * variance_count / total_cells, 1) if total_cells > 0 else 0,
+        "h_rate_mv": round(h_rate * 100, 1),
+    }
+
+
+# ════════════════════════════════════════════════════════════════
 # MAIN
 # ════════════════════════════════════════════════════════════════
 def main():
@@ -524,6 +645,41 @@ def main():
     print(f"  → {comp_summary['interpretation']}")
 
     # ════════════════════════════════════════════════════════════
+    # §5.1b GEE for Mode A (task-level clustering)
+    # ════════════════════════════════════════════════════════════
+    print(f"\n{'─' * 70}")
+    print("§5.1b GEE FOR MODE A (task-level clustering)")
+    print(f"{'─' * 70}")
+    print("Tests operator effects with GEE exchangeable correlation on task")
+
+    try:
+        gee_results = test_gee_mode_a(claude_cases, "text-only")
+        for name, r in gee_results.items():
+            print(f"\n  {name}: {r['formula']}")
+            print(f"    β = {r['beta']}, z = {r['z']}, p = {r['p']:.2e}, OR = {r['OR']}")
+    except Exception as e:
+        print(f"  ⚠️ GEE failed (likely missing statsmodels): {e}")
+        gee_results = {}
+
+    # ════════════════════════════════════════════════════════════
+    # §5.1c Majority-vote sensitivity for Mode A
+    # ════════════════════════════════════════════════════════════
+    print(f"\n{'─' * 70}")
+    print("§5.1c MAJORITY-VOTE SENSITIVITY (Mode A, 3 reps → 1 vote)")
+    print(f"{'─' * 70}")
+    print("Aggregates 3 reps per cell into majority vote (≥2/3 = success)")
+
+    mv_results, mv_summary = test_majority_vote_mode_a(claude_cases, "text-only")
+    print(f"\n  Total cells: {mv_summary['total_cells']}")
+    print(f"  Cells with between-rep variance: {mv_summary['variance_cells']} "
+          f"({mv_summary['variance_pct']}%)")
+    print(f"  H-baseline (majority vote): {mv_summary['h_rate_mv']}%")
+    for op, r in mv_results.items():
+        status = "✅ PRESERVES" if r["preserves"] else "⚠️ loses significance"
+        print(f"  {op}: {r['ok']}/{r['n']} ({r['rate']*100:.1f}%) "
+              f"p={r['p_fisher']:.6f} {status}")
+
+    # ════════════════════════════════════════════════════════════
     # Write markdown report
     # ════════════════════════════════════════════════════════════
     report_path = OUTPUT_DIR / "statistics_report.md"
@@ -583,6 +739,28 @@ def main():
         f.write(f"- Sub-additive: {comp_summary['sub']}/{comp_summary['total']}\n")
         f.write(f"- Binomial test (super vs sub, H0: 50/50): p = {comp_summary['binomial_p']:.6f}\n")
         f.write(f"- Interpretation: {comp_summary['interpretation']}\n")
+
+        # §5.1b GEE
+        f.write("\n---\n\n## §5.1b GEE for Mode A (task-level clustering)\n\n")
+        if gee_results:
+            for name, r in gee_results.items():
+                f.write(f"**{name}**: `{r['formula']}`\n")
+                f.write(f"- β = {r['beta']}, z = {r['z']}, p = {r['p']:.2e}, OR = {r['OR']}\n\n")
+        else:
+            f.write("GEE analysis not available (missing statsmodels GEE).\n\n")
+
+        # §5.1c Majority-vote
+        f.write("---\n\n## §5.1c Majority-Vote Sensitivity (Mode A)\n\n")
+        f.write(f"**Aggregation**: 3 reps per cell → majority vote (≥2/3 = success)\n")
+        f.write(f"**Total cells**: {mv_summary['total_cells']}\n")
+        f.write(f"**Cells with variance**: {mv_summary['variance_cells']} ({mv_summary['variance_pct']}%)\n")
+        f.write(f"**H-baseline (MV)**: {mv_summary['h_rate_mv']}%\n\n")
+        f.write("| Op | Rate (MV) | n | p (Fisher) | Preserves? |\n")
+        f.write("|---|---|---|---|---|\n")
+        for op, r in mv_results.items():
+            status = "✅ Yes" if r["preserves"] else "⚠️ No"
+            f.write(f"| {op} | {r['ok']}/{r['n']} ({r['rate']*100:.1f}%) | "
+                    f"{r['n']} | {r['p_fisher']:.6f} | {status} |\n")
 
     print(f"\n{'═' * 70}")
     print(f"Written: {report_path}")
