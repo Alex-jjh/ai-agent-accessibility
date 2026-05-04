@@ -6,9 +6,40 @@ Empirical research platform studying web accessibility vs AI agent task success.
 Dual-track: Track A (WebArena controlled experiments), Track B (HAR replay ecological survey).
 Six modules: Scanner, Variants, Runner, Classifier, Recorder, Analysis (Python).
 
-## Current Status (as of 2026-05-02 EOD)
+## Current Status (as of 2026-05-04)
 
-**AMT Paper Phase D complete.** Repo is publication-ready.
+**Phase C: Paper writing in progress.** All experiments complete, now rewriting paper for AMT v8 framing.
+
+### Paper repo: `github.com/Alex-jjh/ai-accessibility-paper`
+- Local path: `../paper/` (sibling to this repo in workspace)
+- LaTeX compiles locally via MacTeX (pdflatex + bibtex + latexmk)
+- 67 commits of history preserved from Overleaf + GitHub
+- Current paper is v7 framing (composite variants, N=1,040) — being rewritten to AMT v8
+
+### Paper rewrite plan (in progress)
+1. ~~Add 18 new citations to references.bib~~ ✅ (2026-05-04)
+2. Rename severity tiers: L1/L2/L3 → Tier 1/Tier 2/Tier 3 (avoid collision with operator IDs L1-L13)
+3. Rewrite §3 → AMT Framework (operator taxonomy, DOM signature, behavioral signature, alignment)
+4. Expand §4 → add Mode A protocol, C.2 protocol, GT corrections, N=~7,476
+5. Rewrite §5 → per-operator drops, signature alignment, cross-model, composition, human baseline
+6. Update §1 → new contributions, new hook numbers
+7. Update §6 → alignment interpretation, structural criticality, adaptive expertise framing
+8. Update §7/§8 → future work + conclusion
+9. Copy F1-F9 figures to paper repo, update references
+10. Update Appendix → 26 AMT operators
+
+### Key decisions for paper
+- **N reporting**: All data reported (composite N=1,040 as motivation, Mode A N=4,056 as main, C.2 N=2,188 as composition)
+- **CUA in Mode A**: H-baseline 48.2% due to task-architecture mismatch (5/13 tasks exceed CUA capabilities). Composite study CUA (93.8% baseline) used for primary decomposition. Mode A CUA as supplementary.
+- **GT corrections**: 3 tasks (41, 198, 293) had Docker data drift. Post-hoc audit applied conservative corrections. Documented in §4.
+- **Fisher exact**: Only L1 and L5 significant after Holm-Bonferroni. Framed as "sparsity is the finding" — most operators benign individually, destructive in combination.
+- **Severity tier naming**: L1/L2/L3 tiers renamed to Tier 1/2/3 to avoid collision with operator IDs L1-L13.
+
+### Deep research results (2026-05-04)
+- **Novelty safe**: No competitor does individual WCAG operator × AI agent testing
+- **Theory frameworks**: Hatano adaptive expertise, Chou-Talalay synergy, Reason Swiss cheese
+- **WebAIM update**: 94.8% → 95.9% (2026 data)
+- **New benchmarks to cite**: WebArena Verified, Odysseys, TimeWarp, StressWeb, Dark Patterns
 
 ### Experimental data (all analyzed, GT-corrected, auditable)
 - Pilot 1-4 + expansion: N=1,040 composite variants (preserved, historical)
