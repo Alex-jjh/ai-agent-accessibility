@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -c 'cat > /tmp/eta.py <<PYEOF\nimport json, glob, os, datetime\nroot = \"/home/ec2-user/platform/data/smoker-shard-b\"\nos.chdir(root)\nfiles = sorted(glob.glob(\"*/cases/*.json\"), key=os.path.getmtime)\nif not files:\n    print(\"no cases yet\")\nelse:\n    # Get start time from run-state.json\n    rs = glob.glob(\"*/run-state.json\")[0]\n    start = json.load(open(rs))[\"startedAt\"]\n    # Wall clock\n    first_m = os.path.getmtime(files[0])\n    last_m = os.path.getmtime(files[-1])\n    wall_s = last_m - first_m\n    n = len(files)\n    rate = n / wall_s if wall_s > 0 else 0\n    target = 930\n    remaining_s = (target - n) / rate if rate > 0 else 0\n    print(f\"Shard B: {n}/{target} cases\")\n    print(f\"Wall clock (first-to-last): {wall_s/60:.1f} min\")\n    print(f\"Rate: {rate*60:.2f} cases/min = {60/rate:.1f}s/case\")\n    print(f\"Remaining: {remaining_s/3600:.1f} hours (~{(first_m + target/rate)})\")\n    print(f\"Started: {start}\")\n    eta = datetime.datetime.fromtimestamp(last_m + remaining_s).strftime(\"%Y-%m-%d %H:%M:%S UTC\")\n    print(f\"ETA: {eta}\")\nPYEOF\npython3.11 /tmp/eta.py'"
+  ],
+  "executionTimeout": ["30"]
+}

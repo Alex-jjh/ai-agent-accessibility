@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -c 'cat > /tmp/peek.py <<PYEOF\nimport json, glob, os\nos.chdir(\"/home/ec2-user/platform/data/smoker-shard-a\")\nfor p in sorted(glob.glob(\"*/cases/*.json\")):\n    d = json.load(open(p))\n    t = d[\"trace\"]\n    if not t[\"steps\"]:\n        continue\n    if \"No accessibility tree available\" in t[\"steps\"][0][\"observation\"]:\n        print(\"===\", d[\"caseId\"], \"===\")\n        print(\"  outcome:\", t[\"outcome\"], \"steps:\", t[\"totalSteps\"])\n        bl = (t.get(\"bridgeLog\") or \"\")\n        # Print last 1500 chars of bridge log\n        print(\"  bridge log tail:\")\n        print(\"  \" + bl[-1500:].replace(\"\\n\", \"\\n  \"))\n        print()\nPYEOF\npython3.11 /tmp/peek.py'"
+  ],
+  "executionTimeout": ["30"]
+}

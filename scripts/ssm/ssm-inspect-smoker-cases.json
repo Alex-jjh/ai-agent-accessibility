@@ -1,0 +1,11 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'cd ~/platform/data/smoker-shard-a && ls */cases/*.json 2>/dev/null | head -5'",
+    "echo ===total cases===",
+    "sudo -u ec2-user bash -lc 'find ~/platform/data/smoker-shard-a -name \"*.json\" -not -name run-state.json 2>/dev/null | wc -l'",
+    "echo ===outcome distribution===",
+    "sudo -u ec2-user bash -lc 'for f in $(find ~/platform/data/smoker-shard-a -name \"*.json\" -not -name run-state.json 2>/dev/null | head -30); do python3.11 -c \"import json,sys; d=json.load(open(sys.argv[1])); t=d[\\\"trace\\\"]; print(t[\\\"outcome\\\"], t[\\\"totalSteps\\\"], int(t[\\\"durationMs\\\"]/1000), d[\\\"taskId\\\"])\" \"$f\"; done | sort | uniq -c | sort -rn | head -20'",
+    "echo ===sample trace: first successful case==="
+  ],
+  "executionTimeout": ["60"]
+}

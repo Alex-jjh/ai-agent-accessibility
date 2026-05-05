@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -c 'cat > /tmp/ctx.py <<PYEOF\nimport json, glob, os\nos.chdir(\"/home/ec2-user/platform/data/smoker-shard-a\")\nfor p in sorted(glob.glob(\"*/cases/*.json\")):\n    d = json.load(open(p))\n    t = d[\"trace\"]\n    if not any(\"Context Window\" in (s.get(\"resultDetail\") or \"\") for s in t[\"steps\"]):\n        continue\n    print(\"===\", d[\"caseId\"], \"===\")\n    for i, s in enumerate(t[\"steps\"]):\n        obs_len = len(s[\"observation\"])\n        action = s[\"action\"][:50]\n        result = s[\"result\"]\n        print(\"  step\", i+1, \"obs_len=\", obs_len, \"action=\", repr(action), \"result=\", result)\n        if \"Context Window\" in (s.get(\"resultDetail\") or \"\"):\n            rd = (s.get(\"resultDetail\") or \"\")[:400]\n            print(\"    err:\", repr(rd))\n    print()\nPYEOF\npython3.11 /tmp/ctx.py'"
+  ],
+  "executionTimeout": ["30"]
+}

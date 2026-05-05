@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -c 'cat > /tmp/chk.py <<PYEOF\nimport json\ndata = json.load(open(\"/home/ec2-user/platform/test.raw.json\"))\ntargets = {433, 772, 456, 12, 325, 528, 385, 274, 703, 51}\nfor t in data:\n    tid = t.get(\"task_id\")\n    if tid in targets:\n        url = t.get(\"start_url\") or \"\"\n        sites = t.get(\"sites\")\n        print(\"task\", tid, \"sites=\", sites, \"url=\", url[:120])\nPYEOF\npython3.11 /tmp/chk.py'"
+  ],
+  "executionTimeout": ["30"]
+}

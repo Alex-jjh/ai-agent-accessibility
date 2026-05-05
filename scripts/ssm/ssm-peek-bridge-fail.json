@@ -1,0 +1,10 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'cd ~/platform/data/smoker-shard-a && find . -name ecommerce_base_433_0_2.json 2>/dev/null'",
+    "echo ===bridgeLog===",
+    "sudo -u ec2-user bash -lc 'cd ~/platform/data/smoker-shard-a && F=$(find . -name ecommerce_base_433_0_2.json 2>/dev/null | head -1); python3.11 -c \"import json, sys; d = json.load(open(sys.argv[1])); print(d[\\\"trace\\\"][\\\"bridgeLog\\\"] or \\\"(empty)\\\")\" \"$F\"'",
+    "echo ===full step===",
+    "sudo -u ec2-user bash -lc 'cd ~/platform/data/smoker-shard-a && F=$(find . -name ecommerce_base_433_0_2.json 2>/dev/null | head -1); python3.11 -c \"import json, sys; d = json.load(open(sys.argv[1])); [print(s) for s in d[\\\"trace\\\"][\\\"steps\\\"]]\" \"$F\"'"
+  ],
+  "executionTimeout": ["30"]
+}

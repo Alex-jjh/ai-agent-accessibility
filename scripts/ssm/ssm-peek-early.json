@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -c 'cat > /tmp/early.py <<PYEOF\nimport json, glob, os\nos.chdir(\"/home/ec2-user/platform/data/smoker-shard-a\")\nfor p in sorted(glob.glob(\"*/cases/*.json\")):\n    d = json.load(open(p))\n    t = d[\"trace\"]\n    if t[\"outcome\"] != \"failure\":\n        continue\n    if not t[\"steps\"]:\n        continue\n    s0 = t[\"steps\"][0]\n    obs0 = s0[\"observation\"]\n    rd = s0.get(\"resultDetail\") or \"\"\n    if \"No accessibility tree\" in obs0 or \"Bridge process terminated\" in rd or \"Timeout\" in rd or t[\"totalSteps\"] >= 5:\n        continue\n    # \"other_early\" — 2-4 steps, no obvious error\n    print(\"===\", d[\"caseId\"], \"steps=\", t[\"totalSteps\"], \"===\")\n    last = t[\"steps\"][-1]\n    print(\"  last action:\", last[\"action\"][:100])\n    print(\"  last result:\", (last.get(\"resultDetail\") or \"\")[:200])\n    # If it had a send_msg_to_user, show it\n    for s in t[\"steps\"]:\n        if \"send_msg\" in s[\"action\"]:\n            print(\"  final answer:\", s[\"action\"][:150])\n            break\nPYEOF\npython3.11 /tmp/early.py'"
+  ],
+  "executionTimeout": ["30"]
+}

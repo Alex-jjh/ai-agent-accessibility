@@ -5,6 +5,7 @@ import {
   executeAgentTask,
   parseLlmResponse,
   extractBalancedCall,
+  truncateAxtreeForTest,
   type BrowserGymObservation,
   type BridgeProcess,
   type BridgeSpawner,
@@ -575,5 +576,37 @@ describe('executeAgentTask', () => {
     expect(trace.steps[0].result).toBe('failure');
     expect(trace.steps[0].resultDetail).toContain('not found');
     expect(trace.success).toBe(false);
+  });
+});
+
+
+// ---------------------------------------------------------------------------
+// truncateAxtree — guards against Claude/Bedrock ContextWindowExceeded errors
+// when Magento admin grids produce 230K+ char a11y trees.
+// ---------------------------------------------------------------------------
+
+describe('truncateAxtree', () => {
+  it('returns input unchanged when under the limit', () => {
+    const small = 'a'.repeat(10_000);
+    expect(truncateAxtreeForTest(small)).toBe(small);
+  });
+
+  it('truncates middle when input exceeds MAX_AXTREE_CHARS (40K)', () => {
+    const huge = 'x'.repeat(200_000);
+    const out = truncateAxtreeForTest(huge);
+    expect(out.length).toBeLessThan(huge.length);
+    expect(out).toContain('[... truncated');
+    // Head (30K) + tail (5K) preserved
+    expect(out.startsWith('x'.repeat(30_000))).toBe(true);
+    expect(out.endsWith('x'.repeat(5_000))).toBe(true);
+  });
+
+  it('preserves the observed 235K-char Magento admin grid shape', () => {
+    // Matches real failures: click("201") on admin Customers list → 235K chars.
+    const axtree = 'menu ' + 'row '.repeat(58_000);  // ~232K chars
+    const out = truncateAxtreeForTest(axtree);
+    expect(out.length).toBeLessThan(50_000);
+    expect(out).toContain('[... truncated');
+    expect(out).toMatch(/truncated \d+ chars from middle/);
   });
 });

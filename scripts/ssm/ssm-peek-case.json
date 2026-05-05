@@ -1,0 +1,11 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'cd ~/platform/data/smoker-shard-a && find . -name run-state.json -prune -o -name \"*.json\" -print 2>/dev/null | head -3'",
+    "echo ===first 80 lines of first case===",
+    "sudo -u ec2-user bash -lc 'cd ~/platform/data/smoker-shard-a && F=$(find . -name run-state.json -prune -o -name \"*.json\" -print 2>/dev/null | head -1); head -c 3000 \"$F\"'",
+    "echo",
+    "echo ===keys top-level===",
+    "sudo -u ec2-user bash -lc 'cd ~/platform/data/smoker-shard-a && F=$(find . -name run-state.json -prune -o -name \"*.json\" -print 2>/dev/null | head -1); python3.11 -c \"import json,sys; d=json.load(open(sys.argv[1])); print(list(d.keys()))\" \"$F\"'"
+  ],
+  "executionTimeout": ["60"]
+}

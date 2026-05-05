@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -c 'cat > /tmp/login.py <<PYEOF\nimport json, glob, os, collections\nos.chdir(\"/home/ec2-user/platform/data/smoker-shard-a\")\nstats = collections.Counter()\nfor p in sorted(glob.glob(\"*/cases/*.json\")):\n    d = json.load(open(p))\n    t = d[\"trace\"]\n    bl = (t.get(\"bridgeLog\") or \"\")\n    app = d[\"app\"]\n    if app != \"ecommerce_admin\":\n        continue\n    if \"ui_login for shopping_admin succeeded\" in bl:\n        stats[\"admin_login_ok\"] += 1\n    elif \"ui_login for shopping_admin failed\" in bl:\n        stats[\"admin_login_fail\"] += 1\n    else:\n        stats[\"admin_login_absent\"] += 1\nfor k, v in stats.items():\n    print(f\"{k}: {v}\")\nPYEOF\npython3.11 /tmp/login.py'"
+  ],
+  "executionTimeout": ["30"]
+}

@@ -169,6 +169,30 @@ function buildSystemPrompt(goal: string, observationMode: ObservationMode): stri
 }
 
 /**
+ * Maximum accessibility tree length (chars) sent to the LLM per turn.
+ * Magento admin lists (Orders, Customers, Products grids) can produce
+ * a11y trees exceeding 230K chars, which saturates Claude Sonnet 4's
+ * 200K-token context window after 2-3 turns of accumulated history.
+ *
+ * When exceeded, we keep the head (selectable menus, navigation) and
+ * the tail (current focus, interactive region), dropping the middle.
+ */
+const MAX_AXTREE_CHARS = 40000;
+const AXTREE_HEAD_CHARS = 30000;
+const AXTREE_TAIL_CHARS = 5000;
+
+function truncateAxtree(axtree: string): string {
+  if (axtree.length <= MAX_AXTREE_CHARS) return axtree;
+  const head = axtree.slice(0, AXTREE_HEAD_CHARS);
+  const tail = axtree.slice(-AXTREE_TAIL_CHARS);
+  const dropped = axtree.length - AXTREE_HEAD_CHARS - AXTREE_TAIL_CHARS;
+  return `${head}\n\n[... truncated ${dropped} chars from middle of accessibility tree (${axtree.length} total); head + tail preserved ...]\n\n${tail}`;
+}
+
+// Exported for tests; internal-only helper.
+export const truncateAxtreeForTest = truncateAxtree;
+
+/**
  * Build the user message content for a single step.
  */
 function buildUserMessage(
@@ -201,7 +225,8 @@ function buildUserMessage(
   if (observationMode !== 'vision-only') {
     parts.push('');
     parts.push('Accessibility Tree:');
-    parts.push(obs.axtree_txt || '[Page content not available]');
+    const axtree = obs.axtree_txt || '[Page content not available]';
+    parts.push(truncateAxtree(axtree));
   }
 
   const textContent = parts.join('\n');

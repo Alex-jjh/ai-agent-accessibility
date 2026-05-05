@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -c 'cat > /tmp/kind.py <<PYEOF\nimport json, glob, os, collections\nos.chdir(\"/home/ec2-user/platform/data/smoker-shard-a\")\nkinds = collections.Counter()\nfor p in sorted(glob.glob(\"*/cases/*.json\")):\n    d = json.load(open(p))\n    t = d[\"trace\"]\n    if t[\"outcome\"] != \"failure\":\n        continue\n    # Categorize\n    if not t[\"steps\"]:\n        kinds[\"no_steps\"] += 1\n        continue\n    s0 = t[\"steps\"][0]\n    obs0 = s0[\"observation\"]\n    rd = s0.get(\"resultDetail\") or \"\"\n    if \"No accessibility tree\" in obs0:\n        kinds[\"empty_obs\"] += 1\n    elif \"Bridge process terminated\" in rd:\n        kinds[\"bridge_crash\"] += 1\n    elif \"Timeout\" in rd:\n        kinds[\"step1_timeout\"] += 1\n    elif t[\"totalSteps\"] >= 5:\n        kinds[\"genuine_failure\"] += 1\n    else:\n        kinds[\"other_early\"] += 1\nfor k, v in kinds.most_common():\n    print(f\"{k}: {v}\")\nPYEOF\npython3.11 /tmp/kind.py'"
+  ],
+  "executionTimeout": ["30"]
+}
