@@ -75,8 +75,14 @@ Decision: expand to **50-100 tasks** via a Smoker → Filter → Manipulate pipe
 **Output**: `data/manipulation-v2/`
 
 **Docker state management**:
-- Configure `WA_FULL_RESET=1` if available
-- Or: restart Docker containers every 500 cases
+- WebArena has NO built-in per-episode DB reset
+- Official reset = `docker stop + rm + run` from frozen image (~2 min per container)
+- WebArena Verified (ServiceNow) has slim images with DB backup/restore — consider migrating
+- **Our strategy**: reset all containers every ~200 cases:
+  `docker stop shopping shopping_admin forum gitlab && docker rm ... && docker run ...`
+- For Magento only (faster, ~10 sec if dump.sql exists):
+  `docker exec shopping mysql -u magentouser -pMyPassword magentodb < /docker-entrypoint-initdb.d/dump.sql`
+- **Smoker mitigation**: base-only (no mutation), GT drift risk is lower
 - Verify GT on first rep of each new task before continuing
 
 ### Stage 4: DOM Audit (Visual Equivalence)

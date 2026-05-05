@@ -1,0 +1,52 @@
+# Smoker Shard A — Tasks from shopping_admin + shopping (374 tasks)
+# Base solvability gate: 3 reps, text-only, no patches
+#
+# ~374 tasks × 3 reps = 1,122 cases
+# Estimated: ~$150, ~1.5 days
+#
+# Run on EC2 (Account A):
+#   nohup npx tsx scripts/run-pilot3.ts --config config-smoker-shard-a.yaml > smoker-a.log 2>&1 &
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.50:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.50:7780"
+
+  # All shopping + shopping_admin tasks with string_match eval
+  # Generated from task-site-mapping.json + test.raw.json eval filter
+  tasksPerApp:
+    ecommerce_admin: "all_string_match"
+    ecommerce: "all_string_match"
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["base"]
+  scoreRanges:
+    base: { min: 0.40, max: 0.70 }
+
+runner:
+  repetitions: 3
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/smoker-shard-a"
+  exportFormats: ["json", "csv"]

@@ -1,0 +1,51 @@
+# Smoker Shard B — Tasks from reddit + gitlab (310 tasks)
+# Base solvability gate: 3 reps, text-only, no patches
+#
+# ~310 tasks × 3 reps = 930 cases
+# Estimated: ~$100, ~1 day
+#
+# Run on EC2 (Account B):
+#   nohup npx tsx scripts/run-pilot3.ts --config config-smoker-shard-b.yaml > smoker-b.log 2>&1 &
+
+webarena:
+  apps:
+    reddit:
+      url: "http://10.0.1.50:9999"
+    gitlab:
+      url: "http://10.0.1.50:8023"
+
+  # All reddit + gitlab tasks with string_match eval
+  tasksPerApp:
+    reddit: "all_string_match"
+    gitlab: "all_string_match"
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: ["base"]
+  scoreRanges:
+    base: { min: 0.40, max: 0.70 }
+
+runner:
+  repetitions: 3
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/smoker-shard-b"
+  exportFormats: ["json", "csv"]
