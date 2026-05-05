@@ -3,7 +3,7 @@
 **Date:** 2026-04-08
 **Run ID:** 6ad6b0f8-bf5c-44b2-bcb0-9d3d3d7dd261
 **Design:** 6 tasks × 4 variants × 5 reps = 120 cases (CUA only)
-**Agent:** Anthropic Computer Use (Claude Sonnet 3.5 via Bedrock Converse API)
+**Agent:** Anthropic Computer Use (Claude Sonnet 4 via Bedrock Converse API)
 **Observation:** Raw screenshots + pixel-coordinate actions (zero DOM/a11y tree dependency)
 **Total Duration:** 234.1 min
 
@@ -553,7 +553,7 @@ informative result. It reveals that:
    comparison is not perfectly controlled for agent capability. The CUA low-variant
    comparison is conservative (CUA has more "room to fall").
 
-4. **Single LLM:** All three agents use Claude Sonnet 3.5. Generalization to other
+4. **Single LLM:** All three agents use Claude Sonnet 4. Generalization to other
    models requires additional experiments.
 
 ---

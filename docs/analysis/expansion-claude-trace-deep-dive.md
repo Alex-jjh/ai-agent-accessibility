@@ -1,7 +1,7 @@
 # Expansion-Claude Trace Deep Dive: gitlab:308 low & admin:94 low
 
 **Experiment**: expansion-claude (run 6082c5d1)
-**Model**: Claude Sonnet 3.5 via Bedrock
+**Model**: Claude Sonnet 4 via Bedrock
 **Date**: April 2026
 
 ---

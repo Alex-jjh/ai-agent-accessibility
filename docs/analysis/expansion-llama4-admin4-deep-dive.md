@@ -3,7 +3,7 @@
 **Task**: "What are the top-3 best-selling products in January 2023?"  
 **App**: Magento Admin Dashboard (ecommerce_admin, port 7780)  
 **Model**: Llama 4 Maverick (open-source, via AWS Bedrock)  
-**Comparison**: Claude Sonnet 3.5 (Pilot 3a + Pilot 4 data)  
+**Comparison**: Claude Sonnet 4 (Pilot 3a + Pilot 4 data)  
 **Date**: April 2026
 
 ---

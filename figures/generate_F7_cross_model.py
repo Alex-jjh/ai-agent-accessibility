@@ -87,7 +87,7 @@ for i, (_, row) in enumerate(df_show.iterrows()):
 
 # Claude dots
 ax.scatter(df_show['claude_drop_pp'], y_pos, s=50, color=CLAUDE_COLOR,
-           zorder=5, label='Claude Sonnet 3.5')
+           zorder=5, label='Claude Sonnet 4')
 
 # Llama 4 dots
 ax.scatter(df_show['llama4_drop_pp'], y_pos, s=50, color=LLAMA_COLOR,

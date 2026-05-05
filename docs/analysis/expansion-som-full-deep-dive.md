@@ -1,7 +1,7 @@
 # Expansion-SoM Full Experiment Deep Dive
 
 **Experiment**: expansion-som (run ed05230c)
-**Model**: Claude Sonnet 3.5 via Bedrock (vision-only / SoM observation mode)
+**Model**: Claude Sonnet 4 via Bedrock (vision-only / SoM observation mode)
 **Date**: April 13, 2026
 **Cases**: 140 (7 tasks × 4 variants × 5 reps)
 **Overall**: 38/140 (27.1%) success, 102 failures to classify

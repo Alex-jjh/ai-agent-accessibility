@@ -2,7 +2,7 @@
 """
 Figure 2: Main Results — 2×3 panel bar chart (v2)
 
-Rows: Claude Sonnet 3.5 / Llama 4 Maverick
+Rows: Claude Sonnet 4 / Llama 4 Maverick
 Cols: Text-Only / SoM Vision / CUA
 Each panel: 4 bars (Low / M-L / Base / High) with Wilson 95% CI
 
@@ -40,7 +40,7 @@ VARIANT_COLORS = [C_LOW, C_ML, C_BASE, C_HIGH]
 AGENT_ORDER = ['text-only', 'vision-only', 'cua']
 AGENT_LABELS = ['Text-Only', 'SoM Vision', 'CUA']
 MODEL_ORDER = ['anthropic', 'meta']
-MODEL_LABELS = ['Claude Sonnet 3.5', 'Llama 4 Maverick']
+MODEL_LABELS = ['Claude Sonnet 4', 'Llama 4 Maverick']
 
 
 def wilson_ci(successes, n, alpha=0.05):

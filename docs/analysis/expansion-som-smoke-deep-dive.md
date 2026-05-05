@@ -1,7 +1,7 @@
 # Expansion-SoM Smoke Test Deep Dive
 
 **Experiment**: expansion-som-smoke (run 78791f30)
-**Model**: Claude Sonnet 3.5 via Bedrock (vision-only / SoM observation mode)
+**Model**: Claude Sonnet 4 via Bedrock (vision-only / SoM observation mode)
 **Date**: April 13, 2026
 **Cases**: 28 (7 tasks × 4 variants × 1 rep)
 

@@ -21,7 +21,7 @@ A11y-CUA and AMT investigate the **same fundamental phenomenon** — accessibili
 | **Environment** | Live Windows desktop + real websites | WebArena Docker (controlled, reproducible) |
 | **Human baseline** | 16 participants (8 SU, 8 BLVU) | A11y-CUA data (cross-study anchor) |
 | **Task domain** | 60 desktop+web tasks (5 categories) | 13 web-only tasks (4 WebArena apps) |
-| **Cross-model** | Claude Sonnet 4.5 + Qwen3-VL-32B | Claude Sonnet 3.5 + Llama 4 Maverick |
+| **Cross-model** | Claude Sonnet 4.5 + Qwen3-VL-32B | Claude Sonnet 4 + Llama 4 Maverick |
 
 This orthogonality is methodologically powerful: **if both studies independently find that accessibility barriers degrade agent performance, the convergence constitutes a triangulation that neither study could achieve alone.** The probability that two independent research groups, using different experimental paradigms, different task sets, different environments, and different manipulation strategies, would both observe large accessibility-driven performance drops *by chance* is vanishingly small.
 
@@ -120,7 +120,7 @@ Both studies test a second model family beyond their primary agent:
 | Study | Primary model | Secondary model | Secondary baseline | Effect persists? |
 |---|---|---|---|---|
 | A11y-CUA | Claude Sonnet 4.5 (78.3%) | Qwen3-VL-32B (20.0%) | 20.0% default | Yes, but floor effect — Qwen drops to 0% under both SR and Magnifier |
-| AMT | Claude Sonnet 3.5 (86.7% base) | Llama 4 Maverick (70.8% base) | 70.8% base | Yes — Llama 4 low 36.9% vs base 70.8% (−33.9pp) |
+| AMT | Claude Sonnet 4 (86.7% base) | Llama 4 Maverick (70.8% base) | 70.8% base | Yes — Llama 4 low 36.9% vs base 70.8% (−33.9pp) |
 
 Together, the two studies span **four distinct model families**: Claude (Anthropic, closed), Llama (Meta, open), Qwen (Alibaba, open), and CUA-mode Claude (coordinate-based). The accessibility effect degrades performance in **all four**, though weaker models (Qwen, Llama) show lower baselines and sometimes floor effects. This four-model coverage substantially strengthens the "effect generalizes across model families" claim — no single vendor's architecture is immune.
 
@@ -371,7 +371,7 @@ For transparency in the paper (§6.4), we should acknowledge:
 
 1. **Dosage asymmetry**: AMT low = 13 simultaneous operators vs A11y-CUA SR = 1 constraint. Per-operator Mode A data will resolve this.
 2. **Analogical mapping, not direct replication**: Different websites, different DOM structures, different JS frameworks. Archetype-level convergence is suggestive but not definitive.
-3. **Different models**: A11y-CUA uses Claude Sonnet 4.5; AMT uses Claude Sonnet 3.5. Same family but different capability levels.
+3. **Different models**: A11y-CUA uses Claude Sonnet 4.5; AMT uses Claude Sonnet 4. Same family, close capability tier (both are Anthropic's May-2025 generation).
 4. **Different environments**: Live web (ecological validity, no control) vs Docker containers (controlled, limited ecological validity). The tradeoffs are complementary but not equivalent.
 5. **Qwen floor effect**: Qwen3-VL's 20% baseline limits its value for cross-model comparison. Llama 4's 70.8% baseline is more informative.
 6. **Qwen metadata unreliable**: Qwen SR/Magnifier `success` fields in metadata contradict the paper's human-reviewed results (81.7%/88.3% in metadata vs 0%/0% in paper). Always cite paper numbers, not metadata. See §7 for details.

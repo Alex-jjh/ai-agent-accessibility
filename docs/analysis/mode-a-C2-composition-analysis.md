@@ -3,7 +3,7 @@
 **Date**: 2026-05-02
 **Total cases**: 2,188 (28 pairs × 13 tasks × 2 agents × 3 reps)
 **Agents**: text-only + CUA (SoM excluded)
-**Model**: Claude Sonnet 3.5
+**Model**: Claude Sonnet 4 (`bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0`)
 
 ---
 

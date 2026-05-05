@@ -2,7 +2,7 @@
 
 **Date**: April 14, 2026
 **Scope**: 280 cases total — SoM 140 + CUA 140 (7 tasks × 4 variants × 5 reps × 2 agents)
-**Model**: Claude Sonnet 3.5 via AWS Bedrock (both agents)
+**Model**: Claude Sonnet 4 via AWS Bedrock (both agents)
 **Status**: Both runs completed successfully, 0 missing cases
 
 ---

@@ -86,7 +86,7 @@ RIGHT BOX (Behavioral Signature):
   "Text-only: a11y tree → text actions (most sensitive)"
   "SoM Vision: screenshot + bid overlay → click actions"
   "CUA Coordinate: screenshot only → coordinate actions (zero DOM dependency)"
-- Small footer: "Claude Sonnet 3.5 + Llama 4 Maverick, 13 tasks × 3 reps"
+- Small footer: "Claude Sonnet 4 + Llama 4 Maverick, 13 tasks × 3 reps"
 
 Between the two boxes, a small "×" symbol indicating cross-product measurement.
 

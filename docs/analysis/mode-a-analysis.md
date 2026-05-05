@@ -4,7 +4,7 @@
 **Claude cases**: 3,042 (26 operators × 13 tasks × 3 agents × 3 reps)
 **Llama 4 cases**: 1,014 (26 operators × 13 tasks × text-only × 3 reps)
 **Total Mode A**: 4,056 cases
-**Models**: Claude Sonnet 3.5, Llama 4 Maverick (Meta, 400B MoE)
+**Models**: Claude Sonnet 4 (`us.anthropic.claude-sonnet-4-20250514-v1:0`), Llama 4 Maverick (Meta, 400B MoE)
 **Agents**: text-only, SoM (vision-only), CUA (coordinate-based) [Claude]; text-only [Llama 4]
 **Accounts**: Shard A (190777959793, 14 ops), Shard B (275201671198, 12 ops + Llama 4)
 
