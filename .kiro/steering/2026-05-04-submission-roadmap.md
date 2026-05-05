@@ -2,177 +2,207 @@
 inclusion: auto
 ---
 
-# CHI 2027 Submission Roadmap — Phase C (Paper Writing)
+# CHI 2027 Submission Roadmap — Text-Only Expansion
 
-> **Created**: 2026-05-04
+> **Updated**: 2026-05-04 (evening session)
 > **Deadline**: 2026-09-11 (CHI 2027 submission)
 > **Days remaining**: ~130
-> **Status**: All experiments complete. Paper draft v1 done. Now in polish + review cycle.
+> **Strategy**: Text-only primary, SSIM visual control, CUA composite-only
 
 ---
 
-## Current State
+## Strategic Decision (2026-05-04)
 
-### Experiments — ALL COMPLETE ✅
+### What changed
+After 5 rounds of AI reviewer simulation, the core weakness is **13 tasks**.
+Decision: expand to **50-100 tasks** via a Smoker → Filter → Manipulate pipeline.
 
-| Phase | Cases | Status |
-|-------|-------|--------|
-| Composite variant study | 1,040 | ✅ Analyzed, GT-corrected |
-| Mode A individual operators (Claude) | 3,042 | ✅ Analyzed, GT-corrected |
-| Mode A cross-model (Llama 4) | 1,014 | ✅ Analyzed, GT-corrected |
-| C.2 Compositional (28 pairs) | 2,188 | ✅ Analyzed, GT-corrected |
-| **Total** | **7,284** | |
+### What we're NOT doing
+- ❌ No new CUA runs (baseline 48.2% in Mode A = too noisy)
+- ❌ No new SoM runs (baseline 27.7% = near random)
+- ❌ No new models (budget constraint + diminishing returns)
 
-No new experiments planned. Budget spent: ~$5,000-6,000.
+### What we ARE doing
+- ✅ Smoker: 684 tasks × base × text-only × 5 reps (identify solvable tasks)
+- ✅ Filter: keep tasks with ≥3/5 base success (majority vote gate)
+- ✅ Manipulate: filtered tasks × 26 operators × text-only × 3 reps (Claude + Llama 4)
+- ✅ DOM audit: filtered tasks × 26 operators × before/after screenshots (SSIM)
+- ✅ Visual equivalence: SSIM replaces CUA as "visual control" evidence
 
-### Paper — DRAFT V1 COMPLETE ✅
-
-- **Repo**: `github.com/Alex-jjh/ai-accessibility-paper` (master branch)
-- **Local**: `../paper/` (sibling to main repo)
-- **Pages**: 25 (needs compression to ~12 + refs + appendix)
-- **Compiles**: clean, 0 errors, 0 undefined references
-- **Figures**: 9 (F1-F9) + 3 retained old figures
-- **References**: 18 new citations added for AMT v8
-- **Appendix**: 6 sections (majority-vote, architecture, operators, excluded ops, severity mapping, F_UNK review, pseudocode, DOM signature table)
-
-### Analysis — ALL COMPLETE ✅
-
-- 25 statistical procedures across 3 phases (see `docs/statistical-methods-inventory.md`)
-- `scripts/amt/audit-paper-numbers.py`: 28/28 paper numbers verified
-- `analysis/amt_statistics.py`: Fisher + GEE + majority-vote + Breslow-Day + composition
-- Power analysis: 93.4% power for 20pp drop at α=0.05
-
-### Reviews — 5 ROUNDS COMPLETE ✅
-
-5 rounds of AI reviewer simulation (4× ChatGPT, 1× Claude). All actionable items addressed:
-- Power analysis added
-- Operator derivation rationale added
-- Alignment thresholds quantified
-- Sparsity tension addressed
-- Ethics paragraph added
-- BrowserGym dependency caveat added
-- Injection vs native-absence limitation added
-- Enhancement ceiling explained
-- Operator ordering justified
-- Same Barrier → "structurally analogous" (softened)
-- Ecological "validation" → "probe" (honest)
+### Paper narrative adjustment
+- **Primary evidence**: text-only (Claude + Llama 4) on 50-100 tasks
+- **Visual control**: SSIM from DOM audit screenshots (mathematical proof of visual equivalence)
+- **Composite CUA**: retained for pathway decomposition (baseline 93.8%, clean)
+- **Mode A CUA/SoM**: supplementary/appendix only
 
 ---
 
-## Roadmap to Submission
+## Execution Pipeline
 
-### Phase 1: Verification (this week, 05-04 → 05-10)
+### Stage 1: Smoker (Base Solvability Gate)
 
-| Task | Owner | Time | Status |
-|------|-------|------|--------|
-| Screenshot audit (L1/L5/L6/L11 before/after) | Alex | 30 min | ⬜ |
-| Send PDF + change summary to Brennan | Alex | 15 min | ⬜ |
-| Run `audit-paper-numbers.py` final check | Kiro | 5 min | ⬜ |
-| Run `amt_statistics.py` final check | Kiro | 5 min | ⬜ |
+**Config**: `config-smoker-base-solvability.yaml`
+**Cases**: ~684 tasks × 5 reps = 3,420 (only string_match eval tasks)
+**Cost**: ~$300-400
+**Time**: 1-2 days wall
+**Output**: `data/smoker-base-solvability/`
 
-### Phase 2: Compression (05-10 → 05-24)
+**Solvability criteria**:
+- ≥3/5 reps succeed (majority vote)
+- Answer is consistent across reps (no GT drift)
+- No state mutation required (info retrieval only)
 
-Target: 25 pages → ~12 pages body + refs + appendix/supplementary.
+**Expected yield**: ~150-250 tasks pass (based on WebArena literature: ~30-40% base solvability for Claude Sonnet on string_match tasks)
 
-| Task | Strategy | Est. savings |
-|------|----------|-------------|
-| §2 Related Work | Compress 7 subsections → 4-5, cut verbose descriptions | 1-1.5 pages |
-| §5.1 Composite results | Condense (this is old data summary, not new contribution) | 0.5 page |
-| §5.6-5.8 (triangulation, vision, failure) | Tighten prose, move failure table to appendix | 1 page |
-| §6 Discussion | Cut redundancy with §5, tighten AI-readiness discussion | 1 page |
-| Abstract | Reduce to 3 core messages, cut specific stats | 0.3 page |
-| Move to supplementary: DOM sig table, pseudocode, full failure table | — | 1-2 pages |
+### Stage 2: Filter
 
-### Phase 3: Polish (05-24 → 06-14)
+**Script**: `scripts/analyze-smoker.py` (to be written)
+**Input**: smoker results
+**Output**: filtered task list + `config-manipulation-filtered.yaml`
 
-| Task | Owner | Notes |
-|------|-------|-------|
-| Figure readability check (print PDF, verify ≥7pt fonts) | Alex | F1 teaser may need simplification |
-| Consistent terminology pass (Claude/Llama 4 short forms, Tier 1/2/3) | Kiro | Find-and-replace |
-| Citation format check (no orphan brackets, consistent style) | Kiro | |
-| Supplementary materials package | Kiro | Operator code, CSVs, audit script, screenshot guide |
-| Anonymization check (if CHI 2027 is double-blind) | Alex | Check CHI 2027 submission guidelines |
+**Additional filters** (applied after majority-vote gate):
+- Exclude tasks where answer varies between reps (GT instability)
+- Exclude tasks requiring >25 steps at base (too complex, timeout risk)
+- Stratify by app (ensure ≥10 tasks per app)
+- Target: 50-100 tasks
 
-### Phase 4: Brennan Review (06-14 → 07-14)
+### Stage 3: Manipulate (Full AMT Experiment)
 
-| Task | Owner | Notes |
-|------|-------|-------|
-| Brennan reads full draft | Brennan | Allow 2-4 weeks |
-| Incorporate Brennan feedback | Alex + Kiro | Focus on framing, not data |
-| Second round if needed | Brennan | 1 week turnaround |
+**Config**: `config-manipulation-filtered.yaml` (auto-generated from Stage 2)
+**Cases**: ~80 tasks × 26 ops × 3 reps × 2 models = ~12,480
+**Cost**: ~$800-1,200
+**Time**: 3-5 days wall (parallel shards)
+**Output**: `data/manipulation-v2/`
 
-### Phase 5: Optional Enhancements (07-14 → 08-14)
+**Docker state management**:
+- Configure `WA_FULL_RESET=1` if available
+- Or: restart Docker containers every 500 cases
+- Verify GT on first rep of each new task before continuing
 
-These are NOT required for submission but would strengthen the paper if time permits:
+### Stage 4: DOM Audit (Visual Equivalence)
 
-| Task | ROI | Cost | Notes |
-|------|-----|------|-------|
-| Expand ecological audit to 100+ sites | HIGH | 1-2 days | Tranco Top 1000, public pages only, axe-core scan |
-| CUA trace deep-dive (5-10 cases) | MEDIUM | 3-4 hours | Understand why CUA baseline is 48.2% in Mode A |
-| Per-task L1 breakdown figure | MEDIUM | 1 hour | Addresses Q4 from Claude reviewer |
-| Mediation analysis (token inflation) | LOW | 2 hours | Formal test of token inflation as mediator |
+**Script**: `scripts/audit-operator.ts` (existing)
+**Cases**: ~80 tasks × 26 ops × 3 reps = 6,240 screenshots
+**Cost**: $0 (Playwright only, no LLM)
+**Time**: ~4-6 hours
+**Output**: `data/dom-audit-v2/` with before/after PNGs + SSIM values
 
-### Phase 6: Final Preparation (08-14 → 09-11)
+**This replaces CUA as visual control**:
+- Per-operator SSIM proves visual equivalence mathematically
+- Human reviewer spot-checks screenshots (see `docs/screenshot-audit-guide.md`)
+- No need for CUA agent to "indirectly prove" visual invariance
 
-| Task | Owner | Deadline |
-|------|-------|----------|
-| LaTeX format: switch to `[manuscript, screen, review]` | Kiro | 09-01 |
-| Check CHI 2027 specific template requirements | Alex | 09-01 |
-| Final number audit (`audit-paper-numbers.py`) | Kiro | 09-05 |
-| Final compilation + PDF check | Kiro | 09-08 |
-| Upload to submission system | Alex | 09-10 |
-| **DEADLINE** | — | **09-11** |
+### Stage 5: Analysis + Paper Update
 
----
-
-## Key Decisions Still Open
-
-| Decision | Deadline | Owner |
-|----------|----------|-------|
-| Paper title: keep "Same Barrier, Different Signatures" or change? | 07-01 | Alex + Brennan |
-| CHI 2027 double-blind? Check submission guidelines | 06-01 | Alex |
-| Expand ecological audit? (34 → 134 sites) | 07-14 | Alex (cost/benefit) |
-| Amazon internship acknowledgment wording | 08-01 | Alex |
+**Scripts**: existing `amt_statistics.py` + `audit-paper-numbers.py` (extended)
+**Tasks**:
+1. Compute per-operator significance on expanded task set
+2. Recompute signature alignment with more data points
+3. Verify compositional results still hold (or re-run C.2 on expanded tasks)
+4. Update all paper numbers
+5. Regenerate figures F4-F9
 
 ---
 
-## Reviewer Concern Tracker
+## Paper Writing Tasks (parallel with experiments)
 
-All concerns from 5 rounds of AI review, with resolution status:
+### Immediate (this week)
 
-| Concern | Rounds | Resolution | Status |
-|---------|--------|------------|--------|
-| 13 tasks too few | R1-R5 | Power analysis + operator-centric design argument | ✅ |
-| Post-hoc alignment | R1-R5 | Labeled exploratory in §3.4 + §6.1 + quantitative thresholds | ✅ |
-| 34-site audit thin | R1-R5 | Renamed "ecological probe" + expansion optional | ✅ |
-| CUA baseline 48.2% | R3-R5 | Sub-analysis done, explained in §6 Limitations | ✅ |
-| 2 model families | R2-R5 | Framed as demonstrations in §6 | ✅ |
-| Provider non-determinism | R1,R4 | Majority-vote sensitivity + 11.8% variance cells | ✅ |
-| Same Barrier unproven | R5 | Softened to "structurally analogous" + hypothesis framing | ✅ |
-| Operator selection rationale | R5 | Systematic Ma11y derivation in §3.1 | ✅ |
-| Sparsity vs infrastructure tension | R5 | Directly addressed in §5.2 | ✅ |
-| Injection vs native absence | R5 | Limitation added in §6 | ✅ |
-| Enhancement ceiling = WebArena artifact? | R5 | Acknowledged + Llama 4 shows effect | ✅ |
-| Ethics/safeguards | R2,R4 | 3 risk categories + mitigation in §6 | ✅ |
-| BrowserGym dependency | R3,R4 | Caveat in §6 Limitations | ✅ |
-| Operator ordering bias | R4 | Canonical ordering justified in §4 | ✅ |
-| Human study needed | R1-R5 | Future Work §7 | ✅ (deferred) |
-| More models needed | R2-R5 | Future Work / revision | ✅ (deferred) |
-| Dynamic injection | R2-R3 | Future Work §7 | ✅ (deferred) |
+| Task | Owner | Status |
+|------|-------|--------|
+| Screenshot audit (existing data, L1/L5/L6/L11) | Alex | ⬜ |
+| Send PDF + change summary to Brennan | Alex | ⬜ |
+| Adjust paper narrative: CUA → supplementary, SSIM → primary visual control | Kiro | ⬜ |
+
+### After Smoker completes
+
+| Task | Owner | Status |
+|------|-------|--------|
+| Write `scripts/analyze-smoker.py` (filter script) | Kiro | ⬜ |
+| Review smoker results, decide final task count | Alex | ⬜ |
+| Generate manipulation config | Kiro | ⬜ |
+
+### After Manipulation completes
+
+| Task | Owner | Status |
+|------|-------|--------|
+| Run analysis pipeline on new data | Kiro | ⬜ |
+| Update paper numbers (§4, §5) | Kiro | ⬜ |
+| Regenerate figures F4-F9 | Kiro | ⬜ |
+| Update abstract + conclusion | Kiro | ⬜ |
+| Page compression (target: 12 pages body) | Kiro | ⬜ |
+
+### Pre-submission (August)
+
+| Task | Owner | Status |
+|------|-------|--------|
+| Brennan review + feedback incorporation | Alex + Brennan | ⬜ |
+| Figure readability check (print PDF) | Alex | ⬜ |
+| Supplementary materials package | Kiro | ⬜ |
+| Final number audit | Kiro | ⬜ |
+| LaTeX format (submission template) | Kiro | ⬜ |
+| CHI 2027 submission | Alex | ⬜ Deadline: 09-11 |
 
 ---
 
-## File Reference
+## Budget Tracker
+
+| Item | Spent | Remaining |
+|------|-------|-----------|
+| Pilot 1-4 + expansion (historical) | ~$2,000 | — |
+| Mode A + C.2 (current data) | ~$3,000-4,000 | — |
+| Smoker (Stage 1) | — | ~$300-400 |
+| Manipulation (Stage 3) | — | ~$800-1,200 |
+| **Total** | ~$5,000-6,000 | ~$1,100-1,600 |
+
+---
+
+## Key Files
 
 | File | Purpose |
 |------|---------|
-| `paper/main.tex` | Main LaTeX file |
-| `paper/sections/*.tex` | 8 section files |
-| `paper/references.bib` | Bibliography (1,500+ lines) |
-| `paper/F*.png` | AMT figures (F1-F9) |
-| `paper/figure*.png` | Retained old figures |
-| `docs/statistical-methods-inventory.md` | 25 statistical procedures |
+| `config-smoker-base-solvability.yaml` | Smoker config (684 tasks × base × 5 reps) |
+| `config-manipulation-filtered.yaml` | To be generated after smoker |
+| `scripts/analyze-smoker.py` | To be written: filter base-solvable tasks |
 | `docs/screenshot-audit-guide.md` | Human reviewer guide for visual audit |
-| `scripts/amt/audit-paper-numbers.py` | Reproducibility audit (28 checks) |
+| `docs/statistical-methods-inventory.md` | 25 statistical procedures |
+| `scripts/amt/audit-paper-numbers.py` | Reproducibility audit |
 | `analysis/amt_statistics.py` | All inferential statistics |
-| `results/amt/*.csv` | DOM signatures, behavioral signatures, alignment |
+| `task-site-mapping.json` | Task ID → site mapping (684 tasks) |
+
+---
+
+## Reviewer Concern Resolution (updated)
+
+| Concern | Old resolution | New resolution |
+|---------|---------------|----------------|
+| 13 tasks too few | Power analysis + operator-centric argument | **50-100 tasks via smoker pipeline** |
+| CUA baseline 48.2% | Explained in limitations | **CUA removed from Mode A primary; SSIM replaces as visual control** |
+| SoM baseline 27.7% | Supplementary only | **Unchanged — supplementary only** |
+| Ecological audit thin (34 sites) | Renamed "probe" | Optional: expand to 100+ sites if time permits |
+| All other concerns | Already addressed in paper | Unchanged |
+
+---
+
+## Timeline
+
+| Period | Activity |
+|--------|----------|
+| **05-04 → 05-10** | Deploy new burner account, run smoker |
+| **05-10 → 05-14** | Analyze smoker, filter tasks, prepare manipulation config |
+| **05-14 → 05-20** | Run manipulation experiment (Claude + Llama 4) |
+| **05-20 → 05-24** | Run DOM audit (screenshots), analyze results |
+| **05-24 → 06-07** | Update paper with new data, compress pages |
+| **06-07 → 07-14** | Brennan review cycle |
+| **07-14 → 08-14** | Optional enhancements (ecological audit, polish) |
+| **08-14 → 09-11** | Final preparation + submission |
+
+---
+
+## Mantras
+
+1. **Text-only is king** — cleanest signal, cheapest to run, most sensitive to semantic changes
+2. **SSIM > CUA** — mathematical proof of visual equivalence beats noisy agent inference
+3. **Smoker first** — never manipulate a task you haven't verified is base-solvable
+4. **Operator-centric** — our unit of analysis is the operator (26), not the task (50-100)
+5. **Budget is finite** — every dollar on CUA/SoM is a dollar not spent on more tasks
