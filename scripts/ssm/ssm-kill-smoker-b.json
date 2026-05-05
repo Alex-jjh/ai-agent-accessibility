@@ -1,0 +1,10 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'pkill -f run-pilot3 2>/dev/null || true; pkill -f launch-smoker 2>/dev/null || true'",
+    "sleep 3",
+    "sudo -u ec2-user bash -lc 'ps -ef | grep -v grep | grep -E \"run-pilot|launch-smoker\" | head'",
+    "sudo -u ec2-user bash -lc 'rm -rf ~/platform/data/smoker-shard-b/*'",
+    "sudo -u ec2-user bash -lc 'ls ~/platform/data/smoker-shard-b/ 2>&1 | head'"
+  ],
+  "executionTimeout": ["60"]
+}

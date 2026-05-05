@@ -1,0 +1,12 @@
+{
+  "commands": [
+    "set -e",
+    "echo '=== Stop + clean + relaunch shard A ==='",
+    "sudo -u ec2-user bash -lc 'pkill -f run-pilot3 2>/dev/null || true; pkill -f launch-smoker 2>/dev/null || true; sleep 2'",
+    "sudo -u ec2-user bash -lc 'rm -rf ~/platform/data/smoker-shard-a/*'",
+    "sudo -u ec2-user bash -lc 'cd ~/platform && git pull 2>&1 | tail -3 && bash scripts/launchers/launch-smoker-shard-a.sh 2>&1 | tail -6'",
+    "sleep 8",
+    "sudo -u ec2-user bash -lc 'ps -ef | grep -v grep | grep run-pilot3 | head -2'"
+  ],
+  "executionTimeout": ["120"]
+}

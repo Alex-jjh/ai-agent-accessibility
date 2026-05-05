@@ -1,0 +1,9 @@
+{
+  "commands": [
+    "sudo ln -sf /usr/bin/python3.11 /usr/local/bin/python",
+    "which python && python --version",
+    "echo '--- sanity: spawn a bridge-style invocation ---'",
+    "sudo -u ec2-user bash -lc 'which python && python --version'"
+  ],
+  "executionTimeout": ["60"]
+}

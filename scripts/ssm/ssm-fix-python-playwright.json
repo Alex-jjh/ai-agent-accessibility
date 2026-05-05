@@ -1,0 +1,7 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'python -m playwright install chromium 2>&1 | tail -5'",
+    "sudo -u ec2-user bash -lc 'ls ~/.cache/ms-playwright/ | head'"
+  ],
+  "executionTimeout": ["300"]
+}

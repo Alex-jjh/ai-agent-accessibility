@@ -1,0 +1,9 @@
+{
+  "commands": [
+    "set -e",
+    "sudo -u ec2-user bash -lc 'cd ~/platform && git pull 2>&1 | tail -3 && bash scripts/launchers/launch-smoker-shard-b.sh 2>&1 | tail -10'",
+    "sleep 5",
+    "sudo -u ec2-user bash -lc 'ls -la ~/platform/data/smoker-shard-b/smoker.pid 2>&1; cat ~/platform/data/smoker-shard-b/smoker.pid 2>&1 || echo no_pid; ps -ef | grep -v grep | grep run-pilot3 | head -2'"
+  ],
+  "executionTimeout": ["120"]
+}
