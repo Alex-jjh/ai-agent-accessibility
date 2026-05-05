@@ -19,7 +19,7 @@ terraform {
 
 provider "aws" {
   region  = var.aws_region
-  profile = "a11y-pilot"  # LOCKED — prevents accidental deploy to wrong account
+  profile = var.aws_profile
 }
 
 # ---------- Variables ----------
@@ -27,6 +27,12 @@ provider "aws" {
 variable "aws_region" {
   type    = string
   default = "us-east-2"  # Same region as WebArena AMI
+}
+
+variable "aws_profile" {
+  type        = string
+  description = "AWS CLI profile name. Workspace-scoped so each burner account has its own state."
+  default     = "a11y-pilot"
 }
 
 variable "instance_type" {
