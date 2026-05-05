@@ -1,0 +1,24 @@
+{
+  "commands": [
+    "set -e",
+    "echo '=== Smoker Platform Bootstrap ==='",
+    "echo '[1/6] Install Python 3.11...'",
+    "sudo dnf install -y python3.11 python3.11-pip",
+    "python3.11 --version",
+    "echo '[2/6] Install Chromium system deps for Playwright (AL2023 dnf names)...'",
+    "sudo dnf install -y nss nspr nss-util atk at-spi2-atk cups-libs libdrm libXcomposite libXdamage libXrandr libXtst libXScrnSaver mesa-libgbm pango alsa-lib libxkbcommon 2>&1 | tail -5",
+    "echo '[3/6] Pull latest repo + npm install + playwright chromium...'",
+    "sudo -u ec2-user bash -lc 'cd ~/platform && git pull && npm install 2>&1 | tail -3 && npx playwright install chromium 2>&1 | tail -3'",
+    "echo '[4/6] Install Python packages (BrowserGym + WebArena + SSIM)...'",
+    "sudo -u ec2-user bash -lc 'python3.11 -m pip install --user --quiet gymnasium browsergym-webarena Pillow numpy requests scikit-image 2>&1 | tail -3'",
+    "echo '[5/6] Verify LiteLLM + key deps...'",
+    "sudo -u ec2-user bash -lc 'python3.11 -c \"import browsergym.webarena, PIL, numpy, skimage, playwright.sync_api; print(\\\"python deps ok\\\")\" && ~/.local/bin/litellm --version 2>&1 | head -3'",
+    "echo '[6/6] Connectivity check against WebArena IP 10.0.1.50...'",
+    "curl -s -o /dev/null -w 'shopping: %{http_code}\\n' --max-time 5 http://10.0.1.50:7770 || true",
+    "curl -s -o /dev/null -w 'admin: %{http_code}\\n' --max-time 5 http://10.0.1.50:7780 || true",
+    "curl -s -o /dev/null -w 'reddit: %{http_code}\\n' --max-time 5 http://10.0.1.50:9999 || true",
+    "curl -s -o /dev/null -w 'gitlab: %{http_code}\\n' --max-time 10 http://10.0.1.50:8023 || true",
+    "echo '=== Bootstrap complete ==='"
+  ],
+  "executionTimeout": ["900"]
+}

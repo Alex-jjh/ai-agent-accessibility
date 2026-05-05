@@ -1,0 +1,7 @@
+{
+  "commands": [
+    "set -e",
+    "sudo -u ec2-user bash -lc 'cd ~/platform && git pull 2>&1 | tail -3 && npx tsx scripts/runners/run-pilot3.ts --config config-smoker-shard-b.yaml --dry-run 2>&1 | tail -10'"
+  ],
+  "executionTimeout": ["120"]
+}

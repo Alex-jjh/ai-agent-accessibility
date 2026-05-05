@@ -1,0 +1,18 @@
+{
+  "commands": [
+    "set -e",
+    "echo '=== Pre-smoker Docker restart ==='",
+    "for c in shopping shopping_admin forum gitlab; do",
+    "  docker restart $c 2>&1 | head -1 || echo \"restart $c failed\"",
+    "done",
+    "echo '=== Waiting 90s for containers to settle ==='",
+    "sleep 90",
+    "echo '=== Post-restart status ==='",
+    "docker ps --format 'table {{.Names}}\t{{.Status}}' 2>&1",
+    "echo '---'",
+    "for port in 7770 7780 9999 8023; do",
+    "  curl -s -o /dev/null -w \"port $port: %{http_code}\\n\" --max-time 10 http://localhost:$port || echo \"port $port: down\"",
+    "done"
+  ],
+  "executionTimeout": ["240"]
+}

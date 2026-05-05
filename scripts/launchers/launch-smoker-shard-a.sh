@@ -62,12 +62,9 @@ fi
 
 # Pre-flight: LiteLLM check
 if ! curl -s http://localhost:4000/health >/dev/null 2>&1; then
-  echo ""
-  echo "WARNING: LiteLLM proxy not reachable at localhost:4000"
-  echo "Start it first:  ~/.local/bin/litellm --config litellm_config.yaml --port 4000 &"
-  read -p "Continue anyway? [y/N] " -n 1 -r
-  echo
-  [[ ! $REPLY =~ ^[Yy]$ ]] && exit 1
+  echo "ERROR: LiteLLM proxy not reachable at localhost:4000. Aborting."
+  echo "Start it first: nohup setsid ~/.local/bin/litellm --config litellm_config.yaml --port 4000 </dev/null > /tmp/litellm.log 2>&1 & disown"
+  exit 1
 fi
 
 echo ""
@@ -75,7 +72,7 @@ echo "Launching Smoker Shard A (1,122 cases, ~20-25 hours)..."
 echo "  Log: tail -f $LOG_FILE"
 echo ""
 
-nohup bash -c "
+nohup setsid bash -c "
   export NVM_DIR=\"\$HOME/.nvm\"
   [ -s \"\$NVM_DIR/nvm.sh\" ] && . \"\$NVM_DIR/nvm.sh\"
   cd \"$PROJECT_DIR\"
@@ -92,7 +89,8 @@ nohup bash -c "
   if [ \"\$EXIT_CODE\" = \"0\" ]; then
     bash scripts/data-pipeline/experiment-upload.sh smoker-shard-a ./data/smoker-shard-a || echo 'S3 upload failed (non-fatal)'
   fi
-" > "$LOG_FILE" 2>&1 &
+" </dev/null > "$LOG_FILE" 2>&1 &
+disown
 
 NOHUP_PID=$!
 echo "$NOHUP_PID" > "$PID_FILE"

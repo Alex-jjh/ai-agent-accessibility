@@ -1,0 +1,14 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'pkill -f litellm 2>/dev/null || true'",
+    "sleep 2",
+    "sudo -u ec2-user bash -lc 'cd ~/platform && setsid nohup ~/.local/bin/litellm --config litellm_config.yaml --port 4000 </dev/null > /tmp/litellm.log 2>&1 & disown; echo started pid=$!'",
+    "sleep 10",
+    "echo '--- health ---'",
+    "curl -sf --max-time 5 http://localhost:4000/health | head -c 500 || echo 'health failed'",
+    "echo",
+    "echo '--- log tail ---'",
+    "tail -15 /tmp/litellm.log 2>&1"
+  ],
+  "executionTimeout": ["120"]
+}
