@@ -87,19 +87,35 @@ No SoM. No CUA. No Llama 4 in smoker stage (saves budget).
 **Script**: `scripts/smoker/analyze-smoker.py` (committed)
 **Input**: `data/smoker-shard-{a,b}/`
 **Output**:
-- `results/smoker/filter-summary.csv` (per-task stats + drop reason)
+- `results/smoker/filter-summary.csv` (per-task stats + drop reason + failure-mode signals)
 - `results/smoker/passing-tasks.json` (final app→task_id list)
+- `results/smoker/exclusion-report.md` (**paper-ready** exclusion narrative)
 - `config-manipulation-filtered.yaml` (ready-to-run Stage 3 config, auto-generated)
 
 **Runtime**: 10-30 min on local machine after S3 download.
+
+**Exclusion priority** (attributes each dropped task to the *first*
+criterion it fails; infra failures rank above task difficulty so
+reviewers see root cause not symptom):
+
+1. `incomplete_reps` — shard crashed before all 3 reps recorded
+2. `context_window_exceeded` — Magento admin grid a11y tree > Claude context
+3. `bridge_crash` — BrowserGym `env.reset()` crashed (e.g. multi-URL tasks)
+4. `admin_login_failed` — Magento admin login flakiness (infra)
+5. `goto_timeout` — Playwright `Page.goto()` timed out on start_url
+6. `chromium_crash` — Chromium tab crashed mid-task
+7. `harness_errors` — any non-agent error across reps
+8. `insufficient_success` — <2/3 reps succeeded (task too hard for Claude)
+9. `answer_drift` — successful reps produced different answers (Docker drift)
+10. `step_budget` — median successful step count > 25
 
 **Tuning knobs** (defaults in parens):
 - `--min-success` (2/3)
 - `--max-median-steps` (25)
 - `--no-answer-check` (off — strict drift detection on)
 
-Review `results/smoker/filter-summary.csv`, adjust if drop-reason
-distribution is surprising, re-run.
+Review `results/smoker/filter-summary.csv` + `exclusion-report.md`;
+adjust thresholds if the drop-reason distribution is surprising, re-run.
 
 ### Stage 3: Manipulate (Full AMT Experiment)
 
@@ -282,3 +298,48 @@ restart didn't stick and we re-run affected shards with hard resets.
 5. **Operator-centric** — our unit of analysis is the operator (26), not the task (60-100)
 6. **Budget is finite** — every dollar on CUA/SoM is a dollar not spent on more tasks
 7. **Run the full 684** — the filter drops what doesn't belong; don't prejudge eligibility upstream
+8. **Document every exclusion** — the paper's task set is defensible only if the dropped-task rationale is transparent. See `results/smoker/exclusion-report.md`.
+
+---
+
+## Paper Narrative Commitments
+
+### Task-selection transparency (§4 Experimental Setup + Appendix X)
+
+The paper MUST include a clear chain of custody from 812 WebArena tasks
+down to the final Stage-3 task set:
+
+- **812** total WebArena tasks across 6 apps
+- **128** excluded: `map` app not deployed (infrastructure)
+- **16** excluded: `wikipedia` app deployed as Kiwix only, limited eval compatibility
+- **~812 - 128 - 16 - (non-string_match_non_url_match_non_program_html)** — since we ran the smoker on the full 684 deployed-app task set regardless of eval type (after confirming 0 `llm_eval` tasks exist in the 4 apps), there is no eval-type filter to document.
+- **684** smoker-eligible tasks
+- **~N_included** passed the base-solvability gate → Stage 3 task set
+
+Each excluded smoker task is attributed to a named category (see
+"Exclusion priority" above). The priority order places infrastructure
+failures (context window, bridge crash, login failure, navigation
+timeout, Chromium crash) above task-difficulty failures, so the paper
+never misattributes a Magento infra timeout to "Claude cannot solve
+this task". The full per-task breakdown lives in `exclusion-report.md`
+and is referenced from the appendix.
+
+### Why this matters
+
+Reviewers will ask "why N tasks and not 684?". The answer is:
+
+1. Base solvability is a prerequisite for measuring accessibility-
+   induced degradation — you cannot observe a drop on a task the
+   agent cannot solve at baseline.
+2. Infrastructure failures (e.g. Magento admin grids exceeding Claude's
+   200K context window) are artifacts of the benchmark's interaction
+   with the model family, not the research question. Excluding them
+   reduces noise.
+3. Drift detection via answer-consistency catches tasks where Docker
+   state mutations between reps produce flaky ground truth. This is
+   a known issue in WebArena (documented in `docs/analysis/mode-a-docker-confounds.md`).
+
+The alternative — running manipulation on all 684 tasks and statistically
+controlling for these confounds post-hoc — costs 8x more LLM spend
+(~$6-10K instead of ~$800-1,200) and produces a noisier main result.
+The smoker is the principled version of that control.

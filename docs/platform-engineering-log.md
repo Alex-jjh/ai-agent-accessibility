@@ -2257,3 +2257,131 @@ Full batch running on EC2 (PID 363798):
 | 7e6f94c | fix(audit+variants): reviewer audit fixes — URLs, sentinel, scoping |
 | f1b2cdd | feat(runner): wire operatorIds end-to-end for Mode A |
 | 16072ea | fix(audit+scheduler): remaining reviewer items M-2/3/4 + H-4 |
+
+
+---
+
+## 2026-05-05: Smoker Deployment (Burner accounts A + B)
+
+Deployed two parallel burner accounts (946876341724 / `a11y-a`, 904962391244
+/ `a11y-b`) for the 684-task smoker run. Surfaced five engineering issues
+during the launch sequence; all resolved in-day with commits on master.
+
+### Bug 20: LiteLLM process killed by SSM session teardown
+
+**Symptom**: `nohup litellm ... &` backgrounded from inside an SSM
+`AWS-RunShellScript` invocation died the moment SSM reported "Success"
+and tore down its session.
+
+**Root cause**: `nohup` alone preserves the process across SIGHUP but
+keeps it in the same process group as the SSM command. When SSM exits,
+it sends SIGTERM to the whole process group.
+
+**Fix**: Wrap the background process with `setsid` to detach it into a
+new session, and redirect stdin from `/dev/null`:
+
+```bash
+nohup setsid bash -c '<cmd>' </dev/null > /tmp/log 2>&1 & disown
+```
+
+Applied to `scripts/ssm/ssm-start-litellm.json` and to both
+`scripts/launchers/launch-smoker-shard-{a,b}.sh`. Verified with
+`ps -ef | grep litellm` 60s after SSM exit — processes survive.
+
+### Bug 21: `python` not on PATH (ENOENT in bridge spawn)
+
+**Symptom**: Every shard A/B case failed immediately with
+`spawn python ENOENT` inside `src/runner/bridge.ts`.
+
+**Root cause**: AL2023 ships `/usr/bin/python3` but no `/usr/bin/python`.
+Runner uses `child_process.spawn('python', ...)` per the BrowserGym
+convention. The old `scripts/infra/bootstrap-platform.sh` created the
+symlink but the new Terraform user-data (which clones the repo
+automatically) did not.
+
+**Fix**: `sudo ln -sf /usr/bin/python3.11 /usr/local/bin/python`
+(do NOT overwrite `/usr/bin/python3` which would break `dnf`/`yum`).
+Baked into `scripts/ssm/ssm-bootstrap-smoker.json`.
+
+### Bug 22: Python Playwright chromium not installed
+
+**Symptom**: After the python symlink fix, bridge cases still failed
+with `Executable doesn't exist at ~/.cache/ms-playwright/chromium-1117/
+chrome-linux/chrome`.
+
+**Root cause**: `npx playwright install chromium` (from `npm install`
+in user-data) installs the Node Playwright's chromium version. The
+**Python** Playwright uses a different bundled version (1117 vs 1217)
+and needs its own download via `python -m playwright install chromium`.
+
+**Fix**: Added to `scripts/ssm/ssm-bootstrap-smoker.json` at step 4.5.
+
+### Bug 23: LiteLLM missing `[proxy]` extras
+
+**Symptom**: `litellm --version` printed a `proxy_server` import
+traceback, and the proxy wouldn't start.
+
+**Root cause**: user-data installs bare `litellm` (which ships the SDK
+but not the proxy server). The proxy requires `litellm[proxy]` which
+pulls in `uvicorn`, `fastapi`, `websockets`, etc.
+
+**Fix**: Added `pip install --user "litellm[proxy]"` to
+`scripts/ssm/ssm-bootstrap-smoker.json` step 5.
+
+### Bug 24: `ContextWindowExceededError` on Magento admin grids
+
+**Symptom**: Three shard-A cases (`admin:183`, `admin:244`, `admin:790`)
+failed at step 4 with:
+```
+litellm.ContextWindowExceededError: BedrockException: Context Window Error —
+Input is too long for requested model. model=claude-sonnet
+```
+
+**Root cause**: `buildUserMessage` in `src/runner/agents/executor.ts`
+embeds the BrowserGym a11y tree verbatim. When the agent navigates
+into Magento admin **grids** (Customers, Orders, Products — all
+listing pages rendering thousands of rows), the a11y tree balloons
+from ~9.5K to **230K-236K characters** per observation. After 2-3
+turns of accumulated history (the default `maxHistory` = 3 round
+trips), the assembled LLM request exceeds Claude Sonnet 4's 200K
+token context window.
+
+Mode A did not hit this because its 13 hand-picked tasks never
+navigated into large grids. The 684-task smoker does.
+
+**Fix**: Added `truncateAxtree()` to `executor.ts` with
+`MAX_AXTREE_CHARS = 40000`, `AXTREE_HEAD_CHARS = 30000`,
+`AXTREE_TAIL_CHARS = 5000`. Keeps the top (menus, navigation) and
+tail (focused region) of oversize trees and inserts a
+`[... truncated N chars ...]` marker. Three unit tests cover the
+boundary cases. Type 1 (infrastructure) change, no semantic impact
+on existing Mode A / C.2 data (none triggered the code path).
+
+**Decision log**: Chose to keep head-tail over head-only because the
+agent needs both the page-level navigation (head) and the currently
+focused interactive region (tail) to plan the next action.
+
+### Consequence for paper
+
+These five bugs (20-24) do not invalidate Mode A or C.2 data.
+Mode A used fixed small-URL tasks and never touched admin grids;
+C.2 was composite, but patches don't materially change a11y tree
+size. The smoker operates on 684 tasks and therefore surfaces
+failure modes that the small task set hid — which is exactly
+what a base-solvability gate is supposed to do.
+
+### Smoker-stage exclusion policy
+
+Task exclusions from the smoker gate are categorized and documented
+in `results/smoker/exclusion-report.md` (auto-generated by
+`scripts/smoker/analyze-smoker.py`). Priority order for attribution:
+
+1. Infrastructure failures (context window, bridge crash, login,
+   goto timeout, Chromium crash, harness error) — attributed to
+   the specific infra category
+2. Agent-driven failures (insufficient success, answer drift, step
+   budget) — attributed to task difficulty / instability
+
+Ranking infra ahead of "insufficient_success" prevents a 0/3 case
+caused by Magento timeouts from being labeled "too hard for Claude",
+which would overstate the agent-capability ceiling.

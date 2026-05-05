@@ -78,8 +78,9 @@ python3.11 scripts/smoker/analyze-smoker.py
 
 Outputs:
 
-- `results/smoker/filter-summary.csv` — one row per task with stats + drop reason
+- `results/smoker/filter-summary.csv` — one row per task with stats + drop reason + failure-mode signals (bridge crashes, context-window exceeded, admin login failures, etc.)
 - `results/smoker/passing-tasks.json` — final task list `{app: [task_id, ...]}`
+- `results/smoker/exclusion-report.md` — **paper-ready** markdown report: per-category counts, per-task rationale, and a drop-in narrative paragraph for the task-selection appendix
 - `config-manipulation-filtered.yaml` — ready-to-run Stage 3 config
 
 ### 5. Review and tune
@@ -105,15 +106,25 @@ tight gate from `docs/smoker-docker-reset.md`.
 
 | Drop reason | Meaning | Typical cause |
 |---|---|---|
-| `insufficient_success` | <2/3 reps succeeded | Task too hard for Claude base, or broken in Docker |
+| `context_window_exceeded` | A11y tree exceeds Claude's context | Magento admin grid pages (Customers, Orders, Products) |
+| `bridge_crash` | BrowserGym `env.reset()` crashed | Multi-URL task whose first URL times out |
+| `admin_login_failed` | Magento admin login timed out | Magento admin login form flakiness |
+| `goto_timeout` | `Page.goto` timed out on start_url | Slow-loading Magento product page |
+| `chromium_crash` | Target crashed mid-task | Chromium tab OOM / JS crash |
+| `insufficient_success` | <2/3 reps succeeded | Task too hard for Claude base |
 | `answer_drift` | Different literal answers across successful reps | DB state drift between reps |
 | `step_budget` | Median steps > 25 | Task squeaks through at step limit — brittle |
-| `harness_errors` | Any rep hit bridge/harness error | Not a task property; usually transient network |
+| `harness_errors` | Any rep hit bridge/harness error | Transient network / process failure |
 | `incomplete_reps` | <3 reps in data | Shard didn't complete; resume or re-run |
 
-Expected final yield: **60-100 tasks** (literature suggests ~30-40%
-base solvability for Claude Sonnet on WebArena; we expect the answer-
-consistency gate to trim another ~5-10%).
+Infrastructure failures are ranked **ahead of** `insufficient_success`
+so the paper's exclusion report attributes a dropped task to the root
+cause (e.g., context-window overflow) rather than to the downstream
+symptom (low success rate).
+
+Expected final yield: **60-120 tasks** (literature suggests ~30-40%
+base solvability for Claude Sonnet 4 on WebArena; the answer-consistency
+gate and infra filters trim another ~10-20%).
 
 ## Answer extraction notes
 
