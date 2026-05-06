@@ -61,5 +61,5 @@ for (app, tid), info in sorted(tasks.items()):
         print(f"  rep{i+1}: {a[:150]!r}")
     print()
     shown += 1
-    if shown >= 10:
+    if shown >= 25:
         break
