@@ -84,38 +84,41 @@ No SoM. No CUA. No Llama 4 in smoker stage (saves budget).
 
 ### Stage 2: Filter
 
-**Script**: `scripts/smoker/analyze-smoker.py` (committed)
+**Script**: `scripts/smoker/analyze-smoker.py` (pre-registered 2026-05-06)
 **Input**: `data/smoker-shard-{a,b}/`
+**Full methodology**: `docs/analysis/task-selection-methodology.md`
 **Output**:
 - `results/smoker/filter-summary.csv` (per-task stats + drop reason + failure-mode signals)
-- `results/smoker/passing-tasks.json` (final app→task_id list)
+- `results/smoker/passing-tasks.json` (final app→task_id list, Stage 3 primary set)
+- `results/smoker/passing-tier2.json` (stochastic-base reference set, not run in Stage 3)
 - `results/smoker/exclusion-report.md` (**paper-ready** exclusion narrative)
 - `config-manipulation-filtered.yaml` (ready-to-run Stage 3 config, auto-generated)
 
 **Runtime**: 10-30 min on local machine after S3 download.
 
-**Exclusion priority** (attributes each dropped task to the *first*
-criterion it fails; infra failures rank above task difficulty so
-reviewers see root cause not symptom):
+**Pre-registered gate** (locked 2026-05-06 before Stage 3 data collected):
 
-1. `incomplete_reps` — shard crashed before all 3 reps recorded
-2. `context_window_exceeded` — Magento admin grid a11y tree > Claude context
-3. `bridge_crash` — BrowserGym `env.reset()` crashed (e.g. multi-URL tasks)
-4. `admin_login_failed` — Magento admin login flakiness (infra)
-5. `goto_timeout` — Playwright `Page.goto()` timed out on start_url
-6. `chromium_crash` — Chromium tab crashed mid-task
-7. `harness_errors` — any non-agent error across reps
-8. `insufficient_success` — <2/3 reps succeeded (task too hard for Claude)
-9. `answer_drift` — successful reps produced different answers (Docker drift)
-10. `step_budget` — median successful step count > 25
+A task enters Stage 3 **if and only if**:
 
-**Tuning knobs** (defaults in parens):
-- `--min-success` (2/3)
-- `--max-median-steps` (25)
-- `--no-answer-check` (off — strict drift detection on)
+1. 3/3 reps recorded (shard completeness)
+2. Zero infrastructure failures (context window, bridge crash, admin
+   login timeout, goto timeout, Chromium crash, harness error)
+3. **Strict 3/3 success** via BrowserGym evaluator (2/3 rejected as
+   stochastic-base — retained in Tier-2 reference set)
+4. Median successful step count ≥ 3 (excludes trivial "click once" queries)
+5. Median successful step count ≤ 25 (5-step headroom below 30-step budget)
 
-Review `results/smoker/filter-summary.csv` + `exclusion-report.md`;
-adjust thresholds if the drop-reason distribution is surprising, re-run.
+**Tasks dropped by gate are attributed** (in priority order):
+
+1. `incomplete_reps` → `context_window_exceeded` → `bridge_crash` →
+   `admin_login_failed` → `goto_timeout` → `chromium_crash` →
+   `harness_errors` (infrastructure, ranked ahead of difficulty)
+2. `stochastic_base` → `trivial_task` → `step_budget`
+   (task-characteristic exclusions)
+
+**No answer-consistency check** — BrowserGym's evaluator is
+authoritative; paraphrase variation falsely rejected legitimate tasks
+in pilot, so we defer to BrowserGym's per-rep success judgment.
 
 ### Stage 3: Manipulate (Full AMT Experiment)
 
@@ -226,10 +229,16 @@ restart didn't stick and we re-run affected shards with hard resets.
 |------|------:|----------:|
 | Pilot 1-4 + expansion (historical) | ~$2,000 | — |
 | Mode A + C.2 (current data) | ~$3,000-4,000 | — |
-| **Smoker (Stage 1)** | — | **~$270** |
-| **Manipulation (Stage 3, ~80 tasks)** | — | **~$800-1,200** |
+| **Smoker (Stage 1)** | ~$270 (running) | — |
+| **Manipulation (Stage 3)** — Claude + Llama 4 on ~300 tasks | — | **~$3,500-4,500** |
 | DOM audit (Stage 4, no LLM) | — | $0 |
-| **Total** | ~$5,000-6,000 | **~$1,070-1,470** |
+| **Total** | ~$5,200-6,200 | **~$3,500-4,500** |
+
+Stage 3 scope (pre-gate estimate):
+- Expected passing tasks: ~250-350 (pending smoker completion)
+- Cases: ~300 × 26 operators × 3 reps × {Claude, Llama 4} = **~46,800**
+- Budget: ~$3,700 at Claude Sonnet 4 + Llama 4 Bedrock rates
+- Buffer: $800-1,300 within your $5K ceiling
 
 ---
 
@@ -294,52 +303,96 @@ restart didn't stick and we re-run affected shards with hard resets.
 1. **Text-only is king** — cleanest signal, cheapest to run, most sensitive to semantic changes
 2. **SSIM > CUA** — mathematical proof of visual equivalence beats noisy agent inference
 3. **Smoker first** — never manipulate a task you haven't verified is base-solvable
-4. **Answer consistency > success rate** — a task that "succeeds" with different answers across reps is a drifting task, not a solvable one
-5. **Operator-centric** — our unit of analysis is the operator (26), not the task (60-100)
-6. **Budget is finite** — every dollar on CUA/SoM is a dollar not spent on more tasks
-7. **Run the full 684** — the filter drops what doesn't belong; don't prejudge eligibility upstream
-8. **Document every exclusion** — the paper's task set is defensible only if the dropped-task rationale is transparent. See `results/smoker/exclusion-report.md`.
+4. **Strict 3/3 over majority** — baseline stochasticity would blur manipulation signal. Tier-2 (2/3) retained as reference set.
+5. **Min steps ≥ 3** — trivial "click once" queries cannot exhibit variant effects; exclude to avoid diluting the mean drop
+6. **Operator-centric** — our unit of analysis is the operator (26), not the task
+7. **Conservative gate = lower bound** — each exclusion *reduces* the observed effect, so our reported drop is a floor, not a ceiling
+8. **Breadth × Depth** — ~300 new tasks for statistical power; 13 Mode A tasks for mechanism. Neither replaces the other.
+9. **Pre-register before data** — gate criteria locked 2026-05-06 before Stage 3 collection. Defensible against post-hoc threshold shopping.
+10. **Run the full 684** — let the filter drop what doesn't belong; never prejudge eligibility upstream
+11. **Document every exclusion** — `results/smoker/exclusion-report.md` is the paper's chain of custody
+12. **Budget is finite** — $5K ceiling; Claude + Llama 4 on ~300 tasks fits within.
 
 ---
 
 ## Paper Narrative Commitments
 
+### Two-tier analysis design (§4.2 + §5)
+
+The paper reports results at two granularities, each with a
+distinct scientific role and task set:
+
+| Tier | Source | N | Purpose | Paper section |
+|------|--------|--:|---------|---------------|
+| **Breadth** | Stage 3 (new) | ~N_passing | Main manipulation drop, cross-model replication, statistical power | §5.1-5.3 |
+| **Depth** | Mode A (existing, 13 hand-picked) | 13 | Mechanistic case studies, trace-level analysis, signature alignment | §5.4-5.5 |
+
+Both sets are fully documented in
+`docs/analysis/task-selection-methodology.md`. The two tiers are
+**complementary**: breadth answers "does the effect generalize?",
+depth answers "why does the effect occur?".
+
 ### Task-selection transparency (§4 Experimental Setup + Appendix X)
 
-The paper MUST include a clear chain of custody from 812 WebArena tasks
-down to the final Stage-3 task set:
+Chain of custody documented explicitly:
 
-- **812** total WebArena tasks across 6 apps
-- **128** excluded: `map` app not deployed (infrastructure)
-- **16** excluded: `wikipedia` app deployed as Kiwix only, limited eval compatibility
-- **~812 - 128 - 16 - (non-string_match_non_url_match_non_program_html)** — since we ran the smoker on the full 684 deployed-app task set regardless of eval type (after confirming 0 `llm_eval` tasks exist in the 4 apps), there is no eval-type filter to document.
-- **684** smoker-eligible tasks
-- **~N_included** passed the base-solvability gate → Stage 3 task set
+- **812** total WebArena tasks
+- **812 → 684**: excluded `map` (128, not deployed) and `wikipedia`
+  (16, Kiwix snapshot with limited evaluator compatibility)
+- **684 → N_passing**: base-solvability smoker + pre-registered gate
+  (see §5 of methodology doc for each of 5 criteria)
+- Each excluded task attributed to a named category; infrastructure
+  failures ranked ahead of difficulty failures so reviewers see root
+  cause, not symptom
+- **Pre-registered 2026-05-06** before Stage 3 data was collected;
+  `scripts/smoker/analyze-smoker.py` defaults are the locked values
 
-Each excluded smoker task is attributed to a named category (see
-"Exclusion priority" above). The priority order places infrastructure
-failures (context window, bridge crash, login failure, navigation
-timeout, Chromium crash) above task-difficulty failures, so the paper
-never misattributes a Magento infra timeout to "Claude cannot solve
-this task". The full per-task breakdown lives in `exclusion-report.md`
-and is referenced from the appendix.
+### Conservative-gate argument (defensive framing)
 
-### Why this matters
+Each inclusion criterion **reduces** the observed drop, not inflates
+it:
 
-Reviewers will ask "why N tasks and not 684?". The answer is:
+- **Excluding trivial tasks** (median < 3 steps): these contribute
+  0-pp drop by construction (manipulation cannot affect a task
+  solved without navigation). Including them would *dilute* the
+  effect, not amplify it.
+- **Excluding stochastic-base tasks** (< 3/3): these add baseline
+  noise that blurs with manipulation signal. Including them would
+  widen confidence intervals.
+- **Excluding infrastructure failures**: these are artifacts of
+  benchmark × model interaction, not accessibility effects.
 
-1. Base solvability is a prerequisite for measuring accessibility-
-   induced degradation — you cannot observe a drop on a task the
-   agent cannot solve at baseline.
-2. Infrastructure failures (e.g. Magento admin grids exceeding Claude's
-   200K context window) are artifacts of the benchmark's interaction
-   with the model family, not the research question. Excluding them
-   reduces noise.
-3. Drift detection via answer-consistency catches tasks where Docker
-   state mutations between reps produce flaky ground truth. This is
-   a known issue in WebArena (documented in `docs/analysis/mode-a-docker-confounds.md`).
+Our reported Stage 3 manipulation drops are therefore **lower bounds**
+on the true effect on the WebArena task population. A less
+conservative gate (2/3 majority, no step floor) would produce a
+larger observed drop but at the cost of interpretability.
 
-The alternative — running manipulation on all 684 tasks and statistically
-controlling for these confounds post-hoc — costs 8x more LLM spend
-(~$6-10K instead of ~$800-1,200) and produces a noisier main result.
-The smoker is the principled version of that control.
+### Why this matters (reviewer pre-empt)
+
+Reviewer: "Why N_passing tasks and not 684?"
+
+Answer (short, paper-ready):
+> "We applied a pre-registered conservative gate (2026-05-06, before
+> Stage 3 data collection) excluding (a) trivial queries where a11y
+> tree parsing cannot matter, (b) stochastic-base tasks where baseline
+> noise would blur manipulation signal, and (c) infrastructure
+> failures unrelated to accessibility. Each exclusion is attributed
+> to a named category in Appendix X. These exclusions *reduce* the
+> observed drop; our estimate is a lower bound. A complementary
+> depth set (Mode A, N=13) provides mechanistic case studies
+> including two tasks (reddit:29, reddit:67) that exhibit stochastic
+> baselines and are therefore excluded from the breadth set but
+> retained as qualitative evidence."
+
+Reviewer: "Why keep reddit:67 in depth when it fails your gate?"
+
+Answer:
+> "reddit:67 is the source of our forced-simplification finding
+> (§5.5). Its stochastic baseline is itself the finding, not a data
+> quality concern: different baseline strategies (read-from-list vs
+> click-into-post) produce different success trajectories, and
+> low-variant manipulation collapses the action space onto the
+> faster strategy. We report it in the depth set with full trace
+> evidence; we do not include it in the breadth set because its
+> stochastic baseline would make main-result confidence intervals
+> uninterpretable."

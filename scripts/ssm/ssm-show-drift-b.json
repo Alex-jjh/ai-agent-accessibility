@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'cd ~/platform && git pull 2>&1 | tail -3 && python3.11 scripts/smoker/show-drift.py /home/ec2-user/platform/data/smoker-shard-b'"
+  ],
+  "executionTimeout": ["60"]
+}
