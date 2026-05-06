@@ -101,7 +101,7 @@ No SoM. No CUA. No Llama 4 in smoker stage (saves budget).
 
 **Runtime**: 10-30 min on local machine after S3 download.
 
-**Pre-registered gate** (locked 2026-05-06 before Stage 3 data collected):
+**Pre-registered gate** (locked 2026-05-06; amended 2026-05-07):
 
 A task enters Stage 3 **if and only if**:
 
@@ -112,6 +112,21 @@ A task enters Stage 3 **if and only if**:
    stochastic-base — retained in Tier-2 reference set)
 4. Median successful step count ≥ 3 (excludes trivial "click once" queries)
 5. Median successful step count ≤ 25 (5-step headroom below 30-step budget)
+6. **Non-state-mutation eval** (Gate 6, added 2026-05-07): eval_types
+   must not include `url_match` or `program_html`. Rationale: the
+   scheduler does not reset Docker between cases, and 156 writes per
+   task under the full Stage 3 matrix would accumulate drift of the
+   same type that forced Mode A post-hoc GT corrections. See
+   `docs/analysis/task-selection-methodology.md` §5.6 and
+   `docs/analysis/mode-a-docker-confounds.md`.
+7. **Non-trivial must_include** (Gate 7, added 2026-05-07): at least
+   one eval token must be ≥3 characters AND not in the canned set
+   {yes, no, done, none, null, true, false, n/a}. Rationale: under
+   manipulation, confused agent outputs asymmetrically substring-match
+   short tokens, biasing observed drops toward zero. Evidence:
+   gitlab:306 in shard-B smoker passed strict 3/3 despite 2/3 reps
+   emitting factually wrong prose (substring-matched `'0'` via "2023").
+   See `docs/analysis/task-selection-methodology.md` §5.7.
 
 **Tasks dropped by gate are attributed** (in priority order):
 
@@ -120,10 +135,29 @@ A task enters Stage 3 **if and only if**:
    `harness_errors` (infrastructure, ranked ahead of difficulty)
 2. `stochastic_base` → `trivial_task` → `step_budget`
    (task-characteristic exclusions)
+3. `state_mutation` → `trivial_ref` (task-property exclusions,
+   pre-registered 2026-05-07)
 
 **No answer-consistency check** — BrowserGym's evaluator is
 authoritative; paraphrase variation falsely rejected legitimate tasks
 in pilot, so we defer to BrowserGym's per-rep success judgment.
+
+**2/3 majority gate evaluated + rejected (2026-05-07)**: On shard B
+alone, relaxing Gate 3 from 3/3 to 2/3 admits **0 additional tasks**
+(all 10 candidates fail Gate 6 or Gate 4). Principled reason to keep
+3/3 regardless of empirical gain: a 2/3 baseline has 67% success rate,
+making a "severe" operator at 33% indistinguishable from baseline
+variability in a 3-rep binomial. Recorded in methodology §10.
+
+**Mode A retrospective check (2026-05-07)**: The N=13 Mode A depth
+set (selected April 2026 by hand, without any formal gate) evaluated
+against Gates 6+7 yields 10/13 pass. 0/13 fail Gate 6 (Mode A was
+naturally info-retrieval). 3/13 fail Gate 7: reddit:29 and gitlab:132
+are intentional Mode A controls (baseline-noise and operator-immune);
+shopping:24 is a post-hoc discovery and produces conservative Mode A
+estimates. Two independently-derived selection procedures converge
+on the same notion of a11y-relevant tasks. Recorded in methodology
+§8.1.
 
 ### Stage 3: Manipulate (Full AMT Experiment)
 
@@ -131,9 +165,18 @@ in pilot, so we defer to BrowserGym's per-rep success judgment.
 - filtered tasks × 26 operators × 3 reps × 2 models (Claude + Llama 4)
 - Text-only agent only, temperature 0.0
 
-**Ballparks**:
-- If Stage 2 yields **80 tasks**: 80 × 26 × 3 × 2 = **12,480 cases**, ~3-5 days wall, ~$800-1,200
-- If Stage 2 yields **120 tasks**: 120 × 26 × 3 × 2 = **18,720 cases**, ~5-7 days wall, ~$1,200-1,800
+**Ballparks** (post Gate 6+7 amendment, observed on shard B alone — shard A pending):
+- If Stage 2 yields **14-30 tasks** (shard B only or near-failure shard A): 14 × 26 × 3 × 2 = **2,184 cases**, ~2-3 days wall on 1 burner, ~$150-300
+- If Stage 2 yields **25-40 tasks** (realistic post-shard-A): 30 × 26 × 3 × 2 = **4,680 cases**, ~3-4 days wall, ~$300-500
+- If Stage 2 yields **50-80 tasks** (upside surprise): 60 × 26 × 3 × 2 = **9,360 cases**, ~5-7 days wall, ~$600-900
+
+**Scope correction note (2026-05-07)**: Prior estimates of ~250-350
+passing tasks were formed before Gate 6+7 were added. Shard B alone
+yielded 14 passing (pre-shard-A). Gate 6 alone drops ~73% of
+3/3-success tasks (they are state-mutation); this was not visible
+until the shard-B audit surfaced the Docker-non-reset issue. The
+real Stage 3 N is breadth-constrained but still N_breadth >> 1 and
+complements the N=13 Mode A depth set.
 
 **Sharding**: duplicate the auto-generated config, split
 `individualVariants` across Claude-Shard-A/B and Llama4-Shard-A/B for
@@ -327,15 +370,19 @@ restart didn't stick and we re-run affected shards with hard resets.
 | Pilot 1-4 + expansion (historical) | ~$2,000 | — |
 | Mode A + C.2 (current data) | ~$3,000-4,000 | — |
 | **Smoker (Stage 1)** | ~$270 (running) | — |
-| **Manipulation (Stage 3)** — Claude + Llama 4 on ~300 tasks | — | **~$3,500-4,500** |
+| **Manipulation (Stage 3)** — Claude + Llama 4 on ~25-40 tasks (post Gate 6+7) | — | **~$300-500** |
 | DOM audit (Stage 4, no LLM) | — | $0 |
-| **Total** | ~$5,200-6,200 | **~$3,500-4,500** |
+| **Total** | ~$5,200-6,200 | **~$300-500** |
 
-Stage 3 scope (pre-gate estimate):
-- Expected passing tasks: ~250-350 (pending smoker completion)
-- Cases: ~300 × 26 operators × 3 reps × {Claude, Llama 4} = **~46,800**
-- Budget: ~$3,700 at Claude Sonnet 4 + Llama 4 Bedrock rates
-- Buffer: $800-1,300 within your $5K ceiling
+Stage 3 scope (post-Gate-6+7 amendment, 2026-05-07):
+- Observed on shard B alone: **14 passing tasks** (13 gitlab, 1 reddit)
+- Expected post-shard-A total: **~25-40 passing tasks** (live
+  gate-complexity diagnostic on in-progress shard A)
+- Cases: ~30 × 26 operators × 3 reps × {Claude, Llama 4} = **~4,680**
+- Budget: **~$300-500** at Claude Sonnet 4 + Llama 4 Bedrock rates
+  (drastically reduced vs pre-2026-05-07 estimate)
+- Buffer: >$4,000 under $5K ceiling → space for Stage 4b trace-URL
+  SSIM audit on all cases without budget pressure
 
 ---
 
