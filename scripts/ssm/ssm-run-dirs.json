@@ -1,0 +1,8 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -c 'cat > /tmp/rundirs.py <<PYEOF\nimport os, json, glob, sys\nroot = sys.argv[1]\nprint(\"root:\", root)\nfor d in sorted(glob.glob(root + \"/*/\")):\n    rs = d + \"run-state.json\"\n    cases = glob.glob(d + \"cases/*.json\")\n    status = \"?\"\n    completed = \"?\"\n    runId = os.path.basename(d.rstrip(\"/\"))\n    if os.path.exists(rs):\n        try:\n            state = json.load(open(rs))\n            status = state[\"status\"]\n            completed = len(state[\"completedCases\"])\n        except Exception as e:\n            status = f\"err:{e}\"\n    print(f\"  {runId}: {len(cases)} cases, status={status}, completed={completed}\")\nPYEOF\npython3.11 /tmp/rundirs.py /home/ec2-user/platform/data/smoker-shard-a'",
+    "echo ---",
+    "sudo -u ec2-user bash -c 'python3.11 /tmp/rundirs.py /home/ec2-user/platform/data/smoker-shard-b'"
+  ],
+  "executionTimeout": ["60"]
+}

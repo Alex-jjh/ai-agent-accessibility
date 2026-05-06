@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -c 'for s in smoker-shard-a smoker-shard-b; do echo === $s ===; D=/home/ec2-user/platform/data/$s; echo total json: $(find $D -name \"*.json\" 2>/dev/null | wc -l); echo cases/: $(find $D/*/cases/ -maxdepth 1 -name \"*.json\" 2>/dev/null | wc -l); echo run-state.json: $(find $D -name run-state.json 2>/dev/null | wc -l); echo scanResults: $(find $D -path \"*scanResults*.json\" 2>/dev/null | wc -l); echo misc: $(find $D -name \"*.json\" -not -path \"*cases/*\" -not -name run-state.json 2>/dev/null | wc -l); done'"
+  ],
+  "executionTimeout": ["60"]
+}
