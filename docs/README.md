@@ -1,11 +1,19 @@
 # docs/ — Documentation Index
 
+## 🎯 Start here
+
+- **`project-phases.md`** — **canonical 6-phase narrative** of the whole
+  project, from March 2026 Pilot 1 through May 2026 Stage 3 task
+  expansion. Single source of truth for "how did we get from X to Y"
+  questions in the paper, in reviewer Q&A, or in future handoffs.
+
 ## Active documents (current work)
 
 ### AMT Paper (CHI 2027)
 - `amt-operator-spec.md` — **Normative spec** for 26 AMT operators
 - `amt-audit-artifacts.md` — AMT DOM audit artefact layout
 - `audit-architecture.md` — Reproducibility audit 4-layer chain
+- `analysis/task-selection-methodology.md` — **Phase 6 pre-registration**: Stage 3 gate + paper drop-in
 - `handoff-2026-05-02.md` — Session handoff notes
 - `paper-decisions.md` — Paper-level decisions log
 - `statistical-analysis-plan.md` — Stats methodology

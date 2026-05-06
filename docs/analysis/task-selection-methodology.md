@@ -33,13 +33,19 @@ This document explains both.
 
 ## 2. Two-tier analysis design (breadth × depth)
 
-The paper reports results at two granularities, each serving a distinct
-scientific purpose:
+This two-tier design is the **culmination of the project's 6-phase
+progression** (see `docs/project-phases.md`). The depth tier is the
+output of Phase 4 (AMT Framework Formalization, Mode A on 13 hand-
+picked tasks). The breadth tier is the output of Phase 6 (Task-Set
+Breadth Expansion, this document's subject). Neither replaces the
+other; they answer different scientific questions.
+
+The paper reports results at two granularities:
 
 | Tier | Source | N | Role in paper |
 |------|--------|---|---------------|
-| **Breadth** (Stage 3, new) | 684-task smoker + pre-registered gate | ~N_passing (filled after smoker completes) | Main manipulation result, cross-model replication, per-operator drops, statistical power |
-| **Depth** (Mode A, existing) | Hand-selected in prior work (2026-04 Mode A) | 13 | Mechanistic case studies, trace-level analysis, operator alignment with DOM signatures |
+| **Breadth** (Phase 6, Stage 3, new) | 684-task smoker + pre-registered gate | ~N_passing (filled after smoker completes) | Main manipulation result, cross-model replication, per-operator drops, statistical power (§5.1-5.3) |
+| **Depth** (Phase 4, Mode A, existing) | Hand-selected in prior work (2026-04 Mode A) | 13 | Mechanistic case studies, trace-level analysis, operator alignment with DOM signatures (§5.4-5.5) |
 
 **Why both?** The 13 Mode A tasks were hand-picked to balance coverage
 and analyzability. They expose mechanisms (L1 landmark paradox, L5

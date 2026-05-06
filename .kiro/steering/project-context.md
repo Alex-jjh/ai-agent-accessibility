@@ -6,6 +6,38 @@ Empirical research platform studying web accessibility vs AI agent task success.
 Dual-track: Track A (WebArena controlled experiments), Track B (HAR replay ecological survey).
 Six modules: Scanner, Variants, Runner, Classifier, Recorder, Analysis (Python).
 
+## Project Phases (canonical narrative, see `docs/project-phases.md`)
+
+The project is organized into six phases, each producing data that the
+subsequent phase builds on:
+
+1. **Phase 1 — Instrument Calibration & Proof-of-Concept** (Mar 31 → Apr 6, 2026)
+   6-task composite-variant pilot, 24 platform bugs fixed, monotonic a11y
+   gradient confirmed at composite level.
+2. **Phase 2 — Multi-Modal Agent Extension & Platform Discovery** (Apr 6 → 9)
+   Added SoM + CUA agents; discovered phantom bid (SoM), cross-layer
+   confound (CUA link→span), BrowserGym serialization divergence (PSL).
+3. **Phase 3 — Ecological Validation & Visual-Equivalence Verification** (Apr 9 → 22)
+   34-site axe-core audit (L3 violations on 83.3% of real-world sites);
+   trace-URL replay SSIM audit, 77.8% link→span signature in CUA failures.
+4. **Phase 4 — AMT Framework Formalization** (Apr 27 → May 2)
+   26-operator taxonomy; Mode A 3,042 Claude cases + 1,014 Llama 4;
+   12-dim DOM signature + 3-arch behavioral signature alignment.
+   Core findings: L1 landmark paradox, L5 shadow DOM ghost buttons,
+   forced simplification, H-operator ceiling.
+5. **Phase 5 — Compositional Interaction Study (C.2)** (May 2)
+   28 pairwise operator combinations × 13 tasks × 2 agents × 3 reps =
+   2,188 cases. 14/28 super-additive (p = 0.019). L11 "amplifier",
+   L6 "latent damage", L5 "ceiling".
+6. **Phase 6 — Task-Set Breadth Expansion** (May 4 → pending)
+   684-task smoker + pre-registered conservative gate (2026-05-06) →
+   Stage 3 manipulation on ~250-350 base-solvable tasks × 26 ops × 3
+   reps × {Claude, Llama 4}. Stage 4 trace-URL SSIM audit replaces CUA
+   as visual control.
+
+**Two-tier paper design**: Phase 6 = breadth (statistical power, §5.1-5.3);
+Phase 4 = depth (mechanisms, §5.4-5.5). Neither replaces the other.
+
 ## Current Status (as of 2026-05-04)
 
 **Phase C: Paper writing in progress.** All experiments complete, now rewriting paper for AMT v8 framing.

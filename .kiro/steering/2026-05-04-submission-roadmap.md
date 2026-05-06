@@ -9,6 +9,11 @@ inclusion: auto
 > **Days remaining**: ~129
 > **Strategy**: Text-only primary, SSIM visual control, CUA composite-only
 
+> **Project-level narrative**: This roadmap documents **Phase 6 (Task-Set
+> Breadth Expansion)**. For the canonical 6-phase narrative connecting
+> Phase 1 pilots through Phase 6 task expansion, see
+> `docs/project-phases.md`.
+
 ---
 
 ## Strategic Decision (2026-05-04)
