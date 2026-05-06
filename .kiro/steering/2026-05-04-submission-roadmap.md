@@ -134,16 +134,54 @@ in pilot, so we defer to BrowserGym's per-rep success judgment.
 `individualVariants` across Claude-Shard-A/B and Llama4-Shard-A/B for
 parallel runs on 2 burner accounts.
 
-### Stage 4: DOM Audit (Visual Equivalence)
+### Stage 4: DOM + Visual Audit (replaces CUA as visual control)
 
-**Script**: `scripts/audit-operator.ts` (existing) + batch wrapper
-**Cases**: filtered tasks × 26 ops × 3 reps = ~6,000 screenshots
+**Motivation**: The CUA agent was originally our "pure visual" control
+condition (no DOM access, only pixels). Results showed CUA baseline
+varied too much across task types (Mode A: 48.2% — see
+`docs/analysis/mode-a-analysis.md` §6.3) to serve as a clean visual
+baseline. We replace it with two pixel-level measurements that are
+**direct and objective** instead of inferring visual equivalence from
+an agent's behavior:
+
+1. **Per-operator DOM audit** — before / after screenshots of the
+   same page with each operator applied in isolation, SSIM + pHash +
+   WCAG contrast diff. Script: `scripts/audit-operator.ts` (existing).
+   Coverage: ~300 Stage-3 tasks × 26 operators × 3 reps = ~23,400
+   pixel diff pairs.
+2. **Trace-URL replay audit** — for each Stage 3 case, extract every
+   URL the agent visited from the trace, replay that URL under base
+   and under the variant, SSIM-compare. This gives us a
+   *behaviour-informed* visual equivalence measurement at every page
+   the agent actually saw, not just start pages. Script:
+   `scripts/visual-equiv/replay-url-screenshots.py` (existing, used
+   for the Phase 7 CUA visual-equivalence track).
+
+**Paper role**: §5.3 "Visual Control" subsection; F5 DOM heatmap;
+new F10 (trace-URL-SSIM distribution) if space permits.
+
+**Why this is stronger than CUA**: An agent's success/failure rate is
+a *proxy* for visual equivalence (agent fails under visual change,
+succeeds under visual equivalence). A direct pixel diff is the
+measurement itself. Reviewers asking "is the visual-CUA confound
+real?" get a mathematical answer, not an inferential one.
+
 **Cost**: $0 (Playwright only, no LLM)
-**Time**: ~4-6 hours wall
-**Output**: `data/dom-audit-v2/` with before/after PNGs + SSIM values
+**Time**: ~4-6 hours wall per batch (both audits together)
+**Output**: `data/dom-audit-v2/` + `data/trace-url-audit-v2/` with
+SSIM distributions per operator, screenshot galleries for human
+review, and SSIM CSVs for F-figures.
 
-Per-operator SSIM proves visual equivalence mathematically, replacing
-CUA as the "visual control" evidence in the paper.
+**Input requirements from Stage 3**: trace JSONs must preserve the
+URL the agent observed at each step. Confirmed — `src/runner/agents/
+executor.ts` embeds `Current URL: ...` in every observation and
+`[screenshot only] {url}` for vision modes. No runner changes needed.
+
+**Dependencies on prior work**: `analysis/cua_failure_trace_validation.py`
+provides the trace signature extraction logic; re-usable for Stage 3.
+Visual-equivalence plan docs in `docs/analysis/visual-equivalence-*.md`
+describe the Phase 7 URL-replay harness used for Mode A data, which
+we extend for Stage 3.
 
 ### Stage 5: Analysis + Paper Update
 
@@ -155,6 +193,58 @@ Tasks:
 3. Verify compositional results still hold (or re-run C.2 on expanded tasks)
 4. Update all paper numbers
 5. Regenerate figures F4-F9
+6. **Trace-URL-replay SSIM audit** — replaces CUA as visual control
+   (see Stage 4). Must complete before paper §5.3 is finalized.
+
+---
+
+## 🚨 Don't forget after Stage 3: Trace-URL replay audit
+
+**Pre-registered**: 2026-05-06 (alongside the smoker gate).
+
+The CUA agent was originally our visual control condition; results
+showed it was too noisy at baseline (48.2%) to cleanly attribute the
+visual component of the manipulation drop. We replace CUA with a
+**trace-URL replay audit**:
+
+1. For each Stage 3 case, parse the trace JSON and extract the full
+   URL list the agent observed (`Current URL: ...` in text-only
+   mode, `[screenshot only] {url}` in vision modes).
+2. For each unique URL in that list, replay under both base and
+   variant in a headless Playwright context, capture full-page
+   screenshots.
+3. Compute SSIM, pHash distance, and WCAG contrast delta per URL.
+4. Aggregate per operator → SSIM distribution figure.
+
+**Scripts** (all existing from Phase 7 Mode A work):
+- `scripts/visual-equiv/replay-url-screenshots.py` — replay harness
+- `analysis/visual_equivalence_analysis.py` — SSIM aggregation
+- `analysis/visual_equivalence_gallery.py` — human review gallery
+- `analysis/cua_failure_trace_validation.py` — trace signature
+  extraction (re-usable for new data)
+
+**Why this matters for the paper**: Reviewer question — "Is part of
+your reported manipulation drop a visual confound rather than
+semantic/functional?" The trace-URL audit produces a **direct**
+per-operator pixel-equivalence measurement, turning the visual-control
+story from agent-inferential (CUA passes/fails) to pixel-empirical
+(SSIM distribution). This is a strictly stronger argument.
+
+**Blockers / pre-conditions**:
+- ✅ Trace JSONs already embed URLs (confirmed in executor.ts)
+- ✅ Replay harness exists (`replay-url-screenshots.py`, used for
+  Phase 7 CUA work)
+- ⬜ Stage 3 data must complete first
+- ⬜ SSIM batch must run on a burner with Playwright + SSIM deps
+
+**Do not skip this.** The alternative — keep CUA as the visual
+control — is what we rejected in the 2026-05-04 rescope. If we skip
+the SSIM audit too, we have *no* visual control in the paper.
+
+See `docs/analysis/visual-equivalence-validation.md` for the Phase 7
+precedent (77.8% of Mode A low CUA failures match the link→span
+trace signature), and `docs/analysis/visual-equivalence-plan.md` for
+the full architecture.
 
 ---
 
@@ -201,14 +291,16 @@ restart didn't stick and we re-run affected shards with hard resets.
 | Tune thresholds if needed; finalize task list | Alex | ⬜ |
 | Split manipulation config into shards | Kiro | ⬜ |
 
-### Manipulation + DOM audit (~05-10 → 05-20)
+### Manipulation + DOM audit (~05-10 → 05-22)
 
 | Task | Owner | Status |
 |------|-------|--------|
-| Run Stage 3 (Claude text-only shards) | Alex + Kiro | ⬜ |
-| Run Stage 3 (Llama 4 text-only shards) | Alex + Kiro | ⬜ |
-| Run Stage 4 (DOM audit batch) | Kiro | ⬜ |
-| Analyze + update paper numbers | Kiro | ⬜ |
+| Run Stage 3 Claude text-only shards (A+B, ~300 tasks × 26 ops × 3 reps) | Alex + Kiro | ⬜ |
+| Run Stage 3 Llama 4 text-only shards (same matrix) | Alex + Kiro | ⬜ |
+| Run Stage 4a: per-operator DOM audit (`audit-operator.ts` batch) | Kiro | ⬜ |
+| **Run Stage 4b: trace-URL replay SSIM audit** — replaces CUA as visual control | Kiro | ⬜ 🚨 critical |
+| Analyze manipulation + audit results; regenerate F4-F9, add F10 if needed | Kiro | ⬜ |
+| Update paper numbers with new task set | Kiro | ⬜ |
 
 ### Pre-submission (August)
 
@@ -286,12 +378,13 @@ Stage 3 scope (pre-gate estimate):
 | Period | Activity |
 |--------|----------|
 | **05-05** | ✅ Generate smoker configs + analyzer + docs (DONE) |
-| **05-05 → 05-06** | Deploy new burner account, docker reset, launch shards A + B |
-| **05-06 → 05-08** | Smoker runs (parallel shards, ~1.5 days wall) |
-| **05-08 → 05-09** | Analyze smoker, finalize filter, generate manipulation config |
-| **05-09 → 05-16** | Manipulation experiment (Claude + Llama 4, parallel shards) |
-| **05-14 → 05-20** | DOM audit (screenshots), merge with behavioral results |
-| **05-20 → 06-07** | Update paper with new data, compress pages |
+| **05-05 → 05-06** | Deploy burner accounts, docker reset, launch shards A + B |
+| **05-06 → 05-07** | Smoker runs (parallel shards, ~1-1.5 days wall) |
+| **05-06** | ✅ Gate pre-registered (strict 3/3 + min-step 3); analyzer updated |
+| **05-07 → 05-08** | Analyze smoker with locked gate, generate manipulation config |
+| **05-08 → 05-15** | Stage 3 manipulation (Claude + Llama 4, parallel shards) |
+| **05-13 → 05-18** | Stage 4a DOM audit + Stage 4b **trace-URL SSIM audit** (parallel with late Stage 3 shards) |
+| **05-18 → 06-07** | Update paper with new data, compress pages, new figures |
 | **06-07 → 07-14** | Brennan review cycle |
 | **07-14 → 08-14** | Optional enhancements (ecological audit, polish) |
 | **08-14 → 09-11** | Final preparation + submission |
