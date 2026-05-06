@@ -41,6 +41,87 @@ from statistics import median
 
 REPO = Path(__file__).resolve().parents[2]
 RESULTS_DIR = REPO / "results" / "smoker"
+TEST_RAW_PATH = REPO / "test.raw.json"
+
+
+# ---------------------------------------------------------------------------
+# Gate-6 / Gate-7 task-property helpers (pre-registered 2026-05-07)
+# ---------------------------------------------------------------------------
+
+# Eval types that touch WebArena's mutable Docker state (DB row checks,
+# URL-match on post-mutation pages). These tasks require the agent to
+# *modify* the environment; they fail the Stage-3 docker-stability
+# gate because 26 ops × 3 reps × 2 models = 156 writes into a shared
+# container per task, and our runner does not reset Docker between
+# cases (see `docs/analysis/mode-a-docker-confounds.md`).
+STATE_MUTATION_EVAL_TYPES = {"url_match", "program_html"}
+
+# `must_include` tokens so short or so common that Claude can emit
+# long rambling prose unrelated to the intent and still substring-match.
+# Observed in smoker shard B gitlab:306: agent states the wrong numeric
+# answer ("Anthony made 1 commit") but the target token '0' appears in
+# the year '2023', so string_match passes.
+_CANNED_REFS = {"n/a", "none", "null", "done", "yes", "no", "true", "false"}
+
+
+def _load_task_eval_meta() -> dict[str, dict]:
+    """Index test.raw.json by task_id → { 'eval_types': set, 'refs': list }."""
+    if not TEST_RAW_PATH.exists():
+        return {}
+    try:
+        raw = json.loads(TEST_RAW_PATH.read_text())
+    except Exception:
+        return {}
+    meta: dict[str, dict] = {}
+    for t in raw:
+        tid = str(t.get("task_id", ""))
+        e = t.get("eval", {}) or {}
+        types = set(e.get("eval_types", []) or [])
+        ra = (e.get("reference_answers") or {}) or {}
+        refs: list[str] = []
+        for key in ("must_include", "must_exclude", "fuzzy_match", "exact_match"):
+            v = ra.get(key)
+            if isinstance(v, list):
+                refs.extend(str(x) for x in v)
+            elif v is not None:
+                refs.append(str(v))
+        meta[tid] = {"eval_types": types, "refs": refs}
+    return meta
+
+
+def _is_state_mutation(meta: dict | None) -> bool:
+    if not meta:
+        return False
+    return bool(meta.get("eval_types", set()) & STATE_MUTATION_EVAL_TYPES)
+
+
+def _trivial_ref_reason(meta: dict | None) -> str | None:
+    """Return human-readable reason if every must_include token is guessable.
+
+    Rule: a task is flagged iff EVERY `must_include` token is <=2 characters
+    OR a canned string (yes/no/done/...). If any token is >=3 characters
+    and non-canned, the task survives (matching all tokens by coincidence
+    is statistically implausible).
+    """
+    if not meta:
+        return None
+    refs = meta.get("refs") or []
+    if not refs:
+        return None
+    risky_tokens: list[str] = []
+    for r in refs:
+        rs = str(r).strip().lower()
+        if not rs:
+            risky_tokens.append(repr(r))
+            continue
+        if len(rs) <= 2 or rs in _CANNED_REFS:
+            risky_tokens.append(repr(r))
+            continue
+        # Non-trivial token found — whole task is OK because string_match
+        # requires all must_include tokens to match.
+        return None
+    # Every token is risky.
+    return f"all must_include tokens trivially guessable: {', '.join(risky_tokens[:4])}"
 
 
 # ---------------------------------------------------------------------------
@@ -282,6 +363,29 @@ class FilterConfig:
     the agent paraphrased a correct answer (e.g., 'The issue is open' vs
     'The issue is still open'). BrowserGym accepted both as success,
     so our downstream check was redundant and over-strict.
+
+    ADDITIONAL GATES (pre-registered 2026-05-07):
+      6. Non-state-mutation: tasks whose BrowserGym eval uses `url_match`
+         or `program_html` are excluded. WebArena Docker is not stateless
+         (see docs/analysis/mode-a-docker-confounds.md): 26 ops × 3 reps
+         × 2 models per task = 156 writes into a shared container, and
+         our scheduler does not reset Docker between cells. Post-hoc GT
+         corrections at scale (as used for Mode A tasks 41/198/293) are
+         not defensible when the number of affected tasks is large.
+         Dropping state-mutation tasks eliminates this confound class
+         entirely, at the cost of restricting the Stage-3 claim to
+         info-retrieval agent behavior.
+      7. Non-trivial reference answer: tasks whose `must_include` tokens
+         are ALL ≤2 characters or canned strings (yes/no/done/none/...)
+         are excluded. Observed false-positive in smoker shard B
+         gitlab:306: agent states wrong numeric answer but passes
+         string_match because the target token '0' appears in '2023'.
+         When a long confused answer can accidentally contain the
+         target, the evaluator asymmetrically under-counts drops under
+         manipulation. Tasks with ≥1 non-trivial token (≥3 chars,
+         non-canned) are retained because string_match requires ALL
+         tokens to match, making coincidental matches statistically
+         implausible.
     """
     required_reps: int = 3
     require_full_success: bool = True   # 3/3 strict
@@ -289,6 +393,8 @@ class FilterConfig:
     max_median_steps: int = 25           # excludes tasks brittle at step budget
     disallow_infra_failures: bool = True
     disallow_harness_errors: bool = True
+    disallow_state_mutation: bool = True    # Gate 6 — Docker drift confound
+    disallow_trivial_refs: bool = True      # Gate 7 — short-token false positives
 
 
 # Category labels used in both the per-task CSV and the aggregated
@@ -315,14 +421,25 @@ EXCLUSION_CATEGORIES = {
     # Level 4: task-complexity mismatches
     "trivial_task":              "Median successful step count < 3 — a11y tree contributes little (variant manipulation cannot produce measurable effect)",
     "step_budget":               "Median successful step count > 25 — task brittle at step budget",
+    # Level 5: task-property exclusions (Docker confound + evaluator weakness)
+    "state_mutation":            "BrowserGym eval uses url_match/program_html — task mutates shared Docker state; 156 writes per task under Stage-3 matrix would accumulate drift (see docs/analysis/mode-a-docker-confounds.md)",
+    "trivial_ref":               "All must_include tokens are ≤2 chars or canned (yes/no/done/...) — substring-match false positives are asymmetric under manipulation (confused agent answers still match)",
 }
 
 
-def classify(stats: TaskStats, cfg: FilterConfig) -> tuple[bool, str, str]:
+def classify(
+    stats: TaskStats,
+    cfg: FilterConfig,
+    eval_meta: dict | None = None,
+) -> tuple[bool, str, str]:
     """Return (passes, code, human_reason).
 
     code is a short machine-readable label (e.g. 'admin_login_failed').
     human_reason is an English sentence suitable for paper table captions.
+
+    eval_meta (optional) is the per-task entry from test.raw.json
+    (keys: 'eval_types', 'refs'). When supplied, enables Gate 6
+    (state-mutation) and Gate 7 (trivial-ref) pre-registered filters.
     """
     # Level 1: shard completeness
     if stats.reps < cfg.required_reps:
@@ -363,6 +480,18 @@ def classify(stats: TaskStats, cfg: FilterConfig) -> tuple[bool, str, str]:
     if stats.median_steps > cfg.max_median_steps:
         code = "step_budget"
         return False, code, f"{EXCLUSION_CATEGORIES[code]} (median={stats.median_steps:.0f} > {cfg.max_median_steps})"
+
+    # Level 5: task-property gates (pre-registered 2026-05-07)
+    if cfg.disallow_state_mutation and _is_state_mutation(eval_meta):
+        code = "state_mutation"
+        types = sorted(eval_meta.get("eval_types", set())) if eval_meta else []
+        return False, code, f"{EXCLUSION_CATEGORIES[code]} (eval_types={types})"
+
+    if cfg.disallow_trivial_refs:
+        reason = _trivial_ref_reason(eval_meta)
+        if reason is not None:
+            code = "trivial_ref"
+            return False, code, f"{EXCLUSION_CATEGORIES[code]} — {reason}"
 
     return True, "included", EXCLUSION_CATEGORIES["included"]
 
@@ -507,6 +636,7 @@ def emit_exclusion_report(
     cfg: FilterConfig,
     args,
     out_path: Path,
+    eval_meta: dict[str, dict] | None = None,
 ) -> None:
     """Write a markdown report suitable for direct inclusion in the paper's
     task-selection appendix. Documents every exclusion bucket with counts,
@@ -528,8 +658,9 @@ def emit_exclusion_report(
 
     # Per-bucket counts
     bucket_rows: dict[str, list[TaskStats]] = defaultdict(list)
-    for (_, _), stats in by_task.items():
-        ok, code, _ = classify(stats, cfg)
+    for (_, tid), stats in by_task.items():
+        meta = (eval_meta or {}).get(tid)
+        ok, code, _ = classify(stats, cfg, eval_meta=meta)
         bucket_rows[code].append(stats)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -570,6 +701,10 @@ def emit_exclusion_report(
     lines.append(f"  3. **Strict base solvability**: 3/3 reps report `success` from BrowserGym's evaluator (2/3 tasks are retained as a Tier-2 reference set, not used in Stage 3 manipulation)")
     lines.append(f"  4. **Minimum complexity**: median successful step count ≥ {cfg.min_median_steps} (excludes trivial queries where a11y tree contributes little)")
     lines.append(f"  5. **Step-budget headroom**: median successful step count ≤ {cfg.max_median_steps} (excludes tasks brittle at step limit)")
+    if cfg.disallow_state_mutation:
+        lines.append(f"  6. **Non-state-mutation** (pre-registered 2026-05-07): tasks whose BrowserGym eval uses `url_match` or `program_html` are excluded. Our scheduler does not reset Docker between cases, and 156 writes per task under the Stage-3 matrix would accumulate drift (see `docs/analysis/mode-a-docker-confounds.md`).")
+    if cfg.disallow_trivial_refs:
+        lines.append(f"  7. **Non-trivial reference answer** (pre-registered 2026-05-07): tasks whose `must_include` tokens are ALL ≤2 characters or canned (yes/no/done/...) are excluded. Substring-match false positives are asymmetric under manipulation (a confused long answer still contains the target).")
     lines.append("")
     lines.append("## Why this gate is *conservative* (lower-bound argument)")
     lines.append("")
@@ -581,6 +716,10 @@ def emit_exclusion_report(
     lines.append("- Excluding **trivial tasks** (step < 3) removes cases where a11y tree parsing barely matters; these tasks would otherwise dilute the mean drop.")
     lines.append("- Excluding **stochastic-base tasks** (<3/3 success) removes cases where baseline noise would be misattributed to manipulation; these tasks would otherwise add variance.")
     lines.append("- Excluding **infrastructure failures** removes cases that are artifacts of the benchmark × model interaction (context window, Magento login flakiness) rather than the research question.")
+    if cfg.disallow_state_mutation:
+        lines.append("- Excluding **state-mutation tasks** (eval=url_match/program_html) removes cases where the Stage-3 write volume (156 writes/task) would contaminate base solvability across cells; retaining them would create a confound that cannot be distinguished from true operator effects by any statistical method. Mode A encountered this confound on 3 hand-picked tasks and applied post-hoc ground-truth corrections; at Stage-3 scale, the correction burden is not defensible. See `docs/analysis/mode-a-docker-confounds.md`.")
+    if cfg.disallow_trivial_refs:
+        lines.append("- Excluding **trivial-ref tasks** (all must_include ≤2 chars or canned) removes cases where a confused long answer can accidentally substring-match the target (observed in smoker gitlab:306). Under manipulation, these tasks would asymmetrically under-report drops, biasing the observed effect toward zero.")
     lines.append("")
     lines.append(
         "Our reported Stage 3 manipulation drops are therefore **lower bounds** "
@@ -628,6 +767,8 @@ def emit_exclusion_report(
         "stochastic_base",
         "trivial_task",
         "step_budget",
+        "state_mutation",
+        "trivial_ref",
     ]
     for i, code in enumerate(priority, 1):
         n = len(bucket_rows.get(code, []))
@@ -761,7 +902,13 @@ def main() -> None:
 
     print(f"Loading cases from:\n  {args.shard_a}\n  {args.shard_b}")
     by_task = aggregate([args.shard_a, args.shard_b])
-    print(f"Aggregated {len(by_task)} tasks, {sum(s.reps for s in by_task.values())} cases.\n")
+    print(f"Aggregated {len(by_task)} tasks, {sum(s.reps for s in by_task.values())} cases.")
+
+    eval_meta = _load_task_eval_meta()
+    if eval_meta:
+        print(f"Loaded eval metadata for {len(eval_meta)} tasks from {TEST_RAW_PATH.name}.\n")
+    else:
+        print(f"WARN: could not load {TEST_RAW_PATH}; Gates 6-7 will be skipped.\n", file=sys.stderr)
 
     # Classify
     passing: dict[str, list[str]] = defaultdict(list)
@@ -770,7 +917,8 @@ def main() -> None:
     drop_reasons: dict[str, int] = defaultdict(int)
     per_app_drop: dict[tuple[str, str], int] = defaultdict(int)
     for (app, tid), stats in sorted(by_task.items(), key=lambda x: (x[0][0], int(x[0][1]))):
-        ok, code, reason = classify(stats, cfg)
+        meta = eval_meta.get(tid) if eval_meta else None
+        ok, code, reason = classify(stats, cfg, eval_meta=meta)
         if ok:
             passing[app].append(tid)
         else:
@@ -827,16 +975,17 @@ def main() -> None:
 
     # Paper-ready exclusion report
     report_path = RESULTS_DIR / "exclusion-report.md"
-    emit_exclusion_report(by_task, passing, cfg, args, report_path)
+    emit_exclusion_report(by_task, passing, cfg, args, report_path, eval_meta=eval_meta)
     print(f"Wrote {report_path}")
 
     # Summary
     n_passing = sum(len(v) for v in passing.values())
     n_tier2 = sum(len(v) for v in tier2.values())
     print(
-        f"\nPre-registered gate (2026-05-06): strict 3/3 success, "
+        f"\nPre-registered gate (2026-05-06, amended 2026-05-07): strict 3/3 success, "
         f"no infra failures, median_steps in "
-        f"[{cfg.min_median_steps}, {cfg.max_median_steps}]:"
+        f"[{cfg.min_median_steps}, {cfg.max_median_steps}], "
+        f"non-state-mutation eval (Gate 6), non-trivial must_include (Gate 7):"
     )
     for app in sorted({*passing, *tier2}):
         p = len(passing.get(app, []))

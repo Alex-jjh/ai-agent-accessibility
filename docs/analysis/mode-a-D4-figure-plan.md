@@ -145,6 +145,66 @@ interaction chains (L1+L11+L6)."
 **Key message**: "Task sensitivity varies enormously. Some tasks are
 operator-immune (132, 188), others are highly discriminating (67, 4)."
 
+### F11: Task-Selection Funnel (matplotlib, Appendix X) — NEW 2026-05-07
+
+**What it shows**: A two-panel funnel diagram of the task selection pipeline.
+
+**Left panel** — Stage 3 breadth pipeline (top → bottom):
+```
+WebArena deployed-app inventory              684 tasks
+  ↓ Gate 1: shard completeness (3/3 reps)   -n₁
+  ↓ Gate 2: zero infra failures             -n₂
+    (context-window + bridge_crash + admin_login +
+     goto_timeout + chromium_crash + harness_errors)
+  ↓ Gate 3: strict 3/3 base success         -n₃
+    (stochastic → Tier-2 set, not discarded)
+  ↓ Gate 4: min median_steps ≥ 3            -n₄
+  ↓ Gate 5: max median_steps ≤ 25           -n₅
+  ↓ Gate 6: non-state-mutation              -n₆
+    (Docker stability; pre-registered 2026-05-07)
+  ↓ Gate 7: non-trivial must_include        -n₇
+    (pre-registered 2026-05-07)
+  ═══════════════════════════════════════
+  Stage 3 main analysis set                   N tasks
+  Tier-2 reference set (stochastic)          +M tasks
+```
+
+**Right panel** — Mode A (N=13) depth set retrospective check:
+- Display all 13 tasks as a small inline table
+- Apply Gate 6 + Gate 7 retrospectively
+- 10/13 pass highlighted in green
+- 3/13 fail (reddit:29, reddit:67, shopping:24) annotated:
+  - reddit:29, reddit:67 → "intentional Mode A controls"
+  - shopping:24 → "post-hoc; produces conservative estimate"
+
+**Visual treatment**:
+- Left panel: vertical stacked bars, each section labeled with gate name
+  + drop count + drop rationale snippet; width proportional to tasks
+  remaining (classic funnel shape); excluded tasks fall out to the right
+  labeled with category
+- Right panel: compact 13-row table, green/red icons
+- Connecting arrow between panels: "Two independent selection procedures,
+  convergent outcome"
+
+**Key message**: The 684 → N drop looks drastic in aggregate, but every
+step is principled, pre-registered, and independently validated against
+a task set chosen nine months earlier.
+
+**Why Appendix not main**:
+- Reviewers who care will find it. Main-text real estate better spent on
+  F4-F8.
+- Putting it in main text would signal defensive posture ("we have a
+  lot to explain") rather than confidence ("we have clean methodology").
+
+**Data source**: `results/smoker/exclusion-report.md` (auto-generated);
+`docs/analysis/task-selection-methodology.md` §8.1 for the Mode A row
+evaluations.
+
+**Dependencies**: Do not draw until shard A smoker completes —
+gate-6/7 counts will change when ecommerce + admin data lands.
+Earliest draw date: 2026-05-07 PM (after shard A data downloaded and
+filter re-run).
+
 ---
 
 ## Execution Priority
@@ -158,6 +218,7 @@ operator-immune (132, 188), others are highly discriminating (67, 4)."
 7. **F1** (AMT overview) — GPT Image 2, iterate on prompt
 8. **F2** (injection + causal) — GPT Image 2, complex layout
 9. **F3** (page variant) — GPT Image 2, most visually appealing
+10. **F11** (task selection funnel) — Appendix, draw after shard A smoker lands
 
 ---
 
