@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'cd /home/ec2-user/platform && git fetch --quiet && git reset --hard origin/master 2>&1 | tail -2 && bash scripts/launchers/launch-stage3-claude.sh'"
+  ],
+  "executionTimeout": ["120"]
+}

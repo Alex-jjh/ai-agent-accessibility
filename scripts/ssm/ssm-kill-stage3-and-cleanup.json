@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'cd /home/ec2-user/platform; pkill -f run-pilot3.ts; sleep 2; ps -ef | grep -v grep | grep -c run-pilot3; echo ---; rm -rf data/stage3-claude-shard-a data/stage3-claude-shard-b; echo cleaned'"
+  ],
+  "executionTimeout": ["60"]
+}

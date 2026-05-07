@@ -1,0 +1,96 @@
+# Stage 3 Manipulation — Claude Sonnet 4 on all 48 info-retrieval tasks
+# Runs on burner A (946876341724).
+#
+# Matrix: 48 tasks × 26 operators × 3 reps × 1 agent = 3,744 cases
+# Expected wall time: ~3.8 days (single burner, all apps)
+# Expected cost: ~$225
+#
+# Parallel with burner B running config-stage3-llama.yaml.
+# Critical path for Stage 3: whichever shard is slower (both ~3.8d).
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.50:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.50:7780"
+    gitlab:
+      url: "http://10.0.1.50:8023"
+    reddit:
+      url: "http://10.0.1.50:9999"
+
+  tasksPerApp:
+    ecommerce: [
+      "23", "26", "47", "48", "117", "126", "148", "149", "150", "227", "229", "230", "231", "233", "322",
+      "334", "358", "359", "362", "384", "387", "388"
+    ]
+    ecommerce_admin: [
+      "1", "94", "95", "187", "208", "209", "210", "211", "212", "216", "245", "246"
+    ]
+    gitlab: [
+      "259", "308", "309", "310", "311", "312", "314", "316", "318", "350", "784", "785", "788"
+    ]
+    reddit: [
+      "69"
+    ]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: []
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+  individualVariants:
+    - ["L1"]
+    - ["L2"]
+    - ["L3"]
+    - ["L4"]
+    - ["L5"]
+    - ["L6"]
+    - ["L7"]
+    - ["L8"]
+    - ["L9"]
+    - ["L10"]
+    - ["L11"]
+    - ["L12"]
+    - ["L13"]
+    - ["ML1"]
+    - ["ML2"]
+    - ["ML3"]
+    - ["H1"]
+    - ["H2"]
+    - ["H3"]
+    - ["H4"]
+    - ["H5a"]
+    - ["H5b"]
+    - ["H5c"]
+    - ["H6"]
+    - ["H7"]
+    - ["H8"]
+
+runner:
+  repetitions: 3
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "claude-sonnet"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/stage3-claude"
+  exportFormats: ["json", "csv"]

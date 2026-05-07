@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'ps -ef | grep run-pilot3 | grep -v grep | awk \"{print \\$2}\" | xargs -r kill -9; sleep 3; ps -ef | grep run-pilot3 | grep -v grep | awk \"{print \\$2}\" | xargs -r kill -9 2>/dev/null; sleep 2; echo survivors: $(ps -ef | grep -v grep | grep -c run-pilot3); pkill -9 -f browsergym_bridge 2>/dev/null; pkill -9 -f \"node.*run-pilot3\" 2>/dev/null; sleep 2; echo final survivors: $(ps -ef | grep -v grep | grep -c run-pilot3); rm -rf /home/ec2-user/platform/data/stage3-claude-shard-a /home/ec2-user/platform/data/stage3-claude-shard-b; ls /home/ec2-user/platform/data/ | head'"
+  ],
+  "executionTimeout": ["60"]
+}
