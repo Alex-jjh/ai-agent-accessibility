@@ -1,6 +1,6 @@
 {
   "commands": [
-    "sudo -u ec2-user bash -lc 'cd /home/ec2-user/platform && nohup setsid bash -c \"npx tsx scripts/runners/run-pilot3.ts --config config-stage3-claude-shard-b.yaml > data/stage3-claude-b.log 2>&1; EXIT=\\$?; echo \\\"=== Claude Stage3 Shard B finished exit=\\$EXIT at \\$(date -u) ===\\\" >> data/stage3-claude-b.log; if [ \\$EXIT -eq 0 ]; then bash scripts/data-pipeline/experiment-upload.sh stage3-claude-shard-b ./data/stage3-claude-shard-b >> data/stage3-claude-b.log 2>&1; fi\" </dev/null > /dev/null 2>&1 & disown; sleep 3; ps -ef | grep -v grep | grep -c run-pilot3; echo launched at \\$(date -u)'"
+    "sudo -u ec2-user bash -lc 'cd /home/ec2-user/platform && git pull --quiet 2>&1 | tail -3 && bash scripts/launchers/launch-stage3-claude-shard-b.sh'"
   ],
-  "executionTimeout": ["60"]
+  "executionTimeout": ["120"]
 }
