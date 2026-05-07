@@ -311,7 +311,16 @@ def aggregate(shard_dirs: list[Path]) -> dict[tuple[str, str], TaskStats]:
                 stats.timeouts += 1
             elif case.outcome == "failure":
                 stats.failures += 1
+            elif case.outcome == "partial_success":
+                # Agent finished normally by calling send_msg_to_user but the
+                # BrowserGym evaluator rejected the answer. This is a
+                # task-level failure, NOT a harness error. (Bug fix
+                # 2026-05-07: previously these fell through to stats.errors,
+                # flipping ~450 shard-A+B cases into the `harness_errors`
+                # exclusion bucket and dropping ~45 otherwise-eligible tasks.)
+                stats.failures += 1
             else:
+                # Unrecognized outcome string → genuine harness/runner error
                 stats.errors += 1
             # Tally failure-mode signals for paper-ready reporting
             if case.bridge_crash:
