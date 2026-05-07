@@ -1,0 +1,86 @@
+# Stage 3 Manipulation — Shard A, Llama 4 Maverick
+# Tasks: ecommerce + ecommerce_admin = 34 info-retrieval tasks
+# Matrix: 34 × 26 operators × 3 reps × 1 model = 2,652 cases
+# Est: ~2.7d wall, ~$110
+#
+# Launch AFTER Claude shard A completes on the same burner, OR in parallel on burner B
+# if shard B has capacity. Chain pattern:
+#   bash scripts/data-pipeline/experiment-upload.sh stage3-claude-shard-a ./data/stage3-claude-shard-a && \
+#     nohup setsid bash -c 'npx tsx scripts/runners/run-pilot3.ts --config config-stage3-llama-shard-a.yaml > stage3-llama-a.log 2>&1' </dev/null > /dev/null 2>&1 & disown
+
+webarena:
+  apps:
+    ecommerce:
+      url: "http://10.0.1.50:7770"
+    ecommerce_admin:
+      url: "http://10.0.1.50:7780"
+
+  tasksPerApp:
+    ecommerce: [
+      "23", "26", "47", "48", "117", "126", "148", "149", "150", "227", "229", "230", "231", "233", "322",
+      "334", "358", "359", "362", "384", "387", "388"
+    ]
+    ecommerce_admin: [
+      "1", "94", "95", "187", "208", "209", "210", "211", "212", "216", "245", "246"
+    ]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: []
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+  individualVariants:
+    - ["L1"]
+    - ["L2"]
+    - ["L3"]
+    - ["L4"]
+    - ["L5"]
+    - ["L6"]
+    - ["L7"]
+    - ["L8"]
+    - ["L9"]
+    - ["L10"]
+    - ["L11"]
+    - ["L12"]
+    - ["L13"]
+    - ["ML1"]
+    - ["ML2"]
+    - ["ML3"]
+    - ["H1"]
+    - ["H2"]
+    - ["H3"]
+    - ["H4"]
+    - ["H5a"]
+    - ["H5b"]
+    - ["H5c"]
+    - ["H6"]
+    - ["H7"]
+    - ["H8"]
+
+runner:
+  repetitions: 3
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "llama4"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/stage3-llama-shard-a"
+  exportFormats: ["json", "csv"]

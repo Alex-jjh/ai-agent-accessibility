@@ -1,0 +1,84 @@
+# Stage 3 Manipulation — Shard B, Llama 4 Maverick
+# Tasks: gitlab + reddit = 14 info-retrieval tasks
+# Matrix: 14 × 26 operators × 3 reps × 1 model = 1,092 cases
+# Est: ~1.1d wall, ~$45
+#
+# Launch AFTER Claude shard B completes. Chain pattern:
+#   bash scripts/data-pipeline/experiment-upload.sh stage3-claude-shard-b ./data/stage3-claude-shard-b && \
+#     nohup setsid bash -c 'npx tsx scripts/runners/run-pilot3.ts --config config-stage3-llama-shard-b.yaml > stage3-llama-b.log 2>&1' </dev/null > /dev/null 2>&1 & disown
+
+webarena:
+  apps:
+    gitlab:
+      url: "http://10.0.1.50:8023"
+    reddit:
+      url: "http://10.0.1.50:9999"
+
+  tasksPerApp:
+    gitlab: [
+      "259", "308", "309", "310", "311", "312", "314", "316", "318", "350", "784", "785", "788"
+    ]
+    reddit: [
+      "69"
+    ]
+
+scanner:
+  wcagLevels: ["A", "AA"]
+  stabilityIntervalMs: 2000
+  stabilityTimeoutMs: 15000
+  concurrency: 1
+
+variants:
+  levels: []
+  scoreRanges:
+    low:         { min: 0.0,  max: 0.25 }
+    medium-low:  { min: 0.25, max: 0.50 }
+    base:        { min: 0.40, max: 0.70 }
+    high:        { min: 0.75, max: 1.0  }
+  individualVariants:
+    - ["L1"]
+    - ["L2"]
+    - ["L3"]
+    - ["L4"]
+    - ["L5"]
+    - ["L6"]
+    - ["L7"]
+    - ["L8"]
+    - ["L9"]
+    - ["L10"]
+    - ["L11"]
+    - ["L12"]
+    - ["L13"]
+    - ["ML1"]
+    - ["ML2"]
+    - ["ML3"]
+    - ["H1"]
+    - ["H2"]
+    - ["H3"]
+    - ["H4"]
+    - ["H5a"]
+    - ["H5b"]
+    - ["H5c"]
+    - ["H6"]
+    - ["H7"]
+    - ["H8"]
+
+runner:
+  repetitions: 3
+  maxSteps: 30
+  concurrency: 1
+  agentConfigs:
+    - observationMode: "text-only"
+      llmBackend: "llama4"
+      maxSteps: 30
+      retryCount: 3
+      retryBackoffMs: 1000
+      temperature: 0.0
+
+recorder:
+  waitAfterLoadMs: 10000
+  concurrency: 1
+
+output:
+  dataDir: "./data/stage3-llama-shard-b"
+  exportFormats: ["json", "csv"]
