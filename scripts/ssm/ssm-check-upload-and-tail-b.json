@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'echo === LLAMA LOG TAIL ===; tail -30 /home/ec2-user/platform/data/stage3-llama/stage3.log; echo; echo === PID FILE ===; ls -la /home/ec2-user/platform/data/stage3-llama/stage3.pid 2>&1 | head -3; echo; echo === S3 UPLOAD CHECK ===; aws s3 ls s3://$(aws s3 ls --region us-east-2 | grep -o \"a11y-platform-data-[^ ]*\" | head -1)/experiments/ --region us-east-2 | grep stage3-llama | tail -5'"
+  ],
+  "executionTimeout": ["60"]
+}

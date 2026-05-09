@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'D=$(ls -d /home/ec2-user/platform/data/stage3-claude 2>/dev/null || ls -d /home/ec2-user/platform/data/stage3-llama); NAME=$(basename $D); LOG=$D/stage3.log; RUN=$(ls -d $D/*/ 2>/dev/null | grep -v track-a | head -1); CASES=$(find $RUN/cases -name \"*.json\" 2>/dev/null | wc -l); RUNNING=$(ps -ef | grep -v grep | grep -c run-pilot3); echo === $NAME ===; echo cases=$CASES / 3744; echo running=$RUNNING active processes; LAST_CASE=$(grep \"\\[Pipeline\\] Running test case\" $LOG | tail -1 | sed -E \"s/.*case: //\"); echo last_case=$LAST_CASE; echo; echo === LOG DATES ===; ls -l $LOG | awk \"{print \\$6, \\$7, \\$8}\"; CASE_STARTS=$(grep -c \"\\[Pipeline\\] Running test case\" $LOG); echo case_starts_in_log=$CASE_STARTS; RETRIES=$(grep -c \"LLM call attempt\" $LOG); echo total_retry_events=$RETRIES; echo; echo === LAST 8 LOG LINES ===; tail -8 $LOG'"
+  ],
+  "executionTimeout": ["60"]
+}

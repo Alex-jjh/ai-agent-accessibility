@@ -22,7 +22,8 @@ set -euo pipefail
 REGION="${AWS_REGION:-us-east-2}"
 PROFILE="${AWS_PROFILE:-a11y-pilot}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+# Script lives at scripts/data-pipeline/experiment-download.sh, so repo root is ../..
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # ── Find S3 bucket ──
 find_bucket() {

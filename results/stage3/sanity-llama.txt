@@ -1,0 +1,115 @@
+[Llama] case files: 3744
+[Llama] expected: 48 tasks × 26 ops × 3 reps = 3744
+
+=== §1. Completeness ===
+  cases parsed: 3744
+  cases by app: {'ecommerce_admin': 936, 'ecommerce': 1716, 'gitlab': 1014, 'reddit': 78}
+  per-app expected:
+    ✓ ecommerce: got 1716, expected 1716
+    ✓ ecommerce_admin: got 936, expected 936
+    ✓ gitlab: got 1014, expected 1014
+    ✓ reddit: got 78, expected 78
+  ✓ all 26 operators present
+  ✓ all 1248 (task,op) cells have 3 reps
+
+=== §2. Outcome distribution ===
+  success           :  2522  ( 67.4%)
+  partial_success   :   727  ( 19.4%)
+  failure           :   331  (  8.8%)
+  timeout           :   164  (  4.4%)
+  unknown           :     0  (  0.0%)
+
+  overall success: 2522/3744 = 67.4%
+
+=== §3. Performance distribution ===
+  duration (sec): p50=33.1  p90=89.7  max=363.3
+  steps:          p50=5.0  p90=12.0  max=30
+  tokens:         p50=70,907  p90=272,792  max=2,414,474
+
+=== §4. Per-operator success rate (ascending) ===
+  L1      66/144  45.8%
+  L9      80/144  55.6%
+  L11     81/144  56.2%
+  L5      81/144  56.2%
+  ML2     92/144  63.9%
+  H4      97/144  67.4%
+  L2      97/144  67.4%
+  L10     98/144  68.1%
+  ML1     98/144  68.1%
+  H5c     99/144  68.8%
+  L12     99/144  68.8%
+  L7      99/144  68.8%
+  H2     100/144  69.4%
+  H6     100/144  69.4%
+  H8     100/144  69.4%
+  L4     100/144  69.4%
+  ML3    101/144  70.1%
+  H3     102/144  70.8%
+  H5b    102/144  70.8%
+  L13    102/144  70.8%
+  L8     102/144  70.8%
+  H1     103/144  71.5%
+  H5a    105/144  72.9%
+  H7     105/144  72.9%
+  L6     105/144  72.9%
+  L3     108/144  75.0%
+
+=== §5. Per-task success rate (ascending) ===
+  gitlab:316                  0/78    0.0% ← very low
+  ecommerce_admin:1           1/78    1.3% ← very low
+  ecommerce_admin:187         4/78    5.1% ← very low
+  ecommerce:230               5/78    6.4% ← very low
+  gitlab:788                  8/78   10.3%
+  gitlab:314                 10/78   12.8%
+  ecommerce:47               18/78   23.1%
+  ecommerce:26               19/78   24.4%
+  ecommerce:387              20/78   25.6%
+  ecommerce_admin:212        25/78   32.1%
+  ecommerce_admin:216        25/78   32.1%
+  ecommerce_admin:208        32/78   41.0%
+  ecommerce_admin:246        34/78   43.6%
+  ecommerce:48               37/78   47.4%
+  ecommerce:229              43/78   55.1%
+  ecommerce_admin:245        43/78   55.1%
+  ecommerce:150              44/78   56.4%
+  gitlab:308                 47/78   60.3%
+  ecommerce:149              50/78   64.1%
+  gitlab:318                 56/78   71.8%
+  gitlab:309                 57/78   73.1%
+  gitlab:312                 57/78   73.1%
+  gitlab:350                 63/78   80.8%
+  ecommerce_admin:211        65/78   83.3%
+  gitlab:785                 65/78   83.3%
+  ecommerce_admin:210        67/78   85.9%
+  gitlab:784                 67/78   85.9%
+  gitlab:259                 68/78   87.2%
+  ecommerce:126              69/78   88.5%
+  ecommerce_admin:209        69/78   88.5%
+  gitlab:310                 70/78   89.7%
+  ecommerce:117              71/78   91.0%
+  ecommerce:148              71/78   91.0%
+  ecommerce_admin:95         72/78   92.3%
+  gitlab:311                 72/78   92.3%
+  ecommerce:23               74/78   94.9%
+  ecommerce_admin:94         74/78   94.9%
+  ecommerce:359              75/78   96.2% ← ceiling
+  ecommerce:227              77/78   98.7% ← ceiling
+  ecommerce:322              77/78   98.7% ← ceiling
+  ecommerce:384              77/78   98.7% ← ceiling
+  ecommerce:388              77/78   98.7% ← ceiling
+  reddit:69                  77/78   98.7% ← ceiling
+  ecommerce:231              78/78   100.0% ← ceiling
+  ecommerce:233              78/78   100.0% ← ceiling
+  ecommerce:334              78/78   100.0% ← ceiling
+  ecommerce:358              78/78   100.0% ← ceiling
+  ecommerce:362              78/78   100.0% ← ceiling
+
+=== §6. Cross-check vs Mode A Llama ordering ===
+  Stage 3 bottom 5:  ['L1', 'L9', 'L5', 'L11', 'ML2']
+  Mode A Llama ref:  ['L1', 'L11', 'L2', 'L5', 'L9']
+  Overlap: 4/5 — ['L1', 'L11', 'L5', 'L9']
+  Top 5:    ['H1', 'L6', 'H5a', 'H7', 'L3']
+
+=== §7. Verdict ===
+  ✓ Complete (3744 cases)
+  ✓ Ordering matches Mode A reference (4/5 overlap)

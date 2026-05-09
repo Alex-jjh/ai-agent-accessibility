@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'D=$(ls -d /home/ec2-user/platform/data/stage3-claude 2>/dev/null || ls -d /home/ec2-user/platform/data/stage3-llama); NAME=$(basename $D); RUN=$(ls -d $D/*/ 2>/dev/null | grep -v track-a | head -1); CASES=$(find $RUN/cases -name \"*.json\" 2>/dev/null | wc -l); NOW=$(date -u +%s); NOW_S=$(date -u +\"%Y-%m-%d %H:%M:%S UTC\"); LOG_MTIME=$(stat -c %Y $D/stage3.log); LATEST_CASE_MTIME=$(find $RUN/cases -name \"*.json\" -printf \"%T@ %p\\n\" 2>/dev/null | sort -rn | head -1 | awk \"{print int(\\$1)}\"); echo name=$NAME; echo now_unix=$NOW; echo now_utc=$NOW_S; echo cases=$CASES; echo log_mtime_unix=$LOG_MTIME; echo latest_case_mtime_unix=$LATEST_CASE_MTIME; echo log_age_s=$((NOW - LOG_MTIME)); echo latest_case_age_s=$((NOW - LATEST_CASE_MTIME)); echo running=$(ps -ef | grep -v grep | grep -c run-pilot3); echo run_start_unix=$(stat -c %Y $D/stage3.pid 2>/dev/null || stat -c %W $RUN)'"
+  ],
+  "executionTimeout": ["60"]
+}
