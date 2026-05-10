@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'cd /home/ec2-user/platform && python3.11 -c \"from playwright.sync_api import sync_playwright; print(\\\"import-ok\\\")\" && echo === PLAYWRIGHT SMOKE === && python3.11 scripts/stage3/smoke-individual-apply.py'"
+  ],
+  "executionTimeout": ["120"]
+}

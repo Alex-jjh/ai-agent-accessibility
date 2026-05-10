@@ -1,0 +1,6 @@
+{
+  "commands": [
+    "sudo -u ec2-user bash -lc 'cd /home/ec2-user/platform && git fetch --quiet && git reset --hard origin/master 2>&1 | tail -2 && rm -rf /tmp/stage4b-smoke && mkdir -p /tmp/stage4b-smoke && printf \"url,app,visits,replayable,is_webarena\\nhttp://10.0.1.50:8023/explore,gitlab,100,True,True\\n\" > /tmp/stage4b-smoke/one-url.csv && echo === SMOKE URL CSV === && cat /tmp/stage4b-smoke/one-url.csv && echo === RUN === && python3.11 scripts/stage3/replay-stage3-urls.py --urls-csv /tmp/stage4b-smoke/one-url.csv --operators L1 L5 L11 H2 --min-visits 1 --output /tmp/stage4b-smoke/out --webarena-ip 10.0.1.50 2>&1 | tail -40 && echo === OUTPUT === && find /tmp/stage4b-smoke/out -name \"*.png\" | head -20 && echo === MANIFEST === && cat /tmp/stage4b-smoke/out/manifest.jsonl && echo === SSIM === && python3.11 scripts/stage3/_ssim-smoke-helper.py /tmp/stage4b-smoke/out'"
+  ],
+  "executionTimeout": ["300"]
+}
