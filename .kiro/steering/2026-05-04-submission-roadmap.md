@@ -4,15 +4,33 @@ inclusion: auto
 
 # CHI 2027 Submission Roadmap — Text-Only Task Expansion
 
-> **Updated**: 2026-05-05 (afternoon session)
+> **Updated**: 2026-05-10 (Stage 3 complete, both models)
 > **Deadline**: 2026-09-11 (CHI 2027 submission)
-> **Days remaining**: ~129
+> **Days remaining**: ~124
 > **Strategy**: Text-only primary, SSIM visual control, CUA composite-only
 
 > **Project-level narrative**: This roadmap documents **Phase 6 (Task-Set
 > Breadth Expansion)**. For the canonical 6-phase narrative connecting
 > Phase 1 pilots through Phase 6 task expansion, see
 > `docs/project-phases.md`.
+
+## 🎯 Current status (2026-05-10)
+
+**Stage 3 manipulation complete.** Both shards finished ahead of schedule:
+
+| Shard | Cases | Finished | Status |
+|---|---|---|---|
+| Llama (burner B) | 3,744/3,744 | 2026-05-09 19:16 CST | ✅ audited |
+| Claude (burner A) | 3,744/3,744 | 2026-05-10 17:14 CST | ✅ audited |
+| **Total** | **7,488** | ~55h wall each | 🟢 ready for analysis |
+
+Both data sets pass sanity audit, rate-limit confound audit, and Mode A
+cross-validation. See `results/stage3/{claude,llama}-download-audit.md`
+for details. Key headline: **Mode A Claude bottom-5 operator ordering
+(L1, L12, L5, L9, ML1) replicates with 5/5 overlap on N=48 task set.**
+
+**Next**: Stage 4b trace-URL SSIM audit (visual control replacement for CUA).
+Then joint analysis + paper §5.1-§5.3 rewrite.
 
 ---
 
@@ -328,25 +346,26 @@ restart didn't stick and we re-run affected shards with hard resets.
 | Screenshot audit (existing data, L1/L5/L6/L11) | Alex | ⬜ |
 | Send PDF + change summary to Brennan | Alex | ⬜ |
 | Adjust paper narrative: CUA → supplementary, SSIM → primary visual control | Kiro | ⬜ |
-| Deploy new burner, reset Docker, launch smoker shards | Alex | ⬜ |
+| Deploy new burner, reset Docker, launch smoker shards | Alex | ✅ (05-05) |
 
 ### After Smoker completes (~05-08)
 
 | Task | Owner | Status |
 |------|-------|--------|
-| Run `scripts/smoker/analyze-smoker.py` | Alex | ⬜ |
-| Review drop-reason distribution in filter-summary.csv | Alex | ⬜ |
-| Tune thresholds if needed; finalize task list | Alex | ⬜ |
-| Split manipulation config into shards | Kiro | ⬜ |
+| Run `scripts/smoker/analyze-smoker.py` | Alex | ✅ (05-07) |
+| Review drop-reason distribution in filter-summary.csv | Alex | ✅ (05-07) |
+| Tune thresholds if needed; finalize task list | Alex | ✅ (05-07, Gate 6+7 added) |
+| Split manipulation config into shards | Kiro | ✅ (05-07, model-split replaced app-split) |
 
 ### Manipulation + DOM audit (~05-10 → 05-22)
 
 | Task | Owner | Status |
 |------|-------|--------|
-| Run Stage 3 Claude text-only shards (A+B, ~300 tasks × 26 ops × 3 reps) | Alex + Kiro | ⬜ |
-| Run Stage 3 Llama 4 text-only shards (same matrix) | Alex + Kiro | ⬜ |
+| Run Stage 3 Claude text-only shards (A+B, 48 tasks × 26 ops × 3 reps) | Alex + Kiro | ✅ 2026-05-10 17:14 CST (3,744 cases, 89.5% success) |
+| Run Stage 3 Llama 4 text-only shards (same matrix) | Alex + Kiro | ✅ 2026-05-09 19:16 CST (3,744 cases, 67.4% success) |
+| Download + sanity audit Stage 3 data | Kiro | ✅ 2026-05-10 (both audited, 0 hard confounds, Mode A ordering replicates) |
 | Run Stage 4a: per-operator DOM audit (`audit-operator.ts` batch) | Kiro | ⬜ |
-| **Run Stage 4b: trace-URL replay SSIM audit** — replaces CUA as visual control | Kiro | ⬜ 🚨 critical |
+| **Run Stage 4b: trace-URL replay SSIM audit** — replaces CUA as visual control | Kiro | ⬜ 🚨 **NEXT** |
 | Analyze manipulation + audit results; regenerate F4-F9, add F10 if needed | Kiro | ⬜ |
 | Update paper numbers with new task set | Kiro | ⬜ |
 
@@ -369,20 +388,17 @@ restart didn't stick and we re-run affected shards with hard resets.
 |------|------:|----------:|
 | Pilot 1-4 + expansion (historical) | ~$2,000 | — |
 | Mode A + C.2 (current data) | ~$3,000-4,000 | — |
-| **Smoker (Stage 1)** | ~$270 (running) | — |
-| **Manipulation (Stage 3)** — Claude + Llama 4 on ~25-40 tasks (post Gate 6+7) | — | **~$300-500** |
+| Smoker (Stage 1) | ~$270 | — |
+| **Stage 3 manipulation (Claude + Llama 4, 48 tasks × 26 ops × 3 reps × 2 models = 7,488 cases)** | **~$400** (actual) | — |
 | DOM audit (Stage 4, no LLM) | — | $0 |
-| **Total** | ~$5,200-6,200 | **~$300-500** |
+| **Total** | **~$5,700** | **$5K ceiling → under budget** |
 
-Stage 3 scope (post-Gate-6+7 amendment, 2026-05-07):
-- Observed on shard B alone: **14 passing tasks** (13 gitlab, 1 reddit)
-- Expected post-shard-A total: **~25-40 passing tasks** (live
-  gate-complexity diagnostic on in-progress shard A)
-- Cases: ~30 × 26 operators × 3 reps × {Claude, Llama 4} = **~4,680**
-- Budget: **~$300-500** at Claude Sonnet 4 + Llama 4 Bedrock rates
-  (drastically reduced vs pre-2026-05-07 estimate)
-- Buffer: >$4,000 under $5K ceiling → space for Stage 4b trace-URL
-  SSIM audit on all cases without budget pressure
+Stage 3 final scope (2026-05-10):
+- **48 passing tasks** (ecom 22 + admin 12 + gitlab 13 + reddit 1)
+- 48 × 26 ops × 3 reps × 2 models = **7,488 cases**
+- Actual cost: Claude ~$225 + Llama 4 ~$175 ≈ **$400**
+- Wall time: ~55h per shard (run in parallel on 2 burners)
+- Data: `data/stage3-claude/` + `data/stage3-llama/` (289 MB + 289 MB)
 
 ---
 
@@ -429,14 +445,16 @@ Stage 3 scope (post-Gate-6+7 amendment, 2026-05-07):
 
 | Period | Activity |
 |--------|----------|
-| **05-05** | ✅ Generate smoker configs + analyzer + docs (DONE) |
-| **05-05 → 05-06** | Deploy burner accounts, docker reset, launch shards A + B |
-| **05-06 → 05-07** | Smoker runs (parallel shards, ~1-1.5 days wall) |
+| **05-05** | ✅ Generate smoker configs + analyzer + docs |
+| **05-05 → 05-06** | ✅ Deploy burner accounts, docker reset, launch shards A + B |
+| **05-06 → 05-07** | ✅ Smoker runs (684 tasks × 3 reps, parallel shards) |
 | **05-06** | ✅ Gate pre-registered (strict 3/3 + min-step 3); analyzer updated |
-| **05-07 → 05-08** | Analyze smoker with locked gate, generate manipulation config |
-| **05-08 → 05-15** | Stage 3 manipulation (Claude + Llama 4, parallel shards) |
-| **05-13 → 05-18** | Stage 4a DOM audit + Stage 4b **trace-URL SSIM audit** (parallel with late Stage 3 shards) |
-| **05-18 → 06-07** | Update paper with new data, compress pages, new figures |
+| **05-07** | ✅ Gate 6+7 amended (state-mutation + trivial-ref) after trace audit |
+| **05-07 → 05-08** | ✅ Analyze smoker with locked gate → 48 passing tasks; generate manipulation config |
+| **05-07 → 05-10** | ✅ Stage 3 manipulation (Claude + Llama 4, parallel on 2 burners, ~55h each) |
+| **05-10** | ✅ Both shards downloaded + audited (0 hard confounds, 5/5 Mode A overlap Claude) |
+| **05-10 → 05-13** | **→ Stage 4b trace-URL SSIM audit (next)** + Stage 4a DOM audit |
+| **05-13 → 06-07** | Update paper with Stage 3 numbers, regenerate F4-F9, add F10 if needed |
 | **06-07 → 07-14** | Brennan review cycle |
 | **07-14 → 08-14** | Optional enhancements (ecological audit, polish) |
 | **08-14 → 09-11** | Final preparation + submission |
@@ -541,3 +559,149 @@ Answer:
 > evidence; we do not include it in the breadth set because its
 > stochastic baseline would make main-result confidence intervals
 > uninterpretable."
+
+
+---
+
+## §X. Stage 3 headline numbers (locked 2026-05-10)
+
+Stage 3 breadth experiment complete. Authoritative numbers for paper §5.1-§5.3:
+
+### Overall
+
+| Model | N | Success | p50 steps | p50 tokens |
+|---|---:|---:|---:|---:|
+| Claude Sonnet 4 | 3,744 | **89.5%** | 6 | 106K |
+| Llama 4 Maverick | 3,744 | **67.4%** | 5 | 71K |
+| **Combined** | **7,488** | 78.4% | — | — |
+
+Cross-model gap: **+22.1pp** (matches Mode A's 89.5% vs 71.8% pattern).
+
+### Per-operator (bottom-5 most destructive)
+
+| | Claude | Llama | Mode A Claude (ref) | Mode A Llama (ref) |
+|---|---:|---:|---:|---:|
+| L1  | 63.9% | 45.8% | 62% | 46% |
+| L9  | 79.2% | 55.6% | 80% | 55% |
+| L5  | 80.6% | 56.2% | 81% | 57% |
+| L12 | 84.0% | 68.8% | 82% | 68% |
+| L11 | 89.6% | 56.2% | 97% | 52% |
+| ML1 | 86.8% | 68.1% | 85% | 68% |
+
+**Claude Mode A overlap: 5/5 (L1, L9, L5, L12, ML1).**
+**Llama Mode A overlap: 4/5 (L1, L5, L9, L11; ML2 vs L2 at #5).**
+
+### Key findings that replicate at N=48
+
+1. **L1 Landmark Paradox**: still the single most destructive operator in
+   both models. -25.6pp Claude, -24.0pp Llama from the overall mean.
+2. **L5 Shadow DOM**: 2nd or 3rd most destructive in both.
+3. **L11 adaptive recovery gap**: Claude 89.6% vs Llama 56.2% = **+33.4pp**
+   gap. This is the cleanest cross-model finding and the core evidence for
+   "agent capability × environment quality" interaction.
+4. **H-operator ceiling**: 93-94% Claude, 67-75% Llama. Enhancements don't
+   lift Claude (already ceiling) but also don't lift Llama (capability floor
+   above A11y floor). **Mode A-confirmed in both directions.**
+5. **Sub-additivity in composition** (from C.2 existing data): individual
+   operator drops sum > observed composite drop, consistent with failure-
+   pathway saturation.
+
+### Known limitations (to document in §6)
+
+- **8 Llama-floor tasks** (Llama-4 capability floor, not operator effect):
+  gitlab:316, ecommerce_admin:1, ecommerce_admin:187, ecommerce:230,
+  gitlab:788, gitlab:314, ecommerce:47, ecommerce:26. All pass smoker gate
+  on Claude, fail on Llama. Claude has only **1** such task (ecommerce:334).
+- **L5 rate-limit clustering**: 9.0% of Claude L5 cases hit 429s (Shadow-DOM
+  → long trace → TPM). Within-op correlation p<0.001; across-op correlation
+  ρ=−0.01 (non-significant). L5 mechanism already documented in Mode A;
+  this is a consequence, not a cause. Paper text drafted in
+  `results/stage3/claude-download-audit.md` §4.3.
+
+### Derived files (reproducible)
+
+```bash
+# Sanity + rate-limit audits (per model)
+python3.11 scripts/stage3/sanity-check.py          --data-dir data/stage3-claude --label Claude
+python3.11 scripts/stage3/flag-pathological-tasks.py --data-dir data/stage3-claude --label Claude
+python3.11 scripts/amt/audit-rate-limit-confound.py \
+  --data-dir data/stage3-claude \
+  --log-file data/stage3-claude/stage3.log \
+  --label "Stage 3 Claude" \
+  --out results/stage3/rate-limit-audit-claude.md
+```
+
+Audit outputs: `results/stage3/{sanity-*.txt, pathological-*.txt,
+rate-limit-audit-*.md, {claude,llama}-download-audit.md}`.
+
+---
+
+## §Y. Next phase: Stage 4 (visual + DOM audits)
+
+**Goal**: Replace CUA as the visual control with direct pixel-level
+measurement (SSIM/pHash) + per-operator DOM-change audit. This closes
+the §6 "visual confound" reviewer question decisively.
+
+### Stage 4a: Per-operator DOM signature audit
+
+**What**: Run `scripts/audit-operator.ts` × 26 operators × 48 Stage-3
+tasks × 3 reps = 3,744 DOM audits. Each produces the 12-dim DOM
+signature vector (D1-3, A1-3, V1-3, F1-3) we already have from Mode A
+(results/amt/dom_signature_matrix.csv).
+
+**Why re-run**: Mode A DOM audit covered 13 tasks × 26 ops = 338 audits.
+Stage 3's 48 tasks × 26 ops = 1,248 task×op × 3 reps = 3,744 audits.
+More tasks = more robust per-operator means.
+
+**Cost**: $0 (Playwright only)
+**Time**: ~6-8h wall on one EC2 (could parallelize across burners)
+**Output**: `results/amt/dom_signature_matrix_stage3.csv`
+
+**Status**: ⬜ not blocked; can run any time before paper rewrite.
+
+### Stage 4b: Trace-URL replay SSIM audit (🚨 the important one)
+
+**What**: For each of the 7,488 Stage 3 cases:
+1. Parse trace JSON, extract full URL list the agent observed
+2. Dedupe URLs across cases (expect ~200-400 unique URLs)
+3. Replay each unique URL under base + each of 26 variants
+4. Capture full-page screenshots, compute SSIM / pHash / WCAG contrast
+5. Aggregate per operator → F10 visual-equivalence distribution
+
+**Why critical for paper**: Reviewer question "is part of your manipulation
+drop a visual confound?" gets a **direct pixel-diff answer**, not an
+inferred-from-agent-behavior one. This is the stronger form of the
+argument that led us to rescope away from CUA.
+
+**Scripts** (all existing from Phase 7 Mode A):
+- `scripts/visual-equiv/replay-url-screenshots.py` — replay harness
+- `analysis/visual_equivalence_analysis.py` — SSIM aggregation
+- `analysis/visual_equivalence_gallery.py` — human review gallery
+- `analysis/cua_failure_trace_validation.py` — trace URL extraction
+
+**Input requirements**: ✅ confirmed — trace JSONs embed `Current URL: ...`
+in every text-only observation and `[screenshot only] {url}` in vision
+modes. No runner changes needed.
+
+**Cost**: $0 (Playwright only)
+**Time**: ~4-8h wall depending on unique URL count
+**Output**:
+- `results/stage3/trace-url-ssim.csv`
+- `figures/F10_trace_url_ssim.{png,pdf}`
+- Human-review gallery HTML for spot-checking
+
+**Status**: ⬜ **this is the immediate next task.**
+
+### Stage 4 → 5 sequencing
+
+1. **Stage 4a (DOM audit)** — can run tonight/tomorrow, no dependencies
+2. **Stage 4b (SSIM audit)** — run after Stage 4a if we want to reuse the
+   URL list, or independently
+3. **Analysis pipeline** (post 4a+4b):
+   - Update D.1 matrix with Stage 3 DOM signatures
+   - Update D.2 matrix with Stage 3 behavioral drops
+   - Regenerate D.3 signature alignment
+   - Regenerate F4-F9 with N=48 numbers; add F10 SSIM distribution
+   - Update `scripts/amt/audit-paper-numbers.py` to include Stage 3
+4. **Paper rewrite** (§5.1-§5.3): Stage 3 breadth as primary, Mode A
+   as depth case studies. Target 06-07 first draft.

@@ -29,11 +29,11 @@ subsequent phase builds on:
    28 pairwise operator combinations × 13 tasks × 2 agents × 3 reps =
    2,188 cases. 14/28 super-additive (p = 0.019). L11 "amplifier",
    L6 "latent damage", L5 "ceiling".
-6. **Phase 6 — Task-Set Breadth Expansion** (May 4 → pending)
-   684-task smoker + pre-registered conservative gate (2026-05-06) →
-   Stage 3 manipulation on ~250-350 base-solvable tasks × 26 ops × 3
-   reps × {Claude, Llama 4}. Stage 4 trace-URL SSIM audit replaces CUA
-   as visual control.
+6. **Phase 6 — Task-Set Breadth Expansion** (May 4 → **2026-05-10 ✅**)
+   684-task smoker + pre-registered conservative gate (2026-05-06/07) →
+   48 passing tasks. Stage 3 manipulation on **48 tasks × 26 ops × 3
+   reps × {Claude, Llama 4} = 7,488 cases** complete. Stage 4 trace-URL
+   SSIM audit replaces CUA as visual control (pending).
 
 **Two-tier paper design**: Phase 6 = breadth (statistical power, §5.1-5.3);
 Phase 4 = depth (mechanisms, §5.4-5.5). Neither replaces the other.
@@ -52,7 +52,7 @@ Phase 4 = depth (mechanisms, §5.4-5.5). Neither replaces the other.
 1. ~~Add 18 new citations to references.bib~~ ✅ (2026-05-04)
 2. Rename severity tiers: L1/L2/L3 → Tier 1/Tier 2/Tier 3 (avoid collision with operator IDs L1-L13)
 3. Rewrite §3 → AMT Framework (operator taxonomy, DOM signature, behavioral signature, alignment)
-4. Expand §4 → add Mode A protocol, C.2 protocol, GT corrections, N=~7,476
+4. Expand §4 → add Mode A protocol, C.2 protocol, Stage 3 protocol, GT corrections, N=~14,964
 5. Rewrite §5 → per-operator drops, signature alignment, cross-model, composition, human baseline
 6. Update §1 → new contributions, new hook numbers
 7. Update §6 → alignment interpretation, structural criticality, adaptive expertise framing
@@ -88,7 +88,11 @@ Phase 4 = depth (mechanisms, §5.4-5.5). Neither replaces the other.
 - Mode A Claude: 3,042 cases (26 ops × 13 tasks × 3 agents × 3 reps)
 - Mode A Llama 4: 1,014 cases (cross-model replication)
 - C.2 Composition: 2,188 cases (28 pairs × 13 tasks × 2 agents × 3 reps)
-- **Total: ~7,476 cases**
+- **Stage 3 breadth (2026-05-10)**: 7,488 cases (48 tasks × 26 ops ×
+  3 reps × {Claude, Llama 4}). Claude 89.5% success, Llama 67.4%.
+  5/5 bottom-5 Mode A overlap on Claude. Data at
+  `data/stage3-{claude,llama}/`.
+- **Total: ~14,964 cases**
 
 ### Analysis pipeline (all git-tracked)
 - `scripts/amt/amt-signature-analysis.py` — D.1/D.2/D.3 matrices
