@@ -1,0 +1,115 @@
+[Claude] case files: 3744
+[Claude] expected: 48 tasks × 26 ops × 3 reps = 3744
+
+=== §1. Completeness ===
+  cases parsed: 3744
+  cases by app: {'ecommerce_admin': 936, 'ecommerce': 1716, 'gitlab': 1014, 'reddit': 78}
+  per-app expected:
+    ✓ ecommerce: got 1716, expected 1716
+    ✓ ecommerce_admin: got 936, expected 936
+    ✓ gitlab: got 1014, expected 1014
+    ✓ reddit: got 78, expected 78
+  ✓ all 26 operators present
+  ✓ all 1248 (task,op) cells have 3 reps
+
+=== §2. Outcome distribution ===
+  success           :  3351  ( 89.5%)
+  partial_success   :   216  (  5.8%)
+  failure           :   124  (  3.3%)
+  timeout           :    53  (  1.4%)
+  unknown           :     0  (  0.0%)
+
+  overall success: 3351/3744 = 89.5%
+
+=== §3. Performance distribution ===
+  duration (sec): p50=56.7  p90=104.7  max=629.6
+  steps:          p50=6.0  p90=10.0  max=30
+  tokens:         p50=105,941  p90=249,775  max=2,244,709
+
+=== §4. Per-operator success rate (ascending) ===
+  L1      92/144  63.9%
+  L9     114/144  79.2%
+  L5     116/144  80.6%
+  L12    121/144  84.0%
+  ML1    125/144  86.8%
+  H2     127/144  88.2%
+  H3     129/144  89.6%
+  L11    129/144  89.6%
+  L4     130/144  90.3%
+  H4     131/144  91.0%
+  L13    131/144  91.0%
+  L3     131/144  91.0%
+  H5b    132/144  91.7%
+  L6     132/144  91.7%
+  H1     133/144  92.4%
+  L2     133/144  92.4%
+  H5c    134/144  93.1%
+  H6     134/144  93.1%
+  H7     134/144  93.1%
+  H8     134/144  93.1%
+  L10    134/144  93.1%
+  L8     134/144  93.1%
+  ML3    134/144  93.1%
+  H5a    135/144  93.8%
+  L7     136/144  94.4%
+  ML2    136/144  94.4%
+
+=== §5. Per-task success rate (ascending) ===
+  ecommerce:334              27/78   34.6%
+  reddit:69                  28/78   35.9%
+  ecommerce:126              46/78   59.0%
+  ecommerce_admin:212        46/78   59.0%
+  gitlab:309                 48/78   61.5%
+  ecommerce_admin:1          50/78   64.1%
+  gitlab:788                 51/78   65.4%
+  gitlab:350                 58/78   74.4%
+  gitlab:259                 63/78   80.8%
+  ecommerce_admin:187        64/78   82.1%
+  gitlab:312                 66/78   84.6%
+  ecommerce_admin:208        69/78   88.5%
+  ecommerce_admin:246        70/78   89.7%
+  ecommerce_admin:209        72/78   92.3%
+  gitlab:310                 72/78   92.3%
+  gitlab:311                 72/78   92.3%
+  gitlab:316                 72/78   92.3%
+  ecommerce_admin:245        73/78   93.6%
+  gitlab:318                 73/78   93.6%
+  ecommerce_admin:210        74/78   94.9%
+  ecommerce_admin:216        74/78   94.9%
+  ecommerce:23               75/78   96.2% ← ceiling
+  ecommerce:26               75/78   96.2% ← ceiling
+  ecommerce_admin:211        75/78   96.2% ← ceiling
+  gitlab:308                 75/78   96.2% ← ceiling
+  gitlab:314                 75/78   96.2% ← ceiling
+  gitlab:784                 75/78   96.2% ← ceiling
+  ecommerce:47               76/78   97.4% ← ceiling
+  ecommerce:227              77/78   98.7% ← ceiling
+  ecommerce:230              77/78   98.7% ← ceiling
+  gitlab:785                 77/78   98.7% ← ceiling
+  ecommerce:117              78/78   100.0% ← ceiling
+  ecommerce:148              78/78   100.0% ← ceiling
+  ecommerce:149              78/78   100.0% ← ceiling
+  ecommerce:150              78/78   100.0% ← ceiling
+  ecommerce:229              78/78   100.0% ← ceiling
+  ecommerce:231              78/78   100.0% ← ceiling
+  ecommerce:233              78/78   100.0% ← ceiling
+  ecommerce:322              78/78   100.0% ← ceiling
+  ecommerce:358              78/78   100.0% ← ceiling
+  ecommerce:359              78/78   100.0% ← ceiling
+  ecommerce:362              78/78   100.0% ← ceiling
+  ecommerce:384              78/78   100.0% ← ceiling
+  ecommerce:387              78/78   100.0% ← ceiling
+  ecommerce:388              78/78   100.0% ← ceiling
+  ecommerce:48               78/78   100.0% ← ceiling
+  ecommerce_admin:94         78/78   100.0% ← ceiling
+  ecommerce_admin:95         78/78   100.0% ← ceiling
+
+=== §6. Cross-check vs Mode A Claude ordering ===
+  Stage 3 bottom 5:  ['L1', 'L9', 'L5', 'L12', 'ML1']
+  Mode A Claude ref: ['L1', 'L12', 'L5', 'L9', 'ML1']
+  Overlap: 5/5 — ['L1', 'L12', 'L5', 'L9', 'ML1']
+  Top 5:    ['H7', 'H8', 'H5a', 'L7', 'ML2']
+
+=== §7. Verdict ===
+  ✓ Complete (3744 cases)
+  ✓ Ordering matches Mode A reference (5/5 overlap)

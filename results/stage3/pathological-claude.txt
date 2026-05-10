@@ -1,0 +1,64 @@
+[Claude] Per-task family success rates:
+task                        L-mean  ML-mean   H-mean  overall  flag
+ecommerce:334               43.6%   33.3%   23.3%   34.6%   ← H-COLLAPSE (infra suspect)
+reddit:69                   33.3%   55.6%   33.3%   35.9%  
+ecommerce:126               59.0%   33.3%   66.7%   59.0%  
+ecommerce_admin:212         66.7%   33.3%   56.7%   59.0%  
+gitlab:309                  46.2%   77.8%   76.7%   61.5%  
+ecommerce_admin:1           53.8%  100.0%   66.7%   64.1%  
+gitlab:788                  64.1%   66.7%   66.7%   65.4%  
+gitlab:350                  64.1%   66.7%   90.0%   74.4%  
+gitlab:259                  84.6%   66.7%   80.0%   80.8%  
+ecommerce_admin:187         82.1%  100.0%   76.7%   82.1%  
+gitlab:312                  74.4%  100.0%   93.3%   84.6%  
+ecommerce_admin:208         79.5%   88.9%  100.0%   88.5%  
+ecommerce_admin:246         84.6%   88.9%   96.7%   89.7%  
+ecommerce_admin:209         87.2%   88.9%  100.0%   92.3%  
+gitlab:310                  84.6%  100.0%  100.0%   92.3%  
+gitlab:311                  84.6%  100.0%  100.0%   92.3%  
+gitlab:316                  84.6%  100.0%  100.0%   92.3%  
+ecommerce_admin:245         89.7%  100.0%   96.7%   93.6%  
+gitlab:318                  87.2%  100.0%  100.0%   93.6%  
+ecommerce_admin:210         89.7%  100.0%  100.0%   94.9%  
+ecommerce_admin:216         94.9%   88.9%   96.7%   94.9%  
+ecommerce:23                92.3%  100.0%  100.0%   96.2%  
+ecommerce:26                92.3%  100.0%  100.0%   96.2%  
+ecommerce_admin:211         92.3%  100.0%  100.0%   96.2%  
+gitlab:308                  92.3%  100.0%  100.0%   96.2%  
+gitlab:314                  92.3%  100.0%  100.0%   96.2%  
+gitlab:784                  92.3%  100.0%  100.0%   96.2%  
+ecommerce:47               100.0%  100.0%   93.3%   97.4%  
+ecommerce:227               97.4%  100.0%  100.0%   98.7%  
+ecommerce:230               97.4%  100.0%  100.0%   98.7%  
+gitlab:785                 100.0%  100.0%   96.7%   98.7%  
+ecommerce:117              100.0%  100.0%  100.0%  100.0%  
+ecommerce:148              100.0%  100.0%  100.0%  100.0%  
+ecommerce:149              100.0%  100.0%  100.0%  100.0%  
+ecommerce:150              100.0%  100.0%  100.0%  100.0%  
+ecommerce:229              100.0%  100.0%  100.0%  100.0%  
+ecommerce:231              100.0%  100.0%  100.0%  100.0%  
+ecommerce:233              100.0%  100.0%  100.0%  100.0%  
+ecommerce:322              100.0%  100.0%  100.0%  100.0%  
+ecommerce:358              100.0%  100.0%  100.0%  100.0%  
+ecommerce:359              100.0%  100.0%  100.0%  100.0%  
+ecommerce:362              100.0%  100.0%  100.0%  100.0%  
+ecommerce:384              100.0%  100.0%  100.0%  100.0%  
+ecommerce:387              100.0%  100.0%  100.0%  100.0%  
+ecommerce:388              100.0%  100.0%  100.0%  100.0%  
+ecommerce:48               100.0%  100.0%  100.0%  100.0%  
+ecommerce_admin:94         100.0%  100.0%  100.0%  100.0%  
+ecommerce_admin:95         100.0%  100.0%  100.0%  100.0%  
+
+Flagged 1 tasks with H-op mean < 30%:
+  - ecommerce:334
+
+Interpretation:
+  H-operators are ENHANCEMENTS (add ARIA, skip links, table scopes, etc.).
+  They should preserve or slightly improve baseline behaviour.
+  If H-op success collapses, the task was not robustly solvable in this
+  environment regardless of a11y manipulation — likely Docker state drift
+  or task-specific fragility (e.g. timing, session, order effects).
+
+  These tasks should be investigated before inclusion in the primary
+  analysis. Options: (a) post-hoc correction if trace shows GT drift,
+  (b) exclude as infra confound and document in paper.
