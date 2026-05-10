@@ -311,6 +311,7 @@ def capture_one(pw_browser, url: str, variant: str, out_path: pathlib.Path,
                 timeout_ms: int = 45000,
                 apply_js: Optional[str] = None,
                 only_patch_id: Optional[int] = None,
+                operator_ids: Optional[list[str]] = None,
                 max_retries: int = 3) -> dict:
     """Render a URL at a variant, screenshot, return metadata.
 
@@ -318,6 +319,18 @@ def capture_one(pw_browser, url: str, variant: str, out_path: pathlib.Path,
     retries up to max_retries times with exponential backoff. Records
     attempts count so the analysis can exclude cases that needed retries
     (an indicator of unstable capture).
+
+    Variant semantics:
+      - "base" / "base2" : no patch; base2 is an independent re-capture of
+        the same URL (second Playwright context, same cookies) used for
+        baseline-noise estimation.
+      - "low"            : composite low (legacy Phase 7). Requires apply_js
+        to be the bytes of apply-low.js; optional only_patch_id gates via
+        window.__ONLY_PATCH_ID for per-patch ablation.
+      - any other string : interpreted as an AMT operator ID (or comma-
+        separated list). Requires apply_js to be the bytes of
+        apply-all-individual.js; sets window.__OPERATOR_IDS accordingly.
+        This is the Stage 3 mode.
     """
     rec = {
         "url": url, "variant": variant, "screenshot": None,
@@ -354,14 +367,24 @@ def capture_one(pw_browser, url: str, variant: str, out_path: pathlib.Path,
                 pass
             page.wait_for_timeout(settle_ms)
 
-            if variant == "low" and apply_js:
-                if only_patch_id is not None:
-                    page.evaluate(f"window.__ONLY_PATCH_ID = {int(only_patch_id)}")
-                changes = page.evaluate(apply_js)
-                rec["dom_changes"] = len(changes) if isinstance(changes, list) else 0
-                page.wait_for_timeout(post_patch_ms)
-            # variant in {"base", "base2"} → no patch applied; base2 is an
-            # independent re-capture of the same URL for baseline-noise estimation.
+            # Apply patch (if any) based on variant mode.
+            if apply_js is not None:
+                if variant == "low":
+                    # Legacy composite mode.
+                    if only_patch_id is not None:
+                        page.evaluate(f"window.__ONLY_PATCH_ID = {int(only_patch_id)}")
+                    changes = page.evaluate(apply_js)
+                    rec["dom_changes"] = len(changes) if isinstance(changes, list) else 0
+                    page.wait_for_timeout(post_patch_ms)
+                elif operator_ids is not None and variant not in ("base", "base2"):
+                    # Stage 3 individual-operator mode. Prime the runtime-
+                    # protocol global, then evaluate the IIFE.
+                    op_list_js = json.dumps(operator_ids)
+                    page.evaluate(f"window.__OPERATOR_IDS = {op_list_js};")
+                    changes = page.evaluate(apply_js)
+                    rec["dom_changes"] = len(changes) if isinstance(changes, list) else 0
+                    page.wait_for_timeout(post_patch_ms)
+            # variant in {"base", "base2"} with no apply_js → plain capture.
 
             final_url = page.url
             rec["final_url"] = final_url
