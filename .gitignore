@@ -19,10 +19,11 @@ __pycache__/
 dist/
 build/
 
-# Local data archives (large experiment artifacts, synced via S3)
+# Local data archives (large experiment artifacts, synced via S3 or kept as user-verified backup)
 /data.tar
 /data.tar.gz
 /data.tgz
+/data.zip
 scan-a11y-audit/results.tar
 scan-a11y-audit/results.tar.gz
 
