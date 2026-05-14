@@ -50,7 +50,14 @@ plt.rcParams.update({
 })
 
 ROOT = Path(__file__).resolve().parent.parent
-DATA = ROOT / "results" / "amt" / "behavioral_signature_matrix.csv"
+# Use Stage 3 data (48 tasks, primary dataset) for behavioral drops
+DATA = ROOT / "results" / "stage3" / "per-operator-stage3.csv"
+# Fall back to Mode A if Stage 3 not available
+if not DATA.exists():
+    DATA = ROOT / "results" / "amt" / "behavioral_signature_matrix.csv"
+    print(f"WARNING: Using Mode A data (Stage 3 not found at {DATA})")
+else:
+    print(f"Using Stage 3 data: {DATA}")
 OUT = Path(__file__).resolve().parent
 
 # ── Colors ──
