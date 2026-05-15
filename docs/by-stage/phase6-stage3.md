@@ -6,6 +6,22 @@
 > **Status (2026-05-15)**: data frozen 2026-05-10 (Claude) / 2026-05-09
 > (Llama). Both shards 100% completion, 0 hard infrastructure confounds.
 
+## Research conclusions
+
+- **Claude 89.5% / Llama 4 67.4%** overall on 48-task × 26-op × 3-rep × 2-model
+  matrix. 3.7× the per-cell observations of Mode A → >99% power for 20pp drop
+  detection.
+- **4 operators significant after Holm-Bonferroni**: L1 (−28.0pp), L9
+  (−12.7pp), L5 (−11.3pp), L12 (−7.8pp marginal). 22 NS — sparsity finding
+  from Mode A replicates at scale.
+- **5/5 bottom-operator overlap** with Mode A on Claude; 4/5 on Llama 4 (ML2
+  swaps in for L2). **Breadth confirms depth**: findings aren't 13-task artifacts.
+- **Cross-model L11 adaptive recovery gap reproduces**: Claude +2.3pp, Llama 4
+  −14.1pp (gap 16.4pp ≈ Mode A's 16.1pp at 3.7× scale). Robust phenomenon,
+  not 13-task fluke.
+- **➜ Cross-references Phase 4 (DOM) + Stage 4b (SSIM)** to rule out "DOM
+  magnitude" and "visual confound" alternatives.
+
 ## Design matrix
 
 ```

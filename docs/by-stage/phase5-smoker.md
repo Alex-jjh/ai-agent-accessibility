@@ -7,6 +7,24 @@
 > **Status (2026-05-15)**: data frozen 2026-05-07. Pre-registration locked
 > 2026-05-06; gate criteria not changed post-hoc.
 
+## Research conclusions
+
+- **684 → 48 task funnel** via 7 gates: deployment, strict 3/3 base
+  solvability, ≥3 / ≤25 median steps, no state mutation, non-trivial
+  reference, zero infrastructure failures. Each gate **conservative**
+  (drops more, not fewer) → reported drops are lower bounds.
+- **48 passing tasks unevenly distributed**: ecommerce 22, ecommerce_admin
+  12, gitlab 13, reddit 1. Postmill's high state-sensitivity eliminates
+  113/114 reddit tasks at Gate 5.
+- **Pre-registration locked 2026-05-06/07** before Stage 3 manipulation
+  data collected. Gate standards not fitted post-hoc.
+- **Mode A / Stage 3 convergence**: 10/13 hand-picked Mode A tasks pass
+  all 7 Stage 3 gates retrospectively; 3 exceptions are intentional
+  noise-floor / lower-bound controls. Manual + formal selection converge
+  → gate is principled, not fitted.
+- **➜ Provides the locked task set for Phase 6 Stage 3** breadth experiment
+  and the §4 task-funnel narrative (Figure F11).
+
 ## Why this matters (and is its own phase)
 
 Stage 3's 48 tasks aren't a hand-pick — they survive a **7-gate inclusion

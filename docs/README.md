@@ -5,6 +5,8 @@
 - **`by-stage/`** ★ — **per-stage doc** (one file per phase): design matrix,
   on-disk paths, audit one-liner, paper § refs, caveats. Start here when
   you need to understand or audit a single phase.
+- **`by-stage/audit-2026-05-15.md`** — V&V audit narrative + per-stage
+  research conclusions + statistical method coverage + top-line synthesis.
 - **`project-phases.md`** — canonical 6-phase narrative connecting all
   phases. Use when you need the cross-phase story.
 - **`data-inventory.md`** — every `data/` directory mapped to its phase, N,
@@ -39,10 +41,11 @@
 
 ## Subdirectories
 
-- `by-stage/` ★ — per-phase doc (start here for any single-stage question)
-- `analysis/` — pre-Stage-3 deep-dive analysis reports (Mode A, C.2, expansion, etc.)
-  Mode A files are frozen historical snapshots (banner-marked); active analysis
-  lives in `by-stage/`.
+- `by-stage/` ★ — per-phase doc (start here for any single-stage question);
+  includes `audit-2026-05-15.md` for the V&V audit + research synthesis.
+- `analysis/` — 48 deep-dive analysis reports across all 6 phases. See
+  `analysis/INDEX.md` for the per-stage classification. Mode A / C.2 files
+  carry frozen-status banners; active analysis lives in `by-stage/`.
 - `archive/` — Historical docs (Pilots 1–4, task expansion planning)
 - `f-unk-review/` — Manual F_UNK case review (ongoing)
 

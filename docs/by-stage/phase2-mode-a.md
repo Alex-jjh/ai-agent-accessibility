@@ -7,6 +7,24 @@
 > the paper (§5.2 alignment, §5.3 cross-model, trace narratives). Stage 3
 > (Phase 6) replicates the headline findings at 48-task breadth.
 
+## Research conclusions
+
+- **L1 landmark paradox**: ~6 elements at SSIM=1.000, yet largest behavioral
+  drop (−40pp depth, −28pp breadth). Smallest DOM footprint, largest impact.
+- **L11 link→span shows agent adaptation**: 365 DOM changes but only −1.5pp
+  drop for Claude (depth) — agent switches to `goto()` URL fallback. Llama 4
+  drops −14.6pp on the same operator (no adaptive fallback), proving
+  robustness is environment × capability, not environment-only.
+- **Three-tier behavioral structure**: 21/26 operators land within ±3pp of
+  H-baseline (neutral); only L1, L5 are individually destructive. **Sparsity
+  is itself a finding**.
+- **GEE confirms cluster-robust significance**: both indicator models
+  (destructive vs rest; Low-family vs H-family) yield β<0 with z<−2.0 after
+  task-level clustering — operator effect persists after random-intercept
+  adjustment.
+- **➜ Motivates Phase 3**: 21 individually benign operators yet composite
+  produces 55pp collapse — the missing piece is **interaction**.
+
 ## Design matrix
 
 ```

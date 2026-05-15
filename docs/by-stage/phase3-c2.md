@@ -6,6 +6,23 @@
 > produces a 55-pp collapse.
 > **Status (2026-05-15)**: data frozen 2026-05-02. Used in §5.4.
 
+## Research conclusions
+
+- **15/28 super-additive** (binomial p=0.019) — operator interactions
+  amplify, not saturate. Rejects symmetric additivity.
+- **L11 amplifier pattern**: zero individual effect (+2.3pp breadth) but
+  +24.1pp interaction with L6, +19.0pp with L9, +13.8pp with L4. L11
+  removes the `goto()` URL fallback that makes other operators survivable.
+- **L6 latent damage**: 100% individual success but super-additive with
+  everything (L1+L6 = +16.4pp, L4+L6 = +13.8pp). Maps onto Reason's Swiss
+  cheese model — layered defense alignment.
+- **L5 ceiling**: sub-additive with most operators (L1+L5 = −17pp interaction).
+  Perception-action gap saturates — once agent can't click anything, more
+  semantic degradation can't make it worse.
+- **➜ Anchors composite collapse explanation**: the 55pp drop in Phase 1
+  emerges from non-linear amplification of individually benign operators,
+  not additive accumulation.
+
 ## Design matrix
 
 ```

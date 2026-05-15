@@ -6,6 +6,26 @@
 > **Status (2026-05-15)**: data frozen 2026-04-30 (Mode A audit) and
 > 2026-05-11 (Stage 4b SSIM). Used in §5.2 and `tab:dom-sig` appendix.
 
+## Research conclusions
+
+- **Per-operator DOM fingerprint** in 12 dims across 4 categories: D (DOM
+  structure), A (Accessibility tree roles/names/state), V (Visual SSIM +
+  bbox + contrast), F (Functional interactivity).
+- **DOM magnitude does NOT predict behavioral drop**: Spearman ρ=0.426,
+  p≈0.10 (NS) on the 16 operators with valid Fisher tests. This **misalignment
+  is the central finding** — large changes (L11: 365 tag changes) can be
+  benign, tiny changes (L1: 5.6 changes) can be catastrophic.
+- **L1 / L5 / L11 contrast underwrites alignment scatter** (paper §5.2
+  Fig 6): L1 (5.6 changes, SSIM=1.0, large drop), L5 (337 changes, SSIM=0.803,
+  large drop), L11 (365 changes, SSIM=0.976, small drop) — three corners of
+  the alignment plot.
+- **Visual confounds excluded**: 23/26 operators have median SSIM ≥ 0.99 in
+  aggregate — their behavioral drops cannot be attributed to visual
+  misperception.
+- **➜ Cross-references with Phase 2/6 behavioral signatures** to produce
+  the paper's 4-quadrant alignment classification (aligned-active,
+  aligned-null, agent-adaptation, structural-criticality).
+
 ## What it measures
 
 Per operator, on each of 39 sample URLs (13 tasks × 3 page loads), capture

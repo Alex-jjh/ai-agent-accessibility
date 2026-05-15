@@ -9,6 +9,25 @@
 > captures under `data/visual-equivalence/` are deprecated — see that
 > directory's `STATUS.md`.
 
+## Research conclusions
+
+- **Single source of truth for visual equivalence**: 336 unique URLs from
+  Stage 3 traces × 28 variants (base + base2 + 26 operators) = 9,408 captures.
+  Exhaustive pixel-level coverage replaces earlier 13-task CUA-based argument.
+- **3 operators visually distinguishable** (median SSIM < 0.99): L5 (0.834),
+  L6 (0.889), L11 (0.979). 23 operators visually indistinguishable — their
+  behavioral drops are NOT due to visual misperception.
+- **Baseline noise floor < 0.001** (base vs base2 deterministic-render
+  check) → wide margin for true signal vs. rendering jitter.
+- **L9 narrative-vs-SSIM reconciliation**: paper §3 places L9 in "structural
+  Tier 3" narrative category; aggregate SSIM=1.000 because L9 only affects
+  table-bearing pages (most of 336 URLs unaffected). Narrative classification
+  is independent of SSIM-magnitude claim; both correct in their respective
+  contexts.
+- **➜ Replaces CUA visual control at substantially greater rigor**: 336 URLs
+  × pixel-level diff vs 13 tasks × indirect CUA performance. Underwrites
+  paper §4.117 visual-equivalence audit and §5.3 SSIM analysis.
+
 ## Why this exists
 
 Earlier visual-equivalence runs (Phase 7, April 2026) used 13 hand-picked

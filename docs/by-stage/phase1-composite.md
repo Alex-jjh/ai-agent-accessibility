@@ -5,6 +5,25 @@
 > **Status (2026-05-15)**: data frozen 2026-04-14. Used as motivator (§5.1)
 > in the paper; superseded by Phase 6 Stage 3 as the primary breadth dataset.
 
+## Research conclusions
+
+- **Causal relationship established**: Claude × text-only collapses 93.8% (base)
+  → 38.5% (low). Binary Low-vs-rest Z=9.83, p<10⁻¹⁹; Cochran-Armitage trend
+  Z=6.635, p<10⁻⁶.
+- **Asymmetric dose-response**: degradation costs −55.4pp; enhancement (high)
+  yields −4.6pp (NS) — sufficiency threshold beyond which enhancement saturates.
+- **Token inflation as proximate mechanism**: 2.4× median ratio (low 97K vs
+  base 40K), Mann-Whitney p<10⁻³. Extreme cases hit 608K tokens → context
+  overflow → failure.
+- **Pathway decomposition**: functional pathway 35.4pp [15.4, 55.4]; semantic
+  20.0pp [−13.8, 52.3]. Functional CI excludes 0 (well-bounded); semantic CI
+  crosses 0 (heuristic).
+- **➜ Motivates Phase 2**: composite cannot tell us *which* operator drives
+  the collapse — needs per-operator decomposition.
+
+See `docs/by-stage/audit-2026-05-15.md` §F for two paper claims that
+don't reproduce on current data (Wilcoxon p-value, GEE β values).
+
 ## Design matrix
 
 ```

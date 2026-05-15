@@ -22,6 +22,8 @@ The project comprises **6 phases** producing **N=14,768 case JSONs +
 | 6 | Phase 6 — Stage 3 breadth | 7,488 | `analysis.stages.phase6_stage3` | [phase6-stage3.md](phase6-stage3.md) |
 | 7 | Phase 6 — Stage 4b SSIM | 9,408 PNGs | `analysis.stages.phase6_stage4b` | [phase6-stage4b.md](phase6-stage4b.md) |
 
+**Cross-stage audit**: [audit-2026-05-15.md](audit-2026-05-15.md) — full V&V audit narrative + per-stage research conclusions + statistical method coverage matrix + top-line synthesis. Re-runs after `make verify-all`.
+
 **Total experimental N (case JSONs)**: 1,040 + 4,056 + 2,184 + 7,488 = **14,768**.
 **Total Stage 4b captures (PNGs)**: 9,408 (visual control, not counted in N).
 
