@@ -69,3 +69,16 @@ run-stats:
 
 # ── Convenience: full pipeline ────────────────────────────────────
 all: export-data verify-all run-stats
+
+# ── Pre-submission gate ───────────────────────────────────────────
+# Run before paper PDF rebuild for camera-ready or rebuttal.
+# Outputs paper-supplementary/ for reviewers.
+.PHONY: pre-submit
+pre-submit: verify-all audit-paper audit-archival
+	@echo
+	@echo "── building paper-supplementary/ ──"
+	@bash scripts/maintenance/build-supplementary.sh
+	@echo
+	@echo "✅ Pre-submission gate passed."
+	@echo "   Paper PDF rebuild + figure inventory are manual user steps."
+	@echo "   See docs/by-stage/pre-submission-checklist.md."
