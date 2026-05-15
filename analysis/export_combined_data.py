@@ -1,12 +1,22 @@
 #!/usr/bin/env python3
 """
-Export Combined Experiment Data
-===============================
+Export Combined Experiment Data (Phase 1 composite study)
+==========================================================
 Reads ALL 1,040 experiment traces from 6 data directories and produces:
   - results/combined-experiment.csv  (Layer 1)
   - results/trace-summaries.jsonl    (Layer 2)
   - results/task-metadata.csv
   - results/experiment-metadata.csv
+
+This script handles the **composite phase** only (Phase 1, N=1,040). For
+Mode A (Phase 2), C.2 (Phase 3), and Stage 3 (Phase 6), see the per-stage
+verifiers in `analysis/stages/` which read raw JSON directly without going
+through this CSV pipeline.
+
+The expected total is `_constants.N_COMPOSITE` (= 1,040). One known
+edge-case is handled by `find_case_files()`: pilot4-cua has two run UUIDs
+on disk (a hung-bridge retry and the full run); we pick the UUID with
+the most files, which yields 120 cases for pilot4-cua and 1,040 total.
 
 Usage:
     python analysis/export_combined_data.py
@@ -20,6 +30,8 @@ import re
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
+
+from analysis._constants import N_COMPOSITE
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -711,12 +723,12 @@ def print_summary(layer1_rows):
     print("  Anomaly checks:")
     anomalies = 0
 
-    # Check for expected total
-    if total != 1040:
-        print(f"    WARNING: Total cases {total} != expected 1040")
+    # Check for expected total — sourced from analysis/_constants.py
+    if total != N_COMPOSITE:
+        print(f"    WARNING: Total cases {total} != expected N_COMPOSITE={N_COMPOSITE}")
         anomalies += 1
     else:
-        print(f"    OK: Total cases = 1040")
+        print(f"    OK: Total cases = {N_COMPOSITE}")
 
     # Check for duplicate case_ids
     case_ids = [r["case_id"] for r in layer1_rows]

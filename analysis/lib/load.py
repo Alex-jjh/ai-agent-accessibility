@@ -78,7 +78,7 @@ def _select_largest_uuid(groups: list[tuple[Path, list[Path]]]) -> list[Path]:
 
 
 def load_cases_flat(data_dirs: Iterable[Path]) -> list[dict]:
-    """Load cases from layout-A directories.
+    """Load cases from layout-A directories (composite / Mode A / C.2).
 
     Returns a list of normalized dicts:
       {caseId, taskId, opId, agent, success, totalTokens, totalSteps,
@@ -86,6 +86,26 @@ def load_cases_flat(data_dirs: Iterable[Path]) -> list[dict]:
 
     Unparseable file names (caseId without 6 colon-separated parts) are
     silently skipped — same behavior as `amt_statistics.load_cases`.
+
+    Expected case totals (designed N's, see analysis/_constants.py):
+
+        Phase 1 — Composite (N=1,040)
+            pilot4-full(240) + pilot4-cua(120) + expansion-claude(140)
+            + expansion-llama4(260) + expansion-som(140) + expansion-cua(140)
+            Note: pilot4-cua has 121 files on disk; one is a hung-bridge
+            retry from a stale UUID. `_select_largest_uuid` picks the full
+            run (120 files) yielding the design N=1,040.
+
+        Phase 2 — Mode A (N=4,056)
+            mode-a-shard-a(1,638) + mode-a-shard-b(1,404) = 3,042 (Claude × 3 archs)
+            + mode-a-llama4-textonly(1,014) = 4,056
+
+        Phase 3 — C.2 composition (N=2,184)
+            c2-composition-shard-a(1,092) + c2-composition-shard-b(1,092) = 2,184
+            ⚠ The paper §4.122, several handoffs, and pre-2026-05-15 docs
+            misstate this as 2,188 due to an arithmetic error
+            (28 pairs × 13 tasks × 2 archs × 3 reps = 2,184, not 2,188).
+            The data on disk has always matched the design exactly.
     """
     cases: list[dict] = []
     for data_dir in data_dirs:
