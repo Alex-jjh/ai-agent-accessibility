@@ -25,7 +25,7 @@ DESIGN PRINCIPLES:
 
 WHAT IT CHECKS:
   Section 4 (Method):
-    - Total case counts (3,042 Claude, 1,014 Llama 4, 2,188 C.2)
+    - Total case counts (3,042 Claude, 1,014 Llama 4, 2,184 C.2)
     - Per-agent case counts
     - GT correction counts
 

@@ -1,7 +1,12 @@
 # C.2 Compositional Study — Full Analysis Report
 
+> **STATUS (2026-05-15)**: Frozen analysis from 2026-05-02. The "2,188" figure
+> is a +4 arithmetic typo; actual N has always been 2,184. Findings (15/28
+> super-additive, named patterns) are unchanged. For current state see
+> `docs/by-stage/phase3-c2.md`.
+
 **Date**: 2026-05-02
-**Total cases**: 2,188 (28 pairs × 13 tasks × 2 agents × 3 reps)
+**Total cases**: 2,184 (28 pairs × 13 tasks × 2 agents × 3 reps)
 **Agents**: text-only + CUA (SoM excluded)
 **Model**: Claude Sonnet 4 (`bedrock/us.anthropic.claude-sonnet-4-20250514-v1:0`)
 

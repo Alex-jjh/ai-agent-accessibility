@@ -12,7 +12,8 @@ directory at `../paper/`.
 
 26 AMT operators (13 Low / 3 Midlow / 10 High) × 3 agent architectures
 (text-only / SoM / CUA) × 2 model families (Claude Sonnet, Llama 4 Maverick).
-N=14,772 total cases. **Status (2026-05-14): all data collection
+N=14,768 total cases (1,040 composite + 4,056 Mode A + 2,184 C.2 + 7,488 Stage 3).
+**Status (2026-05-15): all data collection
 complete; paper writing + archival in progress.** Burner AWS accounts
 expired 2026-05-12; everything is local-analysis from here.
 

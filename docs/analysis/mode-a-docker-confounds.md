@@ -1,7 +1,10 @@
 # Docker State Confounds — Comprehensive Audit
 
+> **STATUS (2026-05-15)**: Frozen audit from 2026-05-02. C.2 = "2,188" is a
+> +4 typo; actual N is 2,184. Confound conclusions unchanged.
+
 **Date**: 2026-05-02
-**Scope**: Mode A (3,042 cases), Llama 4 (1,014 cases), C.2 (2,188 cases)
+**Scope**: Mode A (3,042 cases), Llama 4 (1,014 cases), C.2 (2,184 cases)
 
 ---
 

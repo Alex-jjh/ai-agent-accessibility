@@ -283,7 +283,7 @@ operationalizes the theory.
 
 **Dates**: 2026-05-02 (≈1 day data collection, analysis concurrent with Phase 4)  
 **Scope**: Test whether operators combine additively or interact  
-**Scale**: 28 pairwise combinations × 13 tasks × 2 agents × 3 reps = **2,188 cases**
+**Scale**: 28 pairwise combinations × 13 tasks × 2 agents × 3 reps = **2,184 cases**
 
 ### What we did
 - Selected Top-8 operators by mechanism diversity (L1, L2, L4, L5, L6,
@@ -400,7 +400,7 @@ scientific purpose:
 |------|--------|---|---------------|
 | **Breadth** | Phase 6 (Stage 3) | ~300 tasks × 26 ops × 3 reps × 2 models ≈ 46,800 cases | §5.1-5.3 main result |
 | **Depth** | Phase 4 (Mode A) | 13 tasks × 26 ops × 3 agents × 3 reps = 3,042 + 1,014 Llama 4 | §5.4-5.5 mechanisms |
-| **Composition** | Phase 5 (C.2) | 28 pairs × 13 tasks × 2 agents × 3 reps = 2,188 | §5.4 |
+| **Composition** | Phase 5 (C.2) | 28 pairs × 13 tasks × 2 agents × 3 reps = 2,184 | §5.4 |
 | **Ecological** | Phase 3 | 34 sites × axe-core scan | §7 |
 | **Visual** | Phase 3 + Phase 6 Stage 4b | 137 URLs historical + ~300-task trace-URL new | §5.3 |
 | **Pilot motivation** | Phase 1 + 2 | Composite N=1,040 across Pilots 1-4 + expansion | §1 / §4.1 |

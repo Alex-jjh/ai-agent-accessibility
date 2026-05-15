@@ -16,9 +16,9 @@ backup; both are retained.
 
 | Phase | Directories | Cases (JSON) | Disk | Paper § |
 |---|---|---:|---:|---|
-| Phase 1 — Composite (N=1,040) | 6 (pilot4-* + expansion-*) | 1,041 | ~383 MB | §5.1 composite |
+| Phase 1 — Composite (N=1,040) | 6 (pilot4-* + expansion-*) | 1,040¹ | ~383 MB | §5.1 composite |
 | Phase 2 — Mode A depth (N=4,056) | 3 (mode-a-shard-{a,b}, mode-a-llama4-textonly) | 4,056 | 1.3 GB | §5.2 alignment, §5.3 cross-model (depth column) |
-| Phase 3 — C.2 composition (N=2,188) | 2 (c2-composition-shard-{a,b}) | 2,184 | 709 MB | §5.4 composition |
+| Phase 3 — C.2 composition (N=2,184) | 2 (c2-composition-shard-{a,b}) | 2,184 | 709 MB | §5.4 composition |
 | Phase 4 — DOM signature audit | 1 (amt-audit-batch) | n/a (per-URL audit JSON) | 225 MB | §5.2 D-rows |
 | Phase 6 — Stage 3 breadth (N=7,488) | 2 (stage3-{claude,llama}) | 7,488 | 5.1 GB | §5.1–5.3 (primary) |
 | Phase 6 — Stage 4b SSIM | 1 (stage4b-ssim-replay) | n/a (9,408 PNGs + manifest) | 699 MB | §5.3 visual control |
@@ -36,7 +36,7 @@ or, for Stage 3, via per-experiment CSVs under `results/stage3/`.
 | Dir | Cases | Phase | Model × agent | Description | Paper § |
 |---|--:|---|---|---|---|
 | `pilot4-full/` | 240 | 1 composite | Claude × text+SoM | 6 tasks × 4 variants × 5 reps | §5.1 |
-| `pilot4-cua/` | 121 | 1 composite | Claude × CUA | 6 tasks × 4 variants × 5 reps | §5.1 |
+| `pilot4-cua/` | 120¹ | 1 composite | Claude × CUA | 6 tasks × 4 variants × 5 reps | §5.1 |
 | `expansion-claude/` | 140 | 1 composite | Claude × text | 7 new tasks × 4 variants × 5 reps | §5.1 |
 | `expansion-llama4/` | 260 | 1 composite | Llama 4 × text | 13 tasks × 4 variants × 5 reps | §5.1, §5.3 |
 | `expansion-som/` | 140 | 1 composite | Claude × SoM | 7 new tasks × 4 variants × 5 reps | §5.1 |
@@ -49,6 +49,11 @@ or, for Stage 3, via per-experiment CSVs under `results/stage3/`.
 | `stage4b-ssim-replay/` | 9,408 PNGs | 6 breadth | (replay only) | 336 URLs × 28 variants visual capture | §5.3 SSIM control |
 | `amt-audit-batch/` | per-URL JSON | 4 DOM signature | (audit only) | DOM/visual signature inputs for Mode A | §5.2 D-rows |
 | `a11y-cua/` | dataset directories | reference | (Griffith + A11y-CUA) | Human baseline + cross-study triangulation inputs | §5.5 |
+
+¹ pilot4-cua holds **121** files on disk because `ecommerce_high_23` has
+6 attempts (one was a hung-bridge retry from a stale UUID). The export
+script (`analysis/lib/load.py:_select_largest_uuid`) selects the UUID with
+the most files (120), restoring the design N=1,040 in the CSV.
 
 **Stage 4b is the only single-source-of-truth dir**: burner S3 expired
 2026-05-12. Off-platform copies live (a) on Google Drive, (b) inside

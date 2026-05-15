@@ -59,8 +59,9 @@ N_STAGE4B_CAPTURES = N_STAGE4B_URLS * N_STAGE4B_VARIANTS  # 9408
 
 # Grand total
 N_TOTAL = N_COMPOSITE + N_MODE_A + N_C2 + N_STAGE3  # 14,768
-# (1,040 + 4,056 + 2,184 + 7,488 = 14,768. Paper currently states 14,772 due
-# to compounded errors: pilot4-cua over-count assumption + C.2 arithmetic typo.)
+# (1,040 + 4,056 + 2,184 + 7,488 = 14,768. Paper said 14,772 pre-2026-05-15
+# due to a +4 C.2 arithmetic typo combined with an earlier upstream off-by-one;
+# corrected in commit "paper: correct N counts (14,772→14,768)".)
 
 # ============================================================
 # AMT operators (paper §3.1)

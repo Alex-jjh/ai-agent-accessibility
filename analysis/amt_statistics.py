@@ -563,7 +563,7 @@ def main():
     with open(report_path, "w") as f:
         f.write("# AMT Paper Statistical Tests\n\n")
         f.write(f"**Generated**: by `analysis/amt_statistics.py`\n")
-        f.write(f"**Data**: Mode A Claude (3,042) + Llama 4 (1,014) + C.2 (2,188 text-only)\n\n")
+        f.write(f"**Data**: Mode A Claude (3,042) + Llama 4 (1,014) + C.2 (2,184)\n\n")
         f.write("---\n\n")
 
         f.write("## §5.1 Per-Operator Significance (Claude text-only)\n\n")

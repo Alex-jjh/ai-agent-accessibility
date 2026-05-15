@@ -1,5 +1,11 @@
 # Repo Readiness Audit — 2026-05-02
 
+> **STATUS (2026-05-15)**: Frozen pre-Stage-3 audit. Numbers (e.g. "2,188 C.2
+> cases") are the then-believed values; C.2 N has always been 2,184. The
+> readiness conclusions still hold; only the case totals require the −4
+> correction. For current state see `docs/data-inventory.md` and
+> `docs/by-stage/`.
+
 Comprehensive check: is everything we need tracked, and is everything we
 shouldn't track properly ignored?
 

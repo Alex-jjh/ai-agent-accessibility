@@ -39,7 +39,7 @@
 
 ---
 
-## Phase 3: Compositional Study (N=2,188)
+## Phase 3: Compositional Study (N=2,184)
 
 | Test | H₀ | Script | Data | Paper § |
 |------|-----|--------|------|---------|
@@ -84,7 +84,7 @@
 |-------|-------|-------------|------------|
 | Composite (N=1,040) | 9 distinct tests | Holm-Bonferroni (8 secondary) | Low-vs-rest Z=9.83, p<10⁻¹⁹ |
 | Individual (N=4,056) | 10 distinct tests | Holm-Bonferroni (26 operators) | L1 p<0.001, L5 p=0.001 |
-| Compositional (N=2,188) | 3 distinct tests | — | 15/28 super-additive, p=0.019 |
+| Compositional (N=2,184) | 3 distinct tests | — | 15/28 super-additive, p=0.019 |
 | Triangulation | 3 analyses | — | Site explains 66.1% of variance |
 | **Total** | **25 distinct statistical procedures** | | |
 
