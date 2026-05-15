@@ -44,6 +44,9 @@ infra/terraform.tfstate.*.bak
 # AMT audit outputs (regenerable from source; can include absolute paths in file:// URLs)
 results/amt/
 
+# verify-all output (regenerated every run; timestamp churn)
+results/key-numbers.json
+
 # paper-supplementary/: bundle is derived. Track only the curated docs:
 #   README.md (manually curated)
 #   reproducibility-statement.md (manually curated)
