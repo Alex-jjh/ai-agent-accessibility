@@ -44,5 +44,17 @@ infra/terraform.tfstate.*.bak
 # AMT audit outputs (regenerable from source; can include absolute paths in file:// URLs)
 results/amt/
 
+# paper-supplementary/: bundle is derived. Track only the curated docs:
+#   README.md (manually curated)
+#   reproducibility-statement.md (manually curated)
+# All CSV / json / .md statistical reports are derived — regenerate with
+# scripts/maintenance/build-supplementary.sh
+paper-supplementary/*.csv
+paper-supplementary/*.json
+paper-supplementary/*.txt
+paper-supplementary/statistics-*.md
+paper-supplementary/exclusion-narrative.md
+paper-supplementary/signature-alignment-report.md
+
 # macOS Finder metadata
 .DS_Store
