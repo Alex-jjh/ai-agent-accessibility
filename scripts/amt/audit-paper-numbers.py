@@ -63,7 +63,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 
 # ════════════════════════════════════════════════════════════════
-# Ground Truth Corrections (inline for zero-dependency)
+# Ground Truth Corrections (inline by design — see header §2)
+# ────────────────────────────────────────────────────────────────
+# This audit is intentionally self-contained (zero external imports) so it
+# remains runnable as a standalone reproducibility check. Authoritative copy
+# lives in `analysis/_constants.py:GT_CORRECTIONS`; the JSON metadata source
+# is `scripts/amt/ground-truth-corrections.json`. **Keep these three in sync.**
 # ════════════════════════════════════════════════════════════════
 GT_CORRECTIONS = {
     "41": ["abomin", "abdomin"],

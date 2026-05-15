@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """Audit Phase B admin records for silent login failures.
 
+⚠ DEPRECATED (2026-05-15): targets the 13-task Phase 7 prototype under
+  `data/visual-equivalence/replay/` (see that dir's STATUS.md).
+  Stage 4b — `data/stage4b-ssim-replay/` with manifest.jsonl carrying
+  `session_lost`, `final_url`, `title` per capture — superseded this
+  workflow. The login-detection logic here informs (but is not invoked
+  by) `analysis/stages/phase6_stage4b.py`.
+  Retained for forensic / historical use only; not part of `make verify-all`.
+
 Prior (WRONG) audit checked only `final_url` against login-path patterns;
 that missed the common case where Magento renders a login form **inside**
 a page with the protected URL (final_url looks fine; content is login).

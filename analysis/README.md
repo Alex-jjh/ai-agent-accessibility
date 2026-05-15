@@ -1,163 +1,137 @@
-# Analysis Engine (Module 6) — Python Statistical Analysis
+# `analysis/` — Statistical Analysis & V&V Pipeline
 
-Python-based statistical analysis for the AI Agent Accessibility Platform.
-Consumes CSV exports produced by the TypeScript data export layer (Modules 1–5).
+Python module 6 of the platform. Consumes raw case JSON + CSV exports;
+produces statistics, figures, and audit reports.
 
-## Relationship with `scripts/amt/`
-
-This directory and `scripts/amt/` serve different purposes:
-
-| Concern | `analysis/` | `scripts/amt/` |
-|---------|-------------|----------------|
-| Statistical modeling (CLMM, GEE, GLMM) | ✅ primary | — |
-| Cross-model tests (Breslow-Day, bootstrap) | ✅ primary | — |
-| Visual equivalence analysis | ✅ primary | — |
-| Python package with `requirements.txt` | ✅ yes | — |
-| AMT operator TypeScript tooling | — | ✅ primary |
-| AMT DOM audit (12-dim signatures) | — | ✅ primary |
-| Ground truth corrections + paper audit | — | ✅ primary |
-| Mode A / C.2 case-level analysis | — | ✅ primary |
-
-Both are **git-tracked, paper-critical**. They call into each other:
-- `scripts/amt/audit-operator.ts` uses `analysis/ssim_helper.py`
-- Mode A + C.2 CSV outputs from `scripts/amt/` feed into `analysis/` for
-  statistical modeling
-
-## Directory Structure
+## Layout (post 2026-05-15 refactor)
 
 ```
 analysis/
-├── __init__.py              # Python package marker
-├── README.md                # this file
-├── requirements.txt         # statsmodels, pymer4, sklearn, shap, ...
-├── Copy of FinalData.xlsx   # Griffith et al. raw data (ICPSR 183081)
-├── models/                  # CLMM + Random Forest (reusable modeling)
-│   ├── primary.py           #   CLMM/GEE for Req 13 (primary a11y effect)
-│   ├── secondary.py         #   Random Forest + SHAP for Req 14
-│   ├── test_primary.py
-│   └── test_secondary.py
-├── viz/                     # Paper-ready figure code
-│   ├── figures.py
-│   └── test_figures.py
-├── archive/                 # Historical pilot + expansion scripts
-│   └── (see archive/README.md)
+├── _constants.py              ★ Single source of truth for paper numbers
+├── lib/                       ★ Shared, side-effect-free building blocks
+│   ├── load.py                  case-JSON loaders, GT corrections
+│   ├── stats.py                 wilson_ci, odds_ratio_ci, breslow_day, …
+│   └── assertions.py            Assertion / StageReport dataclasses
+├── stages/                    ★ Per-stage verifiers (one per phase)
+│   ├── _base.py                 StageVerifier ABC
+│   ├── phase1_composite.py      N=1,040 composite
+│   ├── phase2_mode_a.py         N=4,056 Mode A depth
+│   ├── phase3_c2.py             N=2,184 C.2 composition
+│   ├── phase4_dom_signatures.py 26 ops × 12-dim signature matrix
+│   ├── phase5_smoker.py         N=2,052 base-solvability gate
+│   ├── phase6_stage3.py         N=7,488 Stage 3 breadth ★ primary
+│   └── phase6_stage4b.py        9,408 SSIM captures ★ visual truth
+├── verify_all.py              ★ Entry: runs all 7 stages → key-numbers.json
 │
-├── <active analysis scripts — see taxonomy below>
+├── (heavy analysis scripts — produce CSVs / reports, not assertions)
+├── amt_statistics.py            Mode A + C.2 inferential tests (Fisher, Holm)
+├── stage3_statistics.py         Stage 3 inferential tests
+├── compute_primary_stats.py     Composite primary + secondary tests
+├── run_statistics.py            Composite full descriptive battery
+├── breslow_day.py               Cross-model OR homogeneity
+├── bootstrap_decomposition.py   Pathway decomposition CIs
+├── majority_vote_sensitivity.py Composite sensitivity check
+├── glmm_analysis.py             GLMM via statsmodels GEE
+├── cua_failure_trace_validation.py
+├── visual_equivalence_analysis.py / visual_equivalence_gallery.py
+├── griffith_triangulation.py    Phase 1 human baseline triangulation
+│
+├── (export / audit)
+├── export_combined_data.py      Raw JSON → results/combined-experiment.csv
+├── verify_all_data_points.py    Legacy composite verifier
+├── paper_consistency_audit.py   Scans paper *.tex + *.md for known constants
+├── generate_results_tables.py   LaTeX tables from CSV
+├── semantic_density.py / test_semantic_density.py
+├── ssim_helper.py               scikit-image wrapper, subprocess-callable
+│
+├── models/                      Reusable modeling (CLMM + Random Forest)
+├── viz/                         Paper figures (matplotlib)
+├── archive/                     Pre-AMT historical scripts
+└── requirements.txt
 ```
 
-## Active Script Taxonomy
+## Three-layer architecture (V&V path)
 
-### Paper-wide statistics
-- `run_statistics.py` — Main statistical runner (orchestrates all tests on composite variants)
-- `compute_primary_stats.py` — Primary (Fisher/chi²) + secondary (Cochran-Armitage) tests
-- `glmm_analysis.py` — GLMM mixed-effects via statsmodels GEE + BinomialBayesMixedGLM
-- `amt_statistics.py` — **AMT paper tests** (individual operators + composition + cross-model)
-  - §5.1: Fisher's exact per operator, Holm-Bonferroni corrected
-  - §5.3: Breslow-Day cross-model OR homogeneity
-  - §5.4: Compositional additivity departure tests
+```
+            ┌───────────────────────────────────────────────────┐
+            │  _constants.py — paper numbers, GT corrections    │
+            └───────────────────────┬───────────────────────────┘
+                                    │ import
+                          ┌─────────▼─────────┐
+                          │  lib/             │
+                          │  load / stats /   │  pure functions, no I/O
+                          │  assertions       │  side effects
+                          └─────────┬─────────┘
+                                    │ import
+                ┌───────────────────▼──────────────────┐
+                │  stages/phase{1..6}_*.py             │
+                │  one verifier per phase, independent │
+                └───────────────────┬──────────────────┘
+                                    │ aggregated by
+                          ┌─────────▼─────────┐
+                          │  verify_all.py    │
+                          │  → results/       │
+                          │    key-numbers    │
+                          │    .json          │
+                          └───────────────────┘
+```
 
-### Cross-model replication
-- `breslow_day.py` — Breslow-Day test for odds-ratio homogeneity (Claude vs Llama 4)
-- `bootstrap_decomposition.py` — Bootstrap CIs for pathway decomposition + Holm-Bonferroni
+Each layer has zero knowledge of the layer above it. To change a paper
+number: edit `_constants.py` → `make verify-all` surfaces every downstream
+location that needs updating (paper, docs, derived CSVs).
 
-### Causal decomposition & sensitivity
-- `majority_vote_sensitivity.py` — Robustness check: aggregate 5 reps to majority vote
-- `cua_failure_trace_validation.py` — Validates CUA low-variant failures against link→span signature
+## Per-stage details
 
-### Data export & verification
-- `export_combined_data.py` — Reads all 7,284 traces → `results/combined-experiment.csv`
-- `verify_all_data_points.py` — Asserts every number in `paper/key-numbers.md` against CSV
-- `paper_consistency_audit.py` — Scans paper/*.tex for numerical claims
-- `generate_results_tables.py` — Generate LaTeX tables from CSV
+See [`docs/by-stage/`](../docs/by-stage/) for one document per phase
+(design matrix, paths, audit one-liner, paper § refs, caveats).
 
-### Metrics & helpers
-- `semantic_density.py` — Novel metric: interactive_nodes / total_a11y_tokens
-- `test_semantic_density.py` — Unit tests
-- `ssim_helper.py` — Structural Similarity Index via scikit-image (subprocess-callable)
+## CSV schema (Phase 1 composite output)
 
-### Visual equivalence (Phase 7)
-- `visual_equivalence_analysis.py` — SSIM/pHash/MAD analysis per-URL, per-patch
-- `visual_equivalence_gallery.py` — Human review HTML generator
-
-### Human baseline (A11y-CUA + Griffith)
-- `griffith_triangulation.py` — Derives per-participant metrics from Griffith et al. (2022)
+`results/combined-experiment.csv` is the legacy primary CSV. See
+`docs/data-schema.md` for the full column reference.
 
 ## Setup
 
-```bash
+```sh
 cd analysis
 python -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Running from the repo root (via Makefile)
+## Running
 
-```bash
-make verify-numbers   # run verify_all_data_points.py
-make export-data      # re-export combined CSV
-make run-stats        # full statistical analysis
-make all              # all three in sequence
+```sh
+# Per-stage
+make audit-composite        # phase1
+make audit-mode-a           # phase2
+make audit-c2               # phase3
+make audit-dom              # phase4
+make audit-smoker           # phase5
+make audit-stage3           # phase6 breadth
+make audit-stage4b          # phase6 visual
+
+# All at once
+make verify-all
+
+# Re-export composite CSV from raw JSON
+make export-data
+
+# Full descriptive statistics (composite phase)
+make run-stats
 ```
 
-## CLMM Implementation: Decision Tree
+## Authoritative numbers
 
-Track A requires a mixed-effects model with an ordinal predictor
-(`a11y_variant_level`: Low / Medium-Low / Base / High) and binary or ordinal
-outcome (`agent_success`). The ideal model is a Cumulative Link Mixed Model
-(CLMM) with random intercepts for app and LLM backend.
+`results/key-numbers.json` is generated by `verify_all.py`; do not edit by
+hand. The paper is allowed to lag behind `_constants.py`, but `make
+verify-all` will report the discrepancy.
 
-Three implementation paths are available, in order of preference:
+## Frozen design decisions
 
-### Path 1 — `pymer4` (preferred)
-
-`pymer4` is a Python wrapper around R's `lme4` package via `rpy2`.
-
-**Pros:** Full mixed-effects logistic regression with ordinal coding; R formula
-syntax (`success ~ variant + (1|app) + (1|llm_backend)`); well-tested.
-
-**Cons:** Requires R + `lme4` R package.
-
-```bash
-pip install pymer4
-python -c "from pymer4.models import Lmer; print('pymer4 OK')"
-```
-
-### Path 2 — `statsmodels` GEE fallback
-
-If `pymer4` fails, use `statsmodels.GEE` with ordinal contrast coding.
-
-**Pros:** Pure Python.
-**Cons:** Population-averaged (not subject-specific). Must disclose in paper.
-
-### Path 3 — R + `ordinal::clmm()` via `rpy2` (last resort)
-
-Only if reviewers require true CLMM with ordinal DV.
-
-## Key Design Decisions
-
-- **Primary IVs are criterion-level feature vectors**, not Composite_Score
-  (which is supplementary for interpretability only).
-- **Sensitivity analysis** fits models with Tier 1 only, Tier 2 only, and
-  composite to assess robustness.
-- **Vision agent is a control condition.** Interaction tests check whether
-  Text-Only shows a11y gradient while Vision shows null gradient — strongest
-  evidence for A11y Tree as the causal mechanism.
-- **Post-hoc power analysis** runs after pilot (20 sites) to determine if
-  N=50 is sufficient for Track B.
-
-## Input Data
-
-| File | Contents |
-|------|----------|
-| `results/combined-experiment.csv` | One row per case: app, variant, agent, outcome |
-| `results/amt/*.csv` | AMT signature matrices (from `scripts/amt/`) |
-| `data/<experiment>/cases/*.json` | Raw case JSON (primary source of truth) |
-
-## Requirements Traceability
-
-| Component | Requirements |
-|-----------|-------------|
-| `models/primary.py` | 13.1, 13.2, 13.3, 13.4, 13.5, 8.6 |
-| `models/secondary.py` | 14.1, 14.2, 14.3, 14.4 |
-| `viz/figures.py` | 13.3, 14.2, 14.4 |
+- **GT corrections defined once** in `_constants.GT_CORRECTIONS`. The audit
+  script `scripts/amt/audit-paper-numbers.py` keeps an inline copy on
+  purpose (zero-dep design); update both atomically.
+- **Stage 4b is the SSIM single source of truth** (per 2026-05-15 user
+  directive). Older `data/visual-equivalence/` is deprecated.
+- **Every stage verifier independently runnable** (`python -m analysis.stages.phase6_stage3`).

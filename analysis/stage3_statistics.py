@@ -52,13 +52,10 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "results" / "stage3"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# Stage 3 has no GT corrections needed (Gate 6 excluded state-mutation tasks)
-# But keep the same corrections for consistency with Mode A
-GT_CORRECTIONS = {
-    "41": ["abomin", "abdomin"],
-    "198": ["veronica costello"],
-    "293": ["git clone ssh://git@10.0.1.50:2222/convexegg/super_awesome_robot.git"],
-}
+# Stage 3 has no GT corrections needed (Gate 6 excluded state-mutation tasks),
+# but we apply the same corrections for consistency with Mode A.
+# Single source of truth: `analysis/_constants.py`.
+from analysis._constants import GT_CORRECTIONS
 
 
 def load_stage3_cases(data_dir: Path) -> list:

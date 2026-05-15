@@ -1,0 +1,111 @@
+# Phase 5 — Smoker (Base-Solvability Gate, N=2,052)
+
+> **Purpose**: pre-registered upstream gate that filters 684 deployed-app
+> WebArena tasks down to the 48 used in Phase 6 Stage 3. Cases are NOT
+> reported in any paper success-rate table; the **funnel itself** (684 → 48)
+> is reported and cited as the rationale for Stage 3 task selection.
+> **Status (2026-05-15)**: data frozen 2026-05-07. Pre-registration locked
+> 2026-05-06; gate criteria not changed post-hoc.
+
+## Why this matters (and is its own phase)
+
+Stage 3's 48 tasks aren't a hand-pick — they survive a **7-gate inclusion
+protocol** applied to every deployed-app task. The smoker run produces
+the data that drives the gate decisions. If we removed it, the entire
+breadth claim ("48 tasks pre-registered from a pool of 684") loses its
+provenance. Hence: first-class phase, not "support data".
+
+## Design matrix
+
+```
+684 tasks (4 deployed apps)  ×  base variant only  ×  text-only  ×  3 reps
+```
+
+| Dimension | Values |
+|---|---|
+| Tasks | All 684 tasks across 4 deployed WebArena apps. Sources: shopping_admin (182), shopping (192), reddit (114), gitlab (196). Map (128) and wikipedia (16) excluded — not deployed in our infra. |
+| Variant | base only (control). The point is "is the task solvable at all?" |
+| Agent × Model | Claude × text-only (single cell — cheapest, fastest sanity baseline) |
+| Reps | 3 |
+
+## On-disk data (~1.7 GB total)
+
+| Directory | Cases | Apps | Date |
+|---|--:|---|---|
+| `data/smoker-shard-a/` | 1,122 | shopping_admin (182) + shopping (192) | 2026-05-06 |
+| `data/smoker-shard-b/` | 930 | reddit (114) + gitlab (196) | 2026-05-06 |
+| **Total** | **2,052** | | |
+
+Sharded by app to parallelise across two burner accounts.
+
+## The 7 gates
+
+| # | Gate | Purpose | Reduction |
+|---|---|---|---|
+| 1 | App deployed | exclude map + wikipedia | 812 → 684 |
+| 2 | Strict 3/3 base solvability | reject stochastic/flaky tasks | varies |
+| 3 | ≥3 median steps | reject trivial tasks | |
+| 4 | ≤25 median steps | reject overly long tasks (timeout risk) | |
+| 5 | No state mutation | reject tasks that change Docker DB | |
+| 6 | Non-trivial reference answer | reject empty/template-only answers | |
+| 7 | Zero infrastructure failures | reject tasks affected by 5xx, network, anti-bot | |
+
+Each gate is **conservative** (drops more tasks, not fewer), so the
+reported drop per operator is a lower bound. Gate criteria are
+documented in `docs/analysis/task-selection-methodology.md`.
+
+## Derived artefacts (`results/smoker/`)
+
+| File | Schema |
+|---|---|
+| `results/smoker/passing-tasks.json` | `{app: [taskId, ...]}` for the 48 surviving tasks |
+| `results/smoker/passing-tier2.json` | tier-2 tasks (lower confidence, not used in Stage 3) |
+| `results/smoker/filter-summary.csv` | per-task gate verdicts |
+| `results/smoker/exclusion-report.md` | paper-ready narrative of the 636 dropped tasks |
+
+Headline counts (paper §4 + Figure F11 funnel):
+- 684 candidate tasks
+- 258 base-stochastic (Gate 2 fails) → tier-2 reference
+- 48 passing all 7 gates → Stage 3 set
+  - ecommerce: 22
+  - ecommerce_admin: 12
+  - gitlab: 13
+  - reddit: 1
+
+## How to audit
+
+```sh
+make audit-smoker
+```
+
+Verifier asserts:
+- shard A case count = 1,122; shard B = 930; total = 2,052
+- `passing-tasks.json` total = 48
+- per-app passing counts (22 / 12 / 13 / 1) match `_constants.SMOKER_PASSING_BY_APP`
+- exactly 4 apps in the JSON
+
+## Paper sections
+
+- **§4 Methodology — Task selection** — the 7-gate funnel + exclusion narrative
+- **Figure F11 (`F11_task_funnel.png`)** — funnel diagram 684 → 48
+- **`docs/analysis/task-selection-methodology.md`** — full pre-registration text
+
+## Convergence with Mode A
+
+Retrospective check: 10 of 13 Mode A tasks satisfy all 7 Stage 3 gates.
+The 3 exceptions are intentional controls:
+- `reddit:29`, `reddit:67` — noise-floor / stochasticity controls
+- `shopping:24` — conservative lower-bound task
+
+This convergence between manual (Mode A) and formal (Stage 3) selection
+is reported in §4 as evidence the gate is principled rather than fitted.
+
+## Known caveats
+
+- **Single rep × single agent × single variant**. Cannot draw any
+  per-operator conclusion from the smoker — it's a solvability gate only.
+- **Reddit yields just 1 passing task** out of 114. This is an artefact of
+  Postmill's high state-sensitivity (most tasks involve creating/voting),
+  not a bug. Documented in §6 Limitations.
+- **Pre-registration is locked**. Re-running the smoker with relaxed
+  criteria post-hoc would be cherry-picking; the 48-task set is frozen.

@@ -54,149 +54,26 @@ import numpy as np
 from scipy import stats
 from statsmodels.stats.multitest import multipletests
 
+# Reuse shared lib (extracted 2026-05-15) — these used to be inlined here.
+# Backward compatibility: legacy callers (stage3_statistics.py, scripts/amt/*.py)
+# import {wilson_ci, odds_ratio_ci, cohens_h, mantel_haenszel_or, breslow_day,
+# load_cases, GT_CORRECTIONS} from this module — re-export them so nothing breaks.
+from analysis._constants import GT_CORRECTIONS
+from analysis.lib.stats import wilson_ci, odds_ratio_ci, cohens_h, mantel_haenszel_or, breslow_day
+from analysis.lib.load import load_cases_flat, apply_gt_corrections
+
 ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = ROOT / "results" / "amt"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-# ════════════════════════════════════════════════════════════════
-# Ground Truth Corrections (inline, matches audit script)
-# ════════════════════════════════════════════════════════════════
-GT_CORRECTIONS = {
-    "41": ["abomin", "abdomin"],
-    "198": ["veronica costello"],
-    "293": ["git clone ssh://git@10.0.1.50:2222/convexegg/super_awesome_robot.git"],
-}
-
 
 def load_cases(data_dirs):
-    """Load cases from raw JSON with GT corrections. Returns list of dicts."""
-    cases = []
-    for data_dir in data_dirs:
-        for fpath in glob.glob(str(data_dir / "*/cases/*.json")):
-            if "/scan-result" in fpath or "/trace-attempt" in fpath or "/classification" in fpath:
-                continue
-            with open(fpath) as fh:
-                d = json.load(fh)
-            cid = d.get("caseId", "")
-            parts = cid.split(":")
-            if len(parts) != 6:
-                continue
-            t = d.get("trace", {})
-            tid = parts[2]
-            opId = parts[5]
-            agent = t.get("agentConfig", {}).get("observationMode", "?")
-            original_success = t.get("success", False)
+    """Backwards-compatible wrapper around `lib.load.load_cases_flat`.
 
-            # Extract answer
-            answer = ""
-            for s in t.get("steps", []):
-                a = s.get("action", "")
-                if "send_msg_to_user" in a:
-                    answer = a
-                    break
-            if agent == "cua" and not answer:
-                bl = t.get("bridgeLog", "")
-                for line in bl.split("\n"):
-                    if "Task complete" in line:
-                        tc_idx = line.find("Task complete")
-                        if tc_idx >= 0:
-                            rest = line[tc_idx:]
-                            colon_idx = rest.find(":")
-                            if colon_idx >= 0:
-                                answer = rest[colon_idx+1:].strip()
-                        break
-
-            # Apply correction
-            corrected_success = original_success
-            if tid in GT_CORRECTIONS and not original_success and answer:
-                answer_lower = answer.lower()
-                for valid in GT_CORRECTIONS[tid]:
-                    if valid in answer_lower:
-                        corrected_success = True
-                        break
-
-            cases.append({
-                "caseId": cid, "taskId": tid, "opId": opId,
-                "agent": agent, "success": corrected_success,
-            })
-    return cases
-
-
-# ════════════════════════════════════════════════════════════════
-# Statistical helpers
-# ════════════════════════════════════════════════════════════════
-def wilson_ci(successes, total, alpha=0.05):
-    """Wilson score interval for binomial proportion."""
-    if total == 0:
-        return 0.0, 0.0
-    p = successes / total
-    z = stats.norm.ppf(1 - alpha/2)
-    denom = 1 + z**2/total
-    center = (p + z**2/(2*total)) / denom
-    margin = z * math.sqrt(p*(1-p)/total + z**2/(4*total**2)) / denom
-    return max(0, center - margin), min(1, center + margin)
-
-
-def odds_ratio_ci(a, b, c, d, alpha=0.05):
-    """Odds ratio with Woolf logit 95% CI. Returns (OR, lo, hi)."""
-    if min(a, b, c, d) == 0:
-        # Haldane-Anscombe correction
-        a, b, c, d = a + 0.5, b + 0.5, c + 0.5, d + 0.5
-    OR = (a * d) / (b * c)
-    se = math.sqrt(1/a + 1/b + 1/c + 1/d)
-    z = stats.norm.ppf(1 - alpha/2)
-    lo = math.exp(math.log(OR) - z*se)
-    hi = math.exp(math.log(OR) + z*se)
-    return OR, lo, hi
-
-
-def cohens_h(p1, p2):
-    """Cohen's h effect size for two proportions."""
-    phi1 = 2 * math.asin(math.sqrt(p1))
-    phi2 = 2 * math.asin(math.sqrt(p2))
-    return phi1 - phi2
-
-
-def mantel_haenszel_or(tables):
-    """Mantel-Haenszel common OR across 2×2 tables."""
-    num = sum(t[0][0] * t[1][1] / sum(sum(row) for row in t) for t in tables)
-    den = sum(t[0][1] * t[1][0] / sum(sum(row) for row in t) for t in tables)
-    return num / den if den > 0 else float('inf')
-
-
-def breslow_day(tables, or_mh):
-    """Breslow-Day test for OR homogeneity. Returns (BD, df, p)."""
-    BD = 0
-    for t in tables:
-        a, b = t[0]
-        c, d = t[1]
-        n1, n2 = a + b, c + d
-        m1 = a + c
-        # Solve for expected a under common OR
-        A_coef = 1 - or_mh
-        B_coef = or_mh * (n1 + m1) + n2 - m1
-        C_coef = -or_mh * n1 * m1
-        if abs(A_coef) < 1e-10:
-            if B_coef == 0:
-                continue
-            a_e = -C_coef / B_coef
-        else:
-            disc = B_coef**2 - 4*A_coef*C_coef
-            if disc < 0:
-                continue
-            r1 = (-B_coef + math.sqrt(disc)) / (2*A_coef)
-            r2 = (-B_coef - math.sqrt(disc)) / (2*A_coef)
-            a_e = r1 if 0 < r1 < min(n1, m1) else r2
-        b_e = n1 - a_e
-        c_e = m1 - a_e
-        d_e = n2 - c_e
-        if any(x <= 0 for x in [a_e, b_e, c_e, d_e]):
-            continue
-        var_a = 1 / (1/a_e + 1/b_e + 1/c_e + 1/d_e)
-        BD += (a - a_e)**2 * var_a
-    df = len(tables) - 1
-    p = 1 - stats.chi2.cdf(BD, df)
-    return BD, df, p
+    Older callers expect `load_cases([Path,...])` to return a list of dicts
+    with keys {caseId, taskId, opId, agent, success}, GT-corrected.
+    """
+    return apply_gt_corrections(load_cases_flat(data_dirs))
 
 
 # ════════════════════════════════════════════════════════════════

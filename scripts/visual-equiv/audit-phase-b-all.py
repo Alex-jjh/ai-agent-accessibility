@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Audit ALL Phase B apps for silent auth failure.
 
+⚠ DEPRECATED (2026-05-15): targets the 13-task Phase 7 prototype under
+  `data/visual-equivalence/replay/` (see that dir's STATUS.md).
+  Stage 4b — `data/stage4b-ssim-replay/` — superseded this workflow;
+  see `analysis/stages/phase6_stage4b.py` for the current login-contamination
+  health check (informational, non-failing).
+  Retained for forensic / historical use only; not part of `make verify-all`.
+
 Same principle as admin audit but extended to all 4 apps.
 Login-page / signed-out signatures:
   shopping (Magento storefront) — title starts with "Customer Login" or "One Stop Market"
