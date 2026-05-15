@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-15T07:07:50.832811+00:00",
+  "generated_at": "2026-05-15T07:19:48.555568+00:00",
   "all_passed": true,
   "stages": {
     "phase5_smoker": {
@@ -95,7 +95,7 @@
     "phase1_composite": {
       "label": "Composite variant study (4 variants \u00d7 13 tasks)",
       "passed": true,
-      "n_passed": 38,
+      "n_passed": 40,
       "n_failed": 0,
       "assertions": [
         {
@@ -401,6 +401,22 @@
           "actual": 52,
           "passed": true,
           "tolerance": "exact"
+        },
+        {
+          "name": "phase1_composite.gee_composite.beta_low",
+          "description": "GEE composite \u03b2_low (paper \u00a75.1 footnote: \u22121.56)",
+          "expected": -1.56,
+          "actual": -1.5894,
+          "passed": true,
+          "tolerance": "\u00b10.1"
+        },
+        {
+          "name": "phase1_composite.gee_composite.z_low",
+          "description": "GEE composite z_low (paper \u00a75.1 footnote: \u22125.14)",
+          "expected": -5.14,
+          "actual": -5.632,
+          "passed": true,
+          "tolerance": "\u00b10.6"
         }
       ]
     },

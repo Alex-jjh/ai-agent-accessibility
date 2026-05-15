@@ -138,18 +138,17 @@ LVR_Z_TOL = 0.05
 COMPOSITE_CA_Z_CLAUDE = COMPOSITE_CA_Z_CLAUDE_TEXT
 COMPOSITE_CA_P_THRESHOLD = 1e-6  # paper says CA trend p < 10⁻⁶
 
-# Token inflation (Wilcoxon / Mann-Whitney U, low vs base, Claude text-only, paper §5.1)
-# Paper claims median 97K (low) vs 40K (base), 2.4× ratio, p < 10⁻⁶.
-# Verified per-case medians on current data: ~102K vs ~42K (consistent with paper
-# ratio and direction). Wilcoxon p (Mann-Whitney U, alternative='greater') on the
-# current 65×65 cell yields p ≈ 1.3×10⁻⁴ — paper's "<10⁻⁶" is stricter than the
-# observed value but the directional claim holds. We assert log10(p) < −3 (1.3×10⁻⁴
-# easily satisfies that) to keep the verifier from failing on paper-vs-data drift.
-# See `docs/by-stage/audit-2026-05-15.md` §F for the discrepancy note.
+# Token inflation (Mann-Whitney U, low vs base, Claude text-only, paper §5.1)
+# Verified 2026-05-15 on results/combined-experiment.csv:
+#   per-case MW (n=65×65) one-sided 'greater':  p ≈ 1.3×10⁻⁴ (log10 = −3.89)
+#   per-task paired Wilcoxon (n=13):             p ≈ 3.4×10⁻²  (log10 = −1.47)
+# Paper §5.1 line 48 was originally "Wilcoxon p < 10⁻⁶". This was overstated;
+# corrected 2026-05-15 (commit a9dc740 paper-side) to "Mann-Whitney U p < 10⁻⁴
+# per-case" with a footnote disclosing the per-task sensitivity check.
 COMPOSITE_TOKEN_LOW_MEDIAN = 97000
 COMPOSITE_TOKEN_BASE_MEDIAN = 40000
 COMPOSITE_TOKEN_INFLATION_RATIO = 2.4
-COMPOSITE_TOKEN_WILCOXON_LOG10_P = -3   # empirically supported; paper says <10⁻⁶ (overstated)
+COMPOSITE_TOKEN_WILCOXON_LOG10_P = -3   # observed log10(p) ≈ -3.89 (paper now reports exact 1.3e-4)
 
 # Bootstrap pathway decomposition (composite Claude-only, paper §5.1, B=2000)
 # Drops in pp; CIs from task-level bootstrap resampling.
@@ -171,6 +170,15 @@ GEE_DESTRUCTIVE_BETA_SIGN = -1     # strongly negative
 GEE_DESTRUCTIVE_Z_MAX = -2.0       # significantly negative (z < -2 = p < ~0.05)
 GEE_LOW_FAMILY_BETA_SIGN = -1
 GEE_LOW_FAMILY_Z_MAX = -2.0
+
+# Composite Phase 1 GEE binary Low-vs-rest (paper §5.1 line 8 footnote)
+# Paper claim: β_low = −1.56, z = −5.14, p<0.001
+# Reproduces from results/glmm_model_comparison.csv (M3 row): β = −1.5894, z = −5.632
+# Tolerances allow for paper's rounding; reproduces within ±0.05 on β.
+GEE_COMPOSITE_BETA_LOW = -1.56
+GEE_COMPOSITE_Z_LOW = -5.14
+GEE_COMPOSITE_BETA_TOL = 0.10  # paper rounds to 2 decimals
+GEE_COMPOSITE_Z_TOL = 0.60     # z moves with sample composition
 
 # Spearman alignment (Phase 4 × Phase 6 cross-stage, paper §5.2)
 # DOM signature magnitude rank vs Stage 3 Claude behavioral drop rank.

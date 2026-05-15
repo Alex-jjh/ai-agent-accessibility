@@ -33,6 +33,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 CSV_PATH = REPO_ROOT / "results" / "combined-experiment.csv"
 BOOTSTRAP_CSV = REPO_ROOT / "results" / "bootstrap_decomposition.csv"
 MAJORITY_VOTE_CSV = REPO_ROOT / "results" / "majority_vote_sensitivity.csv"
+GLMM_CSV = REPO_ROOT / "results" / "glmm_model_comparison.csv"
 
 EXPECTED_PER_EXPERIMENT = {
     "pilot4-full": 240,
@@ -220,6 +221,27 @@ class Verifier(StageVerifier):
                 "majority-vote sensitivity aggregates each model×agent×variant",
                 expected=4 * 13, actual=n_cells,
             ))
+
+        # 11. GEE composite Low-vs-rest (paper §5.1 line 8 footnote)
+        if GLMM_CSV.exists():
+            with GLMM_CSV.open() as f:
+                glmm_rows = {r["model"]: r for r in csv.DictReader(f)}
+            m3 = glmm_rows.get("M3_GEE_binary")
+            if m3 and m3.get("beta_variant"):
+                actual_beta = float(m3["beta_variant"])
+                actual_z = float(m3["z"])
+                report.add(expect_rate(
+                    f"{self.stage_id}.gee_composite.beta_low",
+                    "GEE composite β_low (paper §5.1 footnote: −1.56)",
+                    expected=C.GEE_COMPOSITE_BETA_LOW, actual=actual_beta,
+                    tol_frac=C.GEE_COMPOSITE_BETA_TOL,
+                ))
+                report.add(expect_rate(
+                    f"{self.stage_id}.gee_composite.z_low",
+                    "GEE composite z_low (paper §5.1 footnote: −5.14)",
+                    expected=C.GEE_COMPOSITE_Z_LOW, actual=actual_z,
+                    tol_frac=C.GEE_COMPOSITE_Z_TOL,
+                ))
 
     @staticmethod
     def _low_vs_rest_z(rows: list[dict], *, agent: str, model: str) -> float:
