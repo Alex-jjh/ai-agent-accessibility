@@ -1,27 +1,71 @@
 # Research project Makefile
-# Usage: make verify-numbers
+#
+# Common entry points:
+#   make verify-all         — run every stage verifier in sequence (V&V)
+#   make audit-<phase>      — run one stage verifier
+#   make export-data        — re-build results/combined-experiment.csv
+#   make run-stats          — full descriptive statistics (composite phase)
+#   make all                — export → verify-all → run-stats
+#   make setup              — first-time venv + deps
+#
+# Per-stage doc: docs/by-stage/<phase>.md
 
-PYTHON ?= python3
+PYTHON ?= python3.11
 
-.PHONY: verify-numbers export-data run-stats setup all
+.PHONY: setup all
+.PHONY: verify-all verify-numbers
+.PHONY: audit-composite audit-mode-a audit-c2 audit-dom audit-smoker audit-stage3 audit-stage4b audit-paper audit-archival
+.PHONY: export-data run-stats
 
-# First-time setup: create venv and install dependencies
+# ── First-time setup ─────────────────────────────────────────────
 setup:
 	$(PYTHON) -m venv analysis/.venv
 	analysis/.venv/bin/pip install -r analysis/requirements.txt
 	@echo "Setup complete. Activate with: source analysis/.venv/bin/activate"
 
-# Verify all data points against key-numbers.md
+# ── Per-stage verifiers (each independently runnable) ─────────────
+audit-composite:
+	$(PYTHON) -m analysis.stages.phase1_composite
+
+audit-mode-a:
+	$(PYTHON) -m analysis.stages.phase2_mode_a
+
+audit-c2:
+	$(PYTHON) -m analysis.stages.phase3_c2
+
+audit-dom:
+	$(PYTHON) -m analysis.stages.phase4_dom_signatures
+
+audit-smoker:
+	$(PYTHON) -m analysis.stages.phase5_smoker
+
+audit-stage3:
+	$(PYTHON) -m analysis.stages.phase6_stage3
+
+audit-stage4b:
+	$(PYTHON) -m analysis.stages.phase6_stage4b
+
+# ── Cross-cutting audits ──────────────────────────────────────────
+audit-paper:
+	$(PYTHON) analysis/paper_consistency_audit.py
+
+audit-archival:
+	bash scripts/maintenance/check-archival-state.sh
+
+# ── Aggregate verifier (one-button V&V) ───────────────────────────
+verify-all:
+	$(PYTHON) -m analysis.verify_all
+
+# Legacy alias — composite phase only (kept for backwards compat)
 verify-numbers:
 	$(PYTHON) -X utf8 analysis/verify_all_data_points.py
 
-# Re-export combined CSV from raw traces
+# ── Data export and statistics ────────────────────────────────────
 export-data:
 	$(PYTHON) -X utf8 analysis/export_combined_data.py
 
-# Run full statistical analysis
 run-stats:
 	$(PYTHON) -X utf8 analysis/run_statistics.py
 
-# Full pipeline: export → verify → stats
-all: export-data verify-numbers run-stats
+# ── Convenience: full pipeline ────────────────────────────────────
+all: export-data verify-all run-stats
