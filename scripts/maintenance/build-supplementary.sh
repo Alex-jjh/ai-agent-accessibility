@@ -49,6 +49,8 @@ copy "$RESULTS/glmm_model_comparison.csv"       "$SUPP/glmm-model-comparison.csv
 copy "$RESULTS/majority_vote_sensitivity.csv"   "$SUPP/majority-vote-sensitivity.csv"
 copy "$RESULTS/stage3/visual-equiv/ssim-per-operator.csv" "$SUPP/ssim-per-operator.csv"
 copy "$RESULTS/smoker/passing-tasks.json"       "$SUPP/smoker-passing-tasks.json"
+copy "$RESULTS/amt/alignment_sensitivity.csv"   "$SUPP/alignment-sensitivity.csv"
+copy "$RESULTS/amt/alignment_sensitivity.md"    "$SUPP/alignment-sensitivity.md"
 
 # ── key-numbers.json (frozen at submission) ──────────────────────
 copy "$RESULTS/key-numbers.json"                "$SUPP/key-numbers.json"
