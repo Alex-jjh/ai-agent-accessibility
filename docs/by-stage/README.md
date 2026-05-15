@@ -24,6 +24,10 @@ The project comprises **6 phases** producing **N=14,768 case JSONs +
 
 **Cross-stage audit**: [audit-2026-05-15.md](audit-2026-05-15.md) — full V&V audit narrative + per-stage research conclusions + statistical method coverage matrix + top-line synthesis. Re-runs after `make verify-all`.
 
+**Submission gate**: [pre-submission-checklist.md](pre-submission-checklist.md) — auto-checked + manual items before paper PDF rebuild.
+
+**Figure inventory**: [figures-status.md](figures-status.md) — every paper figure classified (OK / REFRESH / REDRAW / SUPPLEMENTARY) + redraw cross-reference.
+
 **Total experimental N (case JSONs)**: 1,040 + 4,056 + 2,184 + 7,488 = **14,768**.
 **Total Stage 4b captures (PNGs)**: 9,408 (visual control, not counted in N).
 
