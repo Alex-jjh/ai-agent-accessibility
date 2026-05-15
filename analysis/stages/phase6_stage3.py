@@ -111,13 +111,13 @@ class Verifier(StageVerifier):
                 tol_pp=1.5,  # rate is rounded to 1pp in paper; allow 1.5pp slack
             ))
 
-        # 4. L11 cross-model gap
+        # 4. L11 cross-model gap (sign: negative = below H-baseline)
         rate_l11_claude = per_op_claude.get("L11")
         if rate_l11_claude is not None:
             actual_pp = (rate_l11_claude - h_claude) * 100
             report.add(expect_pp(
                 f"{self.stage_id}.claude.L11",
-                "Claude L11 drop (adaptive recovery — should be ~+2.3pp)",
+                "Claude L11 drop (adaptive recovery — small drop ~−2.3pp)",
                 C.L11_DROP_BREADTH_CLAUDE, actual_pp,
                 tol_pp=1.5,
             ))
@@ -126,10 +126,10 @@ class Verifier(StageVerifier):
         rate_l11_llama = per_op_llama.get("L11")
         h_llama = _h_baseline(llama)
         if rate_l11_llama is not None:
-            actual_pp = (h_llama - rate_l11_llama) * 100  # Llama drop is positive (worse)
+            actual_pp = (rate_l11_llama - h_llama) * 100
             report.add(expect_pp(
                 f"{self.stage_id}.llama.L11",
-                "Llama 4 L11 drop (no adaptation — should be ~14.1pp)",
+                "Llama 4 L11 drop (no adaptation — large drop ~−14.1pp)",
                 C.L11_DROP_BREADTH_LLAMA, actual_pp,
                 tol_pp=1.5,
             ))

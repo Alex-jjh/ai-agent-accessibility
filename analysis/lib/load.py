@@ -122,14 +122,20 @@ def load_cases_flat(data_dirs: Iterable[Path]) -> list[dict]:
                 continue
             cid = d.get("caseId", "")
             parts = cid.split(":")
-            if len(parts) != 6:
+            # Composite / Mode A / C.2: 6 parts <app>:<variant>:<task>:<agent>:<model>:<rep>
+            # Smoker: 5 parts <app>:<variant>:<task>:<container>:<rep>  (no agent/model — always Claude text)
+            if len(parts) == 6:
+                taskId, opId = parts[2], parts[5]
+            elif len(parts) == 5:
+                taskId, opId = parts[2], parts[1]   # smoker uses variant as opId proxy
+            else:
                 continue
             t = d.get("trace", {})
             answer = _extract_answer(t)
             cases.append({
                 "caseId": cid,
-                "taskId": parts[2],
-                "opId": parts[5],
+                "taskId": taskId,
+                "opId": opId,
                 "variant": parts[1],
                 "agent": t.get("agentConfig", {}).get("observationMode", "?"),
                 "success": t.get("success", False),

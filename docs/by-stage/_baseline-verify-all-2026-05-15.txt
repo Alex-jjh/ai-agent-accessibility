@@ -1,0 +1,119 @@
+══════════════════════════════════════════════════════════════════════════════
+V&V — verifying all paper-critical numbers across 7 stages
+══════════════════════════════════════════════════════════════════════════════
+
+══ phase5_smoker — Smoker base-solvability gate (684 → 48 tasks) ══
+  [PASS] phase5_smoker.shard_a.N: smoker-shard-a (shopping_admin + shopping × base × text × 3 reps)
+  [PASS] phase5_smoker.shard_b.N: smoker-shard-b (reddit + gitlab × base × text × 3 reps)
+  [PASS] phase5_smoker.total.N: smoker total
+  [PASS] phase5_smoker.total_passing: tasks passing the 7-gate inclusion protocol
+  [PASS] phase5_smoker.passing.ecommerce: ecommerce passing-task count
+  [PASS] phase5_smoker.passing.ecommerce_admin: ecommerce_admin passing-task count
+  [PASS] phase5_smoker.passing.gitlab: gitlab passing-task count
+  [PASS] phase5_smoker.passing.reddit: reddit passing-task count
+  [PASS] phase5_smoker.apps: passing-tasks.json apps
+[PASS] phase5_smoker: 9 passed, 0 failed — Smoker base-solvability gate (684 → 48 tasks)
+
+══ phase1_composite — Composite variant study (4 variants × 13 tasks) ══
+  [PASS] phase1_composite.N: total rows in combined-experiment.csv
+  [PASS] phase1_composite.exp.pilot4-full: pilot4-full row count
+  [PASS] phase1_composite.exp.pilot4-cua: pilot4-cua row count
+  [PASS] phase1_composite.exp.expansion-claude: expansion-claude row count
+  [PASS] phase1_composite.exp.expansion-llama4: expansion-llama4 row count
+  [PASS] phase1_composite.exp.expansion-som: expansion-som row count
+  [PASS] phase1_composite.exp.expansion-cua: expansion-cua row count
+  [PASS] phase1_composite.claude_text.low: Claude text-only low success rate
+  [PASS] phase1_composite.claude_text.medium-low: Claude text-only medium-low success rate
+  [PASS] phase1_composite.claude_text.base: Claude text-only base success rate
+  [PASS] phase1_composite.claude_text.high: Claude text-only high success rate
+  [PASS] phase1_composite.llama_text.low: Llama 4 text-only low success rate
+  [PASS] phase1_composite.llama_text.medium-low: Llama 4 text-only medium-low success rate
+  [PASS] phase1_composite.llama_text.base: Llama 4 text-only base success rate
+  [PASS] phase1_composite.llama_text.high: Llama 4 text-only high success rate
+  [PASS] phase1_composite.cua_claude.low: CUA Claude low success rate
+  [PASS] phase1_composite.cua_claude.medium-low: CUA Claude medium-low success rate
+  [PASS] phase1_composite.cua_claude.base: CUA Claude base success rate
+  [PASS] phase1_composite.cua_claude.high: CUA Claude high success rate
+  [PASS] phase1_composite.som_claude.low: SoM Claude low success rate
+  [PASS] phase1_composite.som_claude.medium-low: SoM Claude medium-low success rate
+  [PASS] phase1_composite.som_claude.base: SoM Claude base success rate
+  [PASS] phase1_composite.som_claude.high: SoM Claude high success rate
+[PASS] phase1_composite: 23 passed, 0 failed — Composite variant study (4 variants × 13 tasks)
+
+══ phase2_mode_a — Mode A depth (13 tasks × 26 ops × 3 archs Claude + Llama 4 text) ══
+  [PASS] phase2_mode_a.claude.N: Mode A Claude case count (3 archs × 26 ops × 13 tasks × 3 reps)
+  [PASS] phase2_mode_a.llama.N: Mode A Llama 4 case count (text × 26 ops × 13 tasks × 3 reps)
+  [PASS] phase2_mode_a.total.N: Mode A total = Claude + Llama 4
+  [PASS] phase2_mode_a.claude.arch.text-only: Claude text-only share of Mode A
+  [PASS] phase2_mode_a.claude.arch.vision-only: Claude vision-only share of Mode A
+  [PASS] phase2_mode_a.claude.arch.cua: Claude cua share of Mode A
+  [PASS] phase2_mode_a.claude.text.ops_missing: operators absent from Claude text-only Mode A
+  [PASS] phase2_mode_a.claude.text.ops_unexpected: operators present beyond the 26-op AMT taxonomy
+[PASS] phase2_mode_a: 8 passed, 0 failed — Mode A depth (13 tasks × 26 ops × 3 archs Claude + Llama 4 text)
+
+══ phase3_c2 — C.2 compositional study (28 pairs × 13 tasks × 2 archs × 3 reps) ══
+  [PASS] phase3_c2.N: C.2 total = 28 × 13 × 2 × 3
+  [PASS] phase3_c2.shard.c2-composition-shard-a: c2-composition-shard-a case count
+  [PASS] phase3_c2.shard.c2-composition-shard-b: c2-composition-shard-b case count
+  [PASS] phase3_c2.arch.text-only: text-only share of C.2
+  [PASS] phase3_c2.arch.cua: cua share of C.2
+[PASS] phase3_c2: 5 passed, 0 failed — C.2 compositional study (28 pairs × 13 tasks × 2 archs × 3 reps)
+
+══ phase4_dom_signatures — 12-dim DOM signature matrix (26 operators × 12 dims) ══
+  [PASS] phase4_dom_signatures.row_count: DOM signature matrix has 26 rows (one per AMT operator)
+  [PASS] phase4_dom_signatures.ops: all 26 operators present
+  [PASS] phase4_dom_signatures.sentinel.L1.V1_ssim: L1.V1_ssim matches paper appendix
+  [PASS] phase4_dom_signatures.sentinel.L1.A1_rolesChanged: L1.A1_rolesChanged matches paper appendix
+  [PASS] phase4_dom_signatures.sentinel.L1.A2_namesChanged: L1.A2_namesChanged matches paper appendix
+  [PASS] phase4_dom_signatures.sentinel.L5.V1_ssim: L5.V1_ssim matches paper appendix
+  [PASS] phase4_dom_signatures.sentinel.L5.D1_totalTagChanges: L5.D1_totalTagChanges matches paper appendix
+  [PASS] phase4_dom_signatures.sentinel.L5.F1_interactiveCountDelta: L5.F1_interactiveCountDelta matches paper appendix
+  [PASS] phase4_dom_signatures.sentinel.L11.V1_ssim: L11.V1_ssim matches paper appendix
+  [PASS] phase4_dom_signatures.sentinel.L11.D1_totalTagChanges: L11.D1_totalTagChanges matches paper appendix
+  [PASS] phase4_dom_signatures.sentinel.L11.F1_interactiveCountDelta: L11.F1_interactiveCountDelta matches paper appendix
+[PASS] phase4_dom_signatures: 11 passed, 0 failed — 12-dim DOM signature matrix (26 operators × 12 dims)
+
+══ phase6_stage3 — Stage 3 breadth (48 tasks × 26 ops × 3 reps × 2 models) ══
+  [PASS] phase6_stage3.claude.N: Stage 3 Claude case count (48 × 26 × 3)
+  [PASS] phase6_stage3.llama.N: Stage 3 Llama case count (48 × 26 × 3)
+  [PASS] phase6_stage3.total.N: Stage 3 total
+  [PASS] phase6_stage3.claude.overall_rate: Stage 3 Claude overall success rate
+  [PASS] phase6_stage3.llama.overall_rate: Stage 3 Llama overall success rate
+  [PASS] phase6_stage3.claude.h_baseline: Stage 3 Claude H-operator baseline
+  [PASS] phase6_stage3.claude.drop.L1: Claude L1 drop vs H-baseline
+  [PASS] phase6_stage3.claude.drop.L9: Claude L9 drop vs H-baseline
+  [PASS] phase6_stage3.claude.drop.L5: Claude L5 drop vs H-baseline
+  [PASS] phase6_stage3.claude.drop.L12: Claude L12 drop vs H-baseline
+  [PASS] phase6_stage3.claude.L11: Claude L11 drop (adaptive recovery — small drop ~−2.3pp)
+  [PASS] phase6_stage3.llama.L11: Llama 4 L11 drop (no adaptation — large drop ~−14.1pp)
+  [PASS] phase6_stage3.claude.ops_seen: Claude Stage 3 operator coverage
+  [PASS] phase6_stage3.llama.ops_seen: Llama Stage 3 operator coverage
+[PASS] phase6_stage3: 14 passed, 0 failed — Stage 3 breadth (48 tasks × 26 ops × 3 reps × 2 models)
+
+══ phase6_stage4b — Stage 4b SSIM trace-URL replay (336 URLs × 28 variants = 9,408 PNGs) ══
+  [PASS] phase6_stage4b.png_count: Stage 4b PNG count (336 × 28)
+  [PASS] phase6_stage4b.manifest_lines: manifest.jsonl line count
+  [PASS] phase6_stage4b.url_count: unique URLs replayed
+  [PASS] phase6_stage4b.variants: 28 expected variants present
+  [PASS] phase6_stage4b.per_op_count_uniform: operators with capture count != 336
+  [PASS] phase6_stage4b.login_contamination_pct: login-contaminated captures (informational; <5% expected)
+  [PASS] phase6_stage4b.median_ssim.L5: L5 median SSIM (paper §4.117 sentinel)
+  [PASS] phase6_stage4b.median_ssim.L6: L6 median SSIM (paper §4.117 sentinel)
+  [PASS] phase6_stage4b.median_ssim.L11: L11 median SSIM (paper §4.117 sentinel)
+  [PASS] phase6_stage4b.below_ssim_threshold: operators with median SSIM < 0.99
+[PASS] phase6_stage4b: 10 passed, 0 failed — Stage 4b SSIM trace-URL replay (336 URLs × 28 variants = 9,408 PNGs)
+
+══════════════════════════════════════════════════════════════════════════════
+SUMMARY
+══════════════════════════════════════════════════════════════════════════════
+[PASS] phase5_smoker: 9 passed, 0 failed — Smoker base-solvability gate (684 → 48 tasks)
+[PASS] phase1_composite: 23 passed, 0 failed — Composite variant study (4 variants × 13 tasks)
+[PASS] phase2_mode_a: 8 passed, 0 failed — Mode A depth (13 tasks × 26 ops × 3 archs Claude + Llama 4 text)
+[PASS] phase3_c2: 5 passed, 0 failed — C.2 compositional study (28 pairs × 13 tasks × 2 archs × 3 reps)
+[PASS] phase4_dom_signatures: 11 passed, 0 failed — 12-dim DOM signature matrix (26 operators × 12 dims)
+[PASS] phase6_stage3: 14 passed, 0 failed — Stage 3 breadth (48 tasks × 26 ops × 3 reps × 2 models)
+[PASS] phase6_stage4b: 10 passed, 0 failed — Stage 4b SSIM trace-URL replay (336 URLs × 28 variants = 9,408 PNGs)
+
+Total: 80 passed, 0 failed across 7 stages
+
+Detail: results/key-numbers.json

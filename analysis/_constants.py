@@ -137,13 +137,16 @@ STAGE3_DROPS_BREADTH_LLAMA = {
 }
 
 # Cross-model L11 adaptive recovery gap (paper §5.3)
-L11_DROP_BREADTH_CLAUDE = 2.3   # +pp = recovery (improvement vs H-baseline)
-L11_DROP_BREADTH_LLAMA = 14.1   # -pp behavior
+# Sign convention: drop_pp = (rate − H_baseline) × 100, so a 2.3pp drop is −2.3.
+# Paper writes "+2.3pp drop" colloquially; that magnitude is what the cross-model
+# gap is built on (Claude only −2.3 vs Llama −14.1 is the recovery story).
+L11_DROP_BREADTH_CLAUDE = -2.3
+L11_DROP_BREADTH_LLAMA = -14.1
 
 # Mode A depth (kept for reference; paper now anchors on breadth)
 L1_DROP_DEPTH = -40.0
-L11_DROP_DEPTH_CLAUDE = 1.5
-L11_DROP_DEPTH_LLAMA = 14.6
+L11_DROP_DEPTH_CLAUDE = -1.5
+L11_DROP_DEPTH_LLAMA = -14.6
 
 # ============================================================
 # Paper claims — Phase 3 C.2 composition (§5.4)
