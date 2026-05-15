@@ -45,8 +45,13 @@ expired 2026-05-12; everything is local-analysis from here.
   any deletion under `data/stage4b-ssim-replay/` re-confirm both.
 - `data.zip` (~2.9 GB at repo root, gitignored) is the user-verified
   full backup of `data/`. Do not delete without explicit confirmation.
-- Use `Makefile` targets: `make verify-numbers`, `make export-data`,
-  `make run-stats`, `make all`.
+- Use `Makefile` targets:
+  - `make verify-all` — V&V all 7 stages (80/80 PASS as of 2026-05-15)
+  - `make audit-<phase>` — single stage (e.g. `audit-stage3`)
+  - `make export-data`, `make run-stats`, `make all`
+  - `make verify-numbers` legacy alias (composite phase only)
+- Per-stage docs in `docs/by-stage/{phase1..phase6_stage4b}.md`.
+- Audit wrappers indexed at `scripts/audit/README.md`.
 
 ## Tech stack quickref
 

@@ -1,16 +1,21 @@
 # scripts/ — Directory Guide
 
-Organized into 10 subdirectories by function.
+Organized into 12 subdirectories by function. **For audit/V&V, start at
+[`audit/README.md`](audit/README.md) — single discoverability point.**
 
 ```
 scripts/
+├── audit/          ★ V&V wrappers — start here for "how do I audit X"
+├── maintenance/    Repo maintenance (archival check, etc.)
 ├── runners/        Experiment runners (core pipeline)
 ├── launchers/      nohup wrappers for EC2 (survive SSM disconnect)
 ├── infra/          AWS deployment & EC2 bootstrap
 ├── data-pipeline/  S3 upload/download for experiments & audits
 ├── amt/            AMT operator taxonomy + paper analysis (v8 paper core)
+├── stage3/         Stage 3 audit + SSIM replay (Phase 6)
+├── smoker/         Smoker analysis + filter (Phase 5)
 ├── a11y-cua/       A11y-CUA human baseline integration
-├── visual-equiv/   Visual equivalence validation (Phase 7)
+├── visual-equiv/   13-task Phase 7 prototype (DEPRECATED — superseded by Stage 4b)
 ├── smoke/          Quick subsystem verification
 ├── analysis/       Pre-AMT analysis (historical) & task selection
 └── ssm/            AWS SSM command documents (JSON)
