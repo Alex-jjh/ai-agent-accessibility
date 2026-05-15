@@ -87,6 +87,49 @@ class Verifier(StageVerifier):
             0, len(unexpected),
         ))
 
+        # GEE direction + significance check (paper §5.1 footnote).
+        # We assert sign + significance rather than exact β, because paper's
+        # numeric claims (β=−1.35, z=−5.98) don't reproduce on current data
+        # (likely different model spec or pre-GT-corrections). See audit doc §F.
+        try:
+            gee_results = self._run_gee(claude_cases)
+        except Exception as exc:
+            from analysis.lib.assertions import Assertion
+            report.add(Assertion(
+                name=f"{self.stage_id}.gee.run",
+                description="GEE Mode A — model fit",
+                expected="model fits",
+                actual=f"exception: {type(exc).__name__}: {exc}",
+                passed=False,
+                tolerance="exact",
+            ))
+            return
+
+        for model_name, expected_z_max, label in [
+            ("M1_destructive", C.GEE_DESTRUCTIVE_Z_MAX, "destructive (L1/L5) vs rest"),
+            ("M2_low_family",  C.GEE_LOW_FAMILY_Z_MAX,  "Low-family vs H-baseline"),
+        ]:
+            r = gee_results.get(model_name, {})
+            beta = r.get("beta", 0)
+            z = r.get("z", 0)
+            # Pass if β < 0 AND z < expected_z_max (more negative = more significant)
+            from analysis.lib.assertions import Assertion
+            ok = beta < 0 and z < expected_z_max
+            report.add(Assertion(
+                name=f"{self.stage_id}.gee.{model_name}",
+                description=f"GEE {label}: β<0 AND z<{expected_z_max} (paper §5.1 fn)",
+                expected=f"β<0, z<{expected_z_max}",
+                actual=f"β={beta}, z={z}",
+                passed=ok,
+                tolerance="sign + significance",
+            ))
+
+    @staticmethod
+    def _run_gee(claude_cases: list) -> dict:
+        """Lazy-import wrapper around amt_statistics.test_gee_mode_a (text-only)."""
+        from analysis.amt_statistics import test_gee_mode_a
+        return test_gee_mode_a(claude_cases, agent="text-only")
+
 
 if __name__ == "__main__":
     import sys

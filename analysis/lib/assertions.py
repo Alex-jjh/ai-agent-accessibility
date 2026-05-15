@@ -86,6 +86,26 @@ def expect_pp(
     )
 
 
+def expect_in_range(
+    name: str,
+    description: str,
+    expected_range: tuple,
+    actual: float,
+) -> Assertion:
+    """Assert `actual` falls within an inclusive numeric range.
+    Useful for bootstrap confidence intervals and other "is X within (lo, hi)" checks.
+    """
+    lo, hi = expected_range
+    return Assertion(
+        name=name,
+        description=description,
+        expected=f"in [{lo}, {hi}]",
+        actual=actual,
+        passed=(lo <= actual <= hi),
+        tolerance="range",
+    )
+
+
 def expect_set_membership(
     name: str,
     description: str,

@@ -81,6 +81,62 @@ class Verifier(StageVerifier):
                     expected, actual, tol_frac=tol,
                 ))
 
+        # 4. Cross-stage Spearman: DOM magnitude vs Stage 3 behavioral drop
+        # Paper §5.2 alignment: ρ = 0.426 (NS, p ≈ 0.10) — the *finding* is
+        # that DOM magnitude does NOT predict behavioral impact (misalignment).
+        stage3_csv = REPO_ROOT / "results" / "stage3" / "per-operator-stage3.csv"
+        if stage3_csv.exists():
+            rho = self._compute_dom_behavior_spearman(by_op, stage3_csv)
+            if rho is not None:
+                report.add(expect_rate(
+                    f"{self.stage_id}.spearman_dom_vs_behavior",
+                    "Spearman ρ: DOM magnitude rank vs Stage 3 Claude drop rank (paper §5.2)",
+                    expected=C.SPEARMAN_RHO_DOM_VS_BEHAVIOR,
+                    actual=rho,
+                    tol_frac=C.SPEARMAN_RHO_TOL,
+                ))
+
+    @staticmethod
+    def _compute_dom_behavior_spearman(dom_rows: dict, stage3_csv: Path) -> float | None:
+        """Spearman correlation between DOM magnitude and Stage 3 behavioral drop.
+
+        DOM magnitude = sum of |D1, A1, A2, F1| columns (matches
+        `analysis/stage3_statistics.py` line 230). Behavioral drop = drop_pp
+        from per-operator-stage3.csv.
+
+        IMPORTANT: paper §5.2 ρ=0.426 is computed on the **16 operators with
+        non-null `p_raw`** (i.e. those with a valid Fisher exact test result),
+        not all 26. Including the 10 H-operators with p_raw=None drops ρ to
+        ~0.34. Match the paper's filtering convention exactly here.
+
+        Returns absolute ρ (paper writes |ρ|).
+        """
+        from scipy import stats
+        with stage3_csv.open() as f:
+            stage3 = {r["operator"]: r for r in csv.DictReader(f)
+                      if r.get("p_raw") not in (None, "", "None")}
+        ops = sorted(set(dom_rows) & set(stage3))
+        if len(ops) < 5:
+            return None
+        dom_mag, behavior_drop = [], []
+        for op in ops:
+            d = dom_rows[op]
+            try:
+                mag = sum(
+                    abs(float(d[k])) for k in d
+                    if k.startswith(("D1", "A1", "A2", "F1"))
+                    and d[k] not in ("", None)
+                )
+                drop = float(stage3[op]["drop_pp"])  # signed, matches stage3 impl
+            except (ValueError, KeyError):
+                continue
+            dom_mag.append(mag)
+            behavior_drop.append(drop)
+        if len(dom_mag) < 5:
+            return None
+        rho, _ = stats.spearmanr(dom_mag, behavior_drop)
+        return abs(float(rho))
+
 
 if __name__ == "__main__":
     import sys

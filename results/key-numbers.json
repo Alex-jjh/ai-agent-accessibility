@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-05-15T04:13:34.739629+00:00",
+  "generated_at": "2026-05-15T06:52:32.377677+00:00",
   "all_passed": true,
   "stages": {
     "phase5_smoker": {
@@ -95,7 +95,7 @@
     "phase1_composite": {
       "label": "Composite variant study (4 variants \u00d7 13 tasks)",
       "passed": true,
-      "n_passed": 23,
+      "n_passed": 38,
       "n_failed": 0,
       "assertions": [
         {
@@ -281,13 +281,133 @@
           "actual": 0.3230769230769231,
           "passed": true,
           "tolerance": "\u00b10.005"
+        },
+        {
+          "name": "phase1_composite.low_vs_rest.text-only.claude-sonnet",
+          "description": "Low-vs-rest binary Z (chi-square) for text-only\u00d7claude-sonnet",
+          "expected": 9.83,
+          "actual": 9.828660035255377,
+          "passed": true,
+          "tolerance": "\u00b10.05"
+        },
+        {
+          "name": "phase1_composite.low_vs_rest.cua.claude-sonnet",
+          "description": "Low-vs-rest binary Z (chi-square) for cua\u00d7claude-sonnet",
+          "expected": 7.66,
+          "actual": 7.6581457133692465,
+          "passed": true,
+          "tolerance": "\u00b10.05"
+        },
+        {
+          "name": "phase1_composite.low_vs_rest.text-only.llama4-maverick",
+          "description": "Low-vs-rest binary Z (chi-square) for text-only\u00d7llama4-maverick",
+          "expected": 4.63,
+          "actual": 4.628149156841343,
+          "passed": true,
+          "tolerance": "\u00b10.05"
+        },
+        {
+          "name": "phase1_composite.low_vs_rest.vision-only.claude-sonnet",
+          "description": "Low-vs-rest binary Z (chi-square) for vision-only\u00d7claude-sonnet",
+          "expected": 4.36,
+          "actual": 4.359408657916472,
+          "passed": "True",
+          "tolerance": "\u00b10.05"
+        },
+        {
+          "name": "phase1_composite.cochran_armitage.claude_text",
+          "description": "Cochran-Armitage trend Z (Claude text-only, 4 ordered variants)",
+          "expected": 6.635,
+          "actual": 6.635399045958634,
+          "passed": true,
+          "tolerance": "\u00b10.05"
+        },
+        {
+          "name": "phase1_composite.wilcoxon_tokens.threshold",
+          "description": "Wilcoxon log10(p) for token inflation < -3",
+          "expected": 1,
+          "actual": 1,
+          "passed": true,
+          "tolerance": "exact"
+        },
+        {
+          "name": "phase1_composite.bootstrap.functional.point_estimate",
+          "description": "Bootstrap functional pathway point estimate (paper \u00a75.1)",
+          "expected": 35.4,
+          "actual": 35.4,
+          "passed": true,
+          "tolerance": "\u00b11.0"
+        },
+        {
+          "name": "phase1_composite.bootstrap.functional.ci_lo",
+          "description": "Bootstrap functional CI lower bound matches paper",
+          "expected": "in [13.9, 16.9]",
+          "actual": 15.4,
+          "passed": true,
+          "tolerance": "range"
+        },
+        {
+          "name": "phase1_composite.bootstrap.functional.ci_hi",
+          "description": "Bootstrap functional CI upper bound matches paper",
+          "expected": "in [53.9, 56.9]",
+          "actual": 55.4,
+          "passed": true,
+          "tolerance": "range"
+        },
+        {
+          "name": "phase1_composite.bootstrap.semantic.point_estimate",
+          "description": "Bootstrap semantic pathway point estimate (paper \u00a75.1)",
+          "expected": 20.0,
+          "actual": 20.0,
+          "passed": true,
+          "tolerance": "\u00b11.0"
+        },
+        {
+          "name": "phase1_composite.bootstrap.semantic.ci_lo",
+          "description": "Bootstrap semantic CI lower bound matches paper",
+          "expected": "in [-15.3, -12.3]",
+          "actual": -13.8,
+          "passed": true,
+          "tolerance": "range"
+        },
+        {
+          "name": "phase1_composite.bootstrap.semantic.ci_hi",
+          "description": "Bootstrap semantic CI upper bound matches paper",
+          "expected": "in [50.8, 53.8]",
+          "actual": 52.3,
+          "passed": true,
+          "tolerance": "range"
+        },
+        {
+          "name": "phase1_composite.majority_vote.anthropic.text-only",
+          "description": "Majority-vote Low-vs-rest Z (anthropic\u00d7text-only)",
+          "expected": 4.005,
+          "actual": 4.005,
+          "passed": true,
+          "tolerance": "\u00b10.05"
+        },
+        {
+          "name": "phase1_composite.majority_vote.anthropic.cua",
+          "description": "Majority-vote Low-vs-rest Z (anthropic\u00d7cua)",
+          "expected": 3.474,
+          "actual": 3.474,
+          "passed": true,
+          "tolerance": "\u00b10.05"
+        },
+        {
+          "name": "phase1_composite.majority_vote.cell_count",
+          "description": "majority-vote sensitivity aggregates each model\u00d7agent\u00d7variant",
+          "expected": 52,
+          "actual": 52,
+          "passed": true,
+          "tolerance": "exact"
         }
       ]
     },
     "phase2_mode_a": {
       "label": "Mode A depth (13 tasks \u00d7 26 ops \u00d7 3 archs Claude + Llama 4 text)",
       "passed": true,
-      "n_passed": 8,
+      "n_passed": 10,
       "n_failed": 0,
       "assertions": [
         {
@@ -353,6 +473,22 @@
           "actual": 0,
           "passed": true,
           "tolerance": "exact"
+        },
+        {
+          "name": "phase2_mode_a.gee.M1_destructive",
+          "description": "GEE destructive (L1/L5) vs rest: \u03b2<0 AND z<-2.0 (paper \u00a75.1 fn)",
+          "expected": "\u03b2<0, z<-2.0",
+          "actual": "\u03b2=-1.9454, z=-2.847",
+          "passed": "True",
+          "tolerance": "sign + significance"
+        },
+        {
+          "name": "phase2_mode_a.gee.M2_low_family",
+          "description": "GEE Low-family vs H-baseline: \u03b2<0 AND z<-2.0 (paper \u00a75.1 fn)",
+          "expected": "\u03b2<0, z<-2.0",
+          "actual": "\u03b2=-0.7677, z=-2.631",
+          "passed": "True",
+          "tolerance": "sign + significance"
         }
       ]
     },
@@ -407,7 +543,7 @@
     "phase4_dom_signatures": {
       "label": "12-dim DOM signature matrix (26 operators \u00d7 12 dims)",
       "passed": true,
-      "n_passed": 11,
+      "n_passed": 12,
       "n_failed": 0,
       "assertions": [
         {
@@ -551,6 +687,14 @@
           "actual": -182.3077,
           "passed": true,
           "tolerance": "\u00b19.115"
+        },
+        {
+          "name": "phase4_dom_signatures.spearman_dom_vs_behavior",
+          "description": "Spearman \u03c1: DOM magnitude rank vs Stage 3 Claude drop rank (paper \u00a75.2)",
+          "expected": 0.426,
+          "actual": 0.42559712300730523,
+          "passed": true,
+          "tolerance": "\u00b10.05"
         }
       ]
     },
