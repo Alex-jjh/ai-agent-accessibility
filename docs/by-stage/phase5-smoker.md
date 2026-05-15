@@ -18,10 +18,17 @@
   113/114 reddit tasks at Gate 5.
 - **Pre-registration locked 2026-05-06/07** before Stage 3 manipulation
   data collected. Gate standards not fitted post-hoc.
-- **Mode A / Stage 3 convergence**: 10/13 hand-picked Mode A tasks pass
-  all 7 Stage 3 gates retrospectively; 3 exceptions are intentional
-  noise-floor / lower-bound controls. Manual + formal selection converge
-  → gate is principled, not fitted.
+- **Mode A / Stage 3 convergence**: only **5/13** Mode A hand-picked tasks
+  pass the *full* 7-gate (Gate 6+7-amended) check (ecom:23, ecom:26,
+  gitlab:308, admin:94, admin:95). The 8 that fail are exactly the tasks
+  Mode A itself documents as controls: noise-floor (reddit:29, reddit:67),
+  operator-immune (gitlab:132, ecom:24, ecom:41, ecom:188), Docker-drift
+  (gitlab:293, admin:198), or stochastic baseline (admin:4). Two
+  independent selection procedures (April hand-selection vs May 7-gate
+  pre-registration) reject the same 8 tasks as unfit for main-effect
+  breadth analysis — strong convergence evidence the gate is principled,
+  not fitted. (An earlier shard-B-only check claimed 10/13 pass; that
+  was superseded by the full shard-A+B re-check on 2026-05-07.)
 - **➜ Provides the locked task set for Phase 6 Stage 3** breadth experiment
   and the §4 task-funnel narrative (Figure F11).
 
@@ -110,10 +117,24 @@ Verifier asserts:
 
 ## Convergence with Mode A
 
-Retrospective check: 10 of 13 Mode A tasks satisfy all 7 Stage 3 gates.
-The 3 exceptions are intentional controls:
+Retrospective check (full 7-gate, shard A + B, 2026-05-07): **5 of 13 Mode A
+tasks pass** all gates (ecom:23, ecom:26, gitlab:308, admin:94, admin:95).
+The 8 that fail are exactly the tasks Mode A's own documentation classifies
+as controls:
 - `reddit:29`, `reddit:67` — noise-floor / stochasticity controls
-- `shopping:24` — conservative lower-bound task
+- `gitlab:132`, `ecom:24`, `ecom:41`, `ecom:188` — operator-immune controls
+- `gitlab:293`, `admin:198` — Docker-drift (GT-corrected in Mode A)
+- `admin:4` — genuine stochastic baseline
+
+Two independent selection procedures (April hand-selection for Mode A vs
+May 7-gate pre-registration for Stage 3) reject the same 8 tasks as
+unfit for main-effect breadth analysis. **This is a stronger convergence
+statement than picking-out-the-failures**: every formal-gate failure has
+an independent prior justification documented in Mode A.
+
+Earlier shard-B-only check (2026-05-07 AM) reported 10/13; that was
+superseded by the full shard-A+B re-check the same day after Gate 6+7
+were added (see `docs/analysis/task-selection-methodology.md` §8.1).
 
 This convergence between manual (Mode A) and formal (Stage 3) selection
 is reported in §4 as evidence the gate is principled rather than fitted.

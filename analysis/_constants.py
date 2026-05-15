@@ -47,6 +47,18 @@ SMOKER_PASSING_BY_APP = {
     "reddit": 1,
 }
 
+# Mode A retrospective convergence (paper §4 + docs/analysis/task-selection-methodology.md §8.1)
+# Of the 13 hand-picked Mode A tasks, only 5 pass the full 7-gate Stage 3 protocol
+# (ecom:23, ecom:26, gitlab:308, admin:94, admin:95). The other 8 are the same
+# tasks Mode A's own docs flag as controls (noise-floor, operator-immune,
+# Docker-drift, or stochastic-baseline). Stronger convergence than "10/13 pass":
+# two independent selection procedures reject identically the same 8 tasks.
+MODE_A_TASKS_PASSING_STAGE3_GATE = 5
+MODE_A_TASKS_TOTAL = 13
+MODE_A_GATE_PASSING_TASKS = ["ecommerce_23", "ecommerce_26", "gitlab_308", "ecommerce_admin_94", "ecommerce_admin_95"]
+# (The earlier shard-B-only check reported 10/13; superseded 2026-05-07 after
+# Gate 6 + Gate 7 added.)
+
 # Phase 6 — Stage 3 breadth (48 tasks × 26 ops × 3 reps × 2 models)
 N_STAGE3_CLAUDE = 3744
 N_STAGE3_LLAMA = 3744

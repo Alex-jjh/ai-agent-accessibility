@@ -1,5 +1,11 @@
 # Smoker Full-Dataset Trace Audit — Pre–Stage-3 (2026-05-08)
 
+> **STATUS (2026-05-15)**: This file's "10/13 Mode A pass" line on §3 was
+> superseded by the full shard-A+B re-check on 2026-05-07: only **5/13 pass**
+> the full 7-gate (the 8 failures are Mode A's documented controls). See
+> `docs/by-stage/phase5-smoker.md` "Convergence with Mode A" for the
+> corrected statement.
+
 **Scope**: 2,052 cases (shard A 1,122 + shard B 930) covering 684 WebArena
 tasks across shopping_admin (182), shopping (192), reddit (114), gitlab
 (196). Run against the post-fix `analyze-smoker.py` (partial_success →

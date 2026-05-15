@@ -1,5 +1,10 @@
 # D.4 Figure Plan — AMT Paper (CHI 2027)
 
+> **STATUS (2026-05-15)**: Frozen plan from 2026-05-02. Line 175's "10/13 pass
+> highlighted in green" reflects the original shard-B-only check;
+> superseded 2026-05-07 — full 7-gate yields **5/13 pass**. See
+> `docs/by-stage/phase5-smoker.md` for the corrected number.
+
 **Date**: 2026-05-02
 **Total figures**: 9 main (3 conceptual + 6 data) + supplementary
 **Principle**: 概念图用 GPT Image 2（直观），数据图用 matplotlib（严谨）
