@@ -1,5 +1,12 @@
 # Figure Status Inventory (paper rebuild)
 
+> **SUPERSEDED 2026-06-05 by `figures/README.md`.** Figures were renumbered to
+> a unified `fig1`–`fig10` + `figA1` scheme (by paper appearance order), the
+> four python data figures were fixed/regenerated, and a new cross-model figure
+> (`fig10`) was promoted to the main body. See `figures/README.md` for the
+> current authoritative inventory and the per-figure refresh ownership. The
+> notes below are the pre-reorg analysis that drove that work.
+
 > Inventory of every paper figure: where it lives, what data it depends on,
 > and what its status is post-2026-05-15 V&V audit. **User will redraw all
 > figures separately**; this doc is a checklist of which to refresh and why.

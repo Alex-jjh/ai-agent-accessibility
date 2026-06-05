@@ -62,7 +62,7 @@ MIDDLE BOX:
 RIGHT BOX:
 - Fill: very light green (#EAFAF1), border: dark green (#27AE60), 2px
 - Header: "High (H1–H8)"
-- Subheader: "8 enhancement operators"
+- Subheader: "10 enhancement operators (H1–H4, H5a/b/c, H6–H8)"
 - Body: H1 Auto aria-label | H2 Skip-nav | H3 Associate labels | H4 Add landmarks | H5a-c Auto alt/lang/links | H6-H8 States+scope
 
 ═══ BAND 2 (middle, ~30% height): "Dual Signature Measurement" ═══
@@ -99,23 +99,29 @@ Row headers: "DOM ACTIVE (changes > threshold)" | "DOM MINIMAL (changes < thresh
 
 Top-left cell (light green fill, green border):
 - "✓ ALIGNED" (bold)
-- "Both active — 6 ops (23%)"
+- "Both active — 2 ops (8%)"
 - Small: "L1, L5 (destructive)"
 
 Top-right cell (light red fill, red border):
 - "✗ MISALIGNED" (bold)
-- "Agent Adaptation — 11 ops (42%)"
-- Small: "DOM devastated but agents find workarounds"
+- "Agent Adaptation — 9 ops (35%)"
+- Small: "DOM devastated but agents find workarounds (e.g. L11)"
 
 Bottom-left cell (light red fill, red border):
 - "✗ MISALIGNED" (bold)
-- "Structural Criticality — 4 ops (15%)"
-- Small: "Tiny DOM change, outsized behavioral impact"
+- "Structural Criticality — 2 ops (8%)"
+- Small: "Tiny DOM change, outsized behavioral impact (L10, L12)"
 
 Bottom-right cell (light green fill, green border):
 - "✓ ALIGNED" (bold)
-- "Both null — 5 ops (19%)"
-- Small: "H5a, H5b, H6 (no measurable effect)"
+- "Both null — 13 ops (50%)"
+- Small: "most H operators (no measurable effect)"
+
+NOTE (for whoever regenerates this figure): the overall misalignment headline
+is 11 of 26 = 42% (= the 9 agent-adaptation + 2 structural-criticality cells).
+Do NOT label any single cell "42%" — 42% is the SUM of the two misaligned cells.
+These counts use the paper-default thresholds (DOM-active ≥5.0 on |D1|+|A1|+|A2|
+or SSIM<0.99; behavior-active ≥5pp) and must match paper §5.2 exactly.
 
 ═══ CONNECTING ELEMENTS ═══
 

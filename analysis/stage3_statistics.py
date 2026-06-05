@@ -219,6 +219,20 @@ def main():
     homog = sum(1 for r in cross_results if r["homogeneous"])
     print(f"\n  {homog}/{len(cross_results)} operators show OR homogeneity")
 
+    # Machine-readable cross-model CSV (consumed by figures/generate_fig7_cross_model.py).
+    # Purely additive output; does not alter any verifier-checked number.
+    cross_rows = [{
+        "operator": r["operator"],
+        "claude_drop_pp": round(r["c_drop"] * 100, 4),
+        "llama_drop_pp": round(r["l_drop"] * 100, 4),
+        "OR_mh": round(r["OR_mh"], 4),
+        "bd_chi2": round(r["BD"], 4),
+        "bd_p": r["p"],
+        "homogeneous": r["homogeneous"],
+    } for r in sorted(cross_results, key=lambda x: -x["c_drop"])]
+    pd.DataFrame(cross_rows).to_csv(OUT_DIR / "cross-model-stage3.csv", index=False)
+    print(f"\n  Wrote {OUT_DIR / 'cross-model-stage3.csv'} ({len(cross_rows)} operators)")
+
     # ── §5.2 Spearman: DOM magnitude vs behavioral drop ───────────────
     print(f"\n{'─'*70}")
     print("§5.2 SPEARMAN: DOM MAGNITUDE vs BEHAVIORAL DROP")

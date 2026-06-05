@@ -100,8 +100,8 @@ ax.text(5, -0.1,
         ha='center', va='top', fontsize=9, color='#27AE60', style='italic')
 
 plt.tight_layout()
-plt.savefig('figures/F11_task_funnel.png', dpi=300, bbox_inches='tight',
+plt.savefig('figures/fig3_task_funnel.png', dpi=300, bbox_inches='tight',
             facecolor='white')
-plt.savefig('figures/F11_task_funnel.pdf', bbox_inches='tight',
+plt.savefig('figures/fig3_task_funnel.pdf', bbox_inches='tight',
             facecolor='white')
-print("Saved: figures/F11_task_funnel.{png,pdf}")
+print("Saved: figures/fig3_task_funnel.{png,pdf}")
