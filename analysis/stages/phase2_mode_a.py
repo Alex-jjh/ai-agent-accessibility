@@ -15,7 +15,7 @@ from collections import Counter
 from pathlib import Path
 
 from analysis import _constants as C
-from analysis.lib.assertions import StageReport, expect_count
+from analysis.lib.assertions import StageReport, expect_count, expect_pp
 from analysis.lib.load import apply_gt_corrections, load_cases_flat
 from analysis.stages._base import StageVerifier
 
@@ -86,6 +86,20 @@ class Verifier(StageVerifier):
             "operators present beyond the 26-op AMT taxonomy",
             0, len(unexpected),
         ))
+
+        # L1 landmark-paradox depth drop (paper §5.3: −40pp depth vs −28pp breadth).
+        # Drop = (L1 rate − pooled H-operator baseline) × 100, Claude text-only.
+        text_cases = [c for c in claude_cases if c["agent"] == "text-only"]
+        h_cases = [c for c in text_cases if c["opId"].startswith("H")]
+        l1_cases = [c for c in text_cases if c["opId"] == "L1"]
+        if h_cases and l1_cases:
+            h_rate = sum(1 for c in h_cases if c["success"]) / len(h_cases)
+            l1_rate = sum(1 for c in l1_cases if c["success"]) / len(l1_cases)
+            report.add(expect_pp(
+                f"{self.stage_id}.claude.L1_depth_drop",
+                "Mode A Claude L1 depth drop vs H-baseline (paper §5.3: −40pp)",
+                C.L1_DROP_DEPTH, (l1_rate - h_rate) * 100,
+            ))
 
         # GEE direction + significance check (paper §5.1 footnote).
         # We assert sign + significance rather than exact β, because paper's

@@ -22,6 +22,7 @@ from analysis.stages import (
     phase2_mode_a,
     phase3_c2,
     phase4_dom_signatures,
+    phase4b_ecological,
     phase5_smoker,
     phase6_stage3,
     phase6_stage4b,
@@ -38,6 +39,7 @@ STAGES = [
     phase2_mode_a,
     phase3_c2,
     phase4_dom_signatures,
+    phase4b_ecological,
     phase6_stage3,
     phase6_stage4b,
 ]
@@ -45,7 +47,7 @@ STAGES = [
 
 def main() -> int:
     print("═" * 78)
-    print("V&V — verifying all paper-critical numbers across 7 stages")
+    print("V&V — verifying all paper-critical numbers across 8 stages")
     print("═" * 78)
 
     reports = []

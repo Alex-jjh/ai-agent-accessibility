@@ -13,7 +13,7 @@ from collections import Counter
 from pathlib import Path
 
 from analysis import _constants as C
-from analysis.lib.assertions import StageReport, expect_count
+from analysis.lib.assertions import Assertion, StageReport, expect_count, expect_pp
 from analysis.lib.load import apply_gt_corrections, load_cases_flat
 from analysis.stages._base import StageVerifier
 
@@ -22,6 +22,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 DATA = REPO_ROOT / "data"
 
 C2_DIRS = [DATA / "c2-composition-shard-a", DATA / "c2-composition-shard-b"]
+MODE_A_DIRS = [DATA / "mode-a-shard-a", DATA / "mode-a-shard-b"]
 
 
 class Verifier(StageVerifier):
@@ -63,6 +64,37 @@ class Verifier(StageVerifier):
                 f"{self.stage_id}.arch.{agent_label}",
                 f"{agent_label} share of C.2",
                 expected_per_arch, agents.get(agent_label, 0),
+            ))
+
+        # Super-additivity finding (paper §5.4): of 28 pairs, 15 super / 9 additive
+        # / 4 sub, binomial p=0.019 (super vs sub, H0 p=0.5). Reproduced via the
+        # canonical amt_statistics path (Mode A singletons + C.2 pairs, text-only).
+        if all(d.exists() for d in MODE_A_DIRS):
+            from analysis.amt_statistics import test_compositional_interaction
+            claude_singletons = apply_gt_corrections(load_cases_flat(MODE_A_DIRS))
+            _, summ = test_compositional_interaction(claude_singletons, cases, agent="text-only")
+            report.add(expect_count(
+                f"{self.stage_id}.super_additive",
+                "C.2 super-additive pair count (paper §5.4: 15/28)",
+                C.C2_SUPER_ADDITIVE, summ["super"],
+            ))
+            report.add(expect_count(
+                f"{self.stage_id}.additive",
+                "C.2 additive pair count (paper §5.4: 9/28)",
+                C.C2_ADDITIVE, summ["additive"],
+            ))
+            report.add(expect_count(
+                f"{self.stage_id}.sub_additive",
+                "C.2 sub-additive pair count (paper §5.4: 4/28)",
+                C.C2_SUB_ADDITIVE, summ["sub"],
+            ))
+            report.add(Assertion(
+                name=f"{self.stage_id}.binomial_p",
+                description="C.2 super-vs-sub binomial p (paper §5.4: 0.019)",
+                expected=C.C2_BINOMIAL_P,
+                actual=round(summ["binomial_p"], 3),
+                passed=abs(summ["binomial_p"] - C.C2_BINOMIAL_P) <= 0.001,
+                tolerance="±0.001",
             ))
 
 
