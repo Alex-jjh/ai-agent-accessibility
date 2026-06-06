@@ -14,7 +14,8 @@ PYTHON ?= python3.11
 
 .PHONY: setup all
 .PHONY: verify-all verify-numbers
-.PHONY: audit-composite audit-mode-a audit-c2 audit-dom audit-smoker audit-stage3 audit-stage4b audit-paper audit-archival
+.PHONY: audit-composite audit-mode-a audit-c2 audit-dom audit-smoker audit-stage3 audit-stage4b audit-ecological audit-paper audit-archival
+.PHONY: verify-ts
 .PHONY: export-data run-stats
 
 # ── First-time setup ─────────────────────────────────────────────
@@ -45,6 +46,9 @@ audit-stage3:
 audit-stage4b:
 	$(PYTHON) -m analysis.stages.phase6_stage4b
 
+audit-ecological:
+	$(PYTHON) -m analysis.stages.phase4b_ecological
+
 # ── Cross-cutting audits ──────────────────────────────────────────
 audit-paper:
 	$(PYTHON) analysis/paper_consistency_audit.py
@@ -59,6 +63,13 @@ verify-all:
 # Legacy alias — composite phase only (kept for backwards compat)
 verify-numbers:
 	$(PYTHON) -X utf8 analysis/verify_all_data_points.py
+
+# ── TypeScript suite (optional) ───────────────────────────────────
+# NOT part of verify-all / the analysis reproduce contract. The paper
+# numbers re-derive from Python alone; this target only exercises the
+# TS modules 1–5 (scanner/variants/runner/classifier/recorder/export).
+verify-ts:
+	npm ci && npm run lint && npm test
 
 # ── Data export and statistics ────────────────────────────────────
 export-data:

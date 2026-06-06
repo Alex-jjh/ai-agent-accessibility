@@ -21,6 +21,11 @@ scripts/
 └── ssm/            AWS SSM command documents (JSON)
 ```
 
+> **Data-collection-era (not exercised by `verify-all`).** `runners/`,
+> `launchers/`, `infra/`, `data-pipeline/`, and `ssm/` ran against the burner
+> AWS accounts (expired 2026-05-12). They are retained for forensics only;
+> `make verify-all` touches none of them.
+
 ---
 
 ## runners/ — Experiment Runners

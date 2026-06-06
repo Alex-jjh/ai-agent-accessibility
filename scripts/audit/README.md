@@ -8,7 +8,7 @@ are unchanged; these wrappers just call them.
 ## One-button entry
 
 ```sh
-make verify-all          # all 7 stages + paper consistency
+make verify-all          # all 8 stages + paper consistency
 ```
 
 ## Per-stage wrappers
@@ -22,6 +22,7 @@ make verify-all          # all 7 stages + paper consistency
 | `audit-smoker.sh` | `python -m analysis.stages.phase5_smoker` | Phase 5 (gate, N=2,052) | [phase5-smoker](../../docs/by-stage/phase5-smoker.md) |
 | `audit-stage3.sh` | `python -m analysis.stages.phase6_stage3` | Phase 6 breadth (N=7,488) | [phase6-stage3](../../docs/by-stage/phase6-stage3.md) |
 | `audit-stage4b.sh` | `python -m analysis.stages.phase6_stage4b` | Phase 6 SSIM (9,408 PNGs) | [phase6-stage4b](../../docs/by-stage/phase6-stage4b.md) |
+| `audit-ecological.sh` | `python -m analysis.stages.phase4b_ecological` | Phase 4b (ecological, 34-site) | [phase4b-ecological](../../docs/by-stage/phase4b-ecological.md) |
 
 ## Cross-cutting
 

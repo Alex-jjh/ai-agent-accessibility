@@ -4,7 +4,7 @@
 > Numbers, dirs, scripts, paper sections all linked; no narrative duplication.
 
 The project comprises **6 phases** producing **N=14,768 case JSONs +
-9,408 visual captures** across **7 datasets**. Each stage doc below answers:
+9,408 visual captures** across **8 datasets**. Each stage doc below answers:
 
 - What ran? (design matrix)
 - Where is the data? (paths)
@@ -21,6 +21,7 @@ The project comprises **6 phases** producing **N=14,768 case JSONs +
 | 5 | Phase 5 — Smoker (base-solvability gate) | 2,052 | `analysis.stages.phase5_smoker` | [phase5-smoker.md](phase5-smoker.md) |
 | 6 | Phase 6 — Stage 3 breadth | 7,488 | `analysis.stages.phase6_stage3` | [phase6-stage3.md](phase6-stage3.md) |
 | 7 | Phase 6 — Stage 4b SSIM | 9,408 PNGs | `analysis.stages.phase6_stage4b` | [phase6-stage4b.md](phase6-stage4b.md) |
+| 8 | Phase 4b — Ecological prevalence | 34-site Tier-3 | analysis.stages.phase4b_ecological | [phase4b-ecological.md](phase4b-ecological.md) |
 
 **Cross-stage audit**: [audit-2026-05-15.md](audit-2026-05-15.md) — full V&V audit narrative + per-stage research conclusions + statistical method coverage matrix + top-line synthesis. Re-runs after `make verify-all`.
 
