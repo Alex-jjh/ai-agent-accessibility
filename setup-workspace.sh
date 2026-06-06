@@ -83,10 +83,31 @@ fi
 # amt-audit-batch/, archive/, visual-equivalence/) plus README/SHA256SUMS sit
 # at the dataset ROOT and map to <code>/data/. The one exception is
 # scan-a11y-audit/, which maps to <code>/scan-a11y-audit/results/.
-# Stage to a temp dir, then place each part.
+#
+# FAST PATH: the dataset ships a single tarball (amt-data.tar.zst) that bundles
+# all ~77k files in the same root layout. Downloading one file avoids the
+# per-file HEAD requests that trigger HuggingFace rate-limiting (429) on a
+# 77k-file tree, so this is dramatically faster. We fall back to the per-file
+# download only if the tarball is absent.
 STAGE="${CODE_DIR}/.hf-stage"
+TARBALL="amt-data.tar.zst"
+rm -rf "$STAGE" && mkdir -p "$STAGE"
 echo "Downloading data from HuggingFace (${HF_DATASET}) ..."
-"$HF" download "$HF_DATASET" --repo-type dataset --local-dir "$STAGE"
+if "$HF" download "$HF_DATASET" "$TARBALL" --repo-type dataset --local-dir "$STAGE" 2>/dev/null \
+   && [ -f "${STAGE}/${TARBALL}" ]; then
+  echo "Got single tarball; unpacking ..."
+  if command -v zstd >/dev/null 2>&1; then
+    ( cd "$STAGE" && tar --use-compress-program=unzstd -xf "$TARBALL" && rm -f "$TARBALL" )
+  else
+    echo "ERROR: zstd not installed; cannot unpack ${TARBALL}." >&2
+    echo "  install zstd (apt-get install zstd / brew install zstd) and re-run." >&2
+    exit 1
+  fi
+  # also fetch the small README + manifest (not inside the data root of the tar? they are)
+else
+  echo "Tarball not found; falling back to per-file download (slower, may hit 429) ..."
+  "$HF" download "$HF_DATASET" --repo-type dataset --local-dir "$STAGE"
+fi
 
 echo "Placing data/ and scan-a11y-audit/ ..."
 mkdir -p "${CODE_DIR}/data" "${CODE_DIR}/scan-a11y-audit/results"

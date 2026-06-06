@@ -47,6 +47,10 @@ moves them into `data/` and routes `scan-a11y-audit/` into
 ## 3. One-command reproduce
 
 ```bash
+# system prereqs: git, python3 (venv+pip), rsync, and zstd (to unpack the tarball)
+#   Debian/Ubuntu: sudo apt-get install -y git python3 python3-venv python3-pip rsync zstd
+#   macOS:         brew install zstd        (git/python3 usually present)
+
 # install tooling + authenticate (the two credentials from step 1)
 pip install -U huggingface_hub
 hf auth login            # HuggingFace token (data)
@@ -60,11 +64,20 @@ cd ai-agent-accessibility
 
 `setup-workspace.sh` will:
 1. clone the paper repo as a sibling (via `gh` if available, else `git`),
-2. download the dataset from HuggingFace into a staging dir,
-3. place the corpus into `data/` and the audit into `scan-a11y-audit/results/`,
+2. download the dataset from HuggingFace — by default the single
+   **`amt-data.tar.zst`** (~1 GB; one file, no per-file 429 rate-limiting),
+   falling back to per-file download only if the tarball is absent,
+3. unpack and place the corpus into `data/` and the audit into
+   `scan-a11y-audit/results/`,
 4. verify integrity against `data/SHA256SUMS`,
 5. build the analysis venv (`setup.sh`),
 6. run `make verify-all` (expect **108/108 PASS**).
+
+> Why a tarball: the corpus is ~77k small JSON files. A per-file `hf download`
+> issues a HEAD per file and gets rate-limited (429) by HuggingFace, making it
+> very slow. One ~1 GB tarball downloads at full bandwidth in minutes. zstd
+> cross-file dedup compresses the 11 GB tree to ~1 GB because many Stage-4b
+> screenshots are near-identical.
 
 ## 4. Verify it worked
 
