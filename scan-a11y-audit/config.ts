@@ -1,6 +1,7 @@
 /**
  * Website configuration for ecological validity audit.
- * 30 sites across 5 categories, 3 pages each (home, search, detail).
+ * 34 sites total: 30 real-world (5 categories — ecommerce, china, saas, media,
+ * government) + 4 WebArena Docker environments, 3 pages each (home, search, detail).
  *
  * Patch ↔ axe-core rule mapping (core of the analysis):
  *   P1  img alt removal        → image-alt
@@ -43,21 +44,11 @@ export interface SiteConfig {
   login?: LoginConfig;
 }
 
-/** axe-core rule IDs that map to each low-variant patch */
-export const PATCH_AXE_RULES: Record<string, string[]> = {
-  'P1: img alt':        ['image-alt'],
-  'P2: aria-label':     ['aria-label', 'aria-command-name', 'aria-input-field-name'],
-  'P3: label for':      ['label', 'form-field-multiple-labels'],
-  'P4: lang attr':      ['html-has-lang'],
-  'P5: heading→div':    ['empty-heading', 'heading-order', 'page-has-heading-one'],
-  'P6: tabindex':       [],  // no direct axe rule
-  'P7: landmark→div':   ['landmark-main-is-top-level', 'region', 'landmark-one-main'],
-  'P8: duplicate ID':   ['duplicate-id', 'duplicate-id-active', 'duplicate-id-aria'],
-  'P9: thead→div':      ['td-has-header', 'th-has-data-cells'],
-  'P10: label for':     ['label'],  // same as P3
-  'P11: link→span':     [],  // custom detection
-  'P12: Shadow DOM':    [],  // structural check
-};
+// NOTE: The authoritative patch → axe-core rule mapping lives in analysis.py
+// (PATCH_AXE_RULES). The analysis is driven entirely from there; this config
+// only supplies the SITES list and type definitions. A duplicate copy here was
+// removed because it was never imported and had drifted out of sync with the
+// analysis.py version (it would have computed a different Tier-3 prevalence).
 
 export const SITES: SiteConfig[] = [
   // ── Global E-commerce (8) ──

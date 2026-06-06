@@ -9,7 +9,7 @@ export interface CustomCheckResults {
     divOnclick: number;       // div[onclick] count
     spanOnclick: number;      // span[onclick] count
     roleLink: number;         // [role="link"]:not(a) count
-    jsEventListeners: number; // elements with click listeners via getEventListeners (CDP)
+    jsEventListeners: number; // ALWAYS 0: getEventListeners()/CDP is unavailable inside page.evaluate()
     totalAnchorLinks: number; // a[href] count (denominator)
   };
   // P5: heading→div — non-semantic heading patterns
@@ -105,6 +105,9 @@ export const CUSTOM_CHECK_SCRIPT = `(() => {
   const iframes = qsa('iframe');
 
   return {
+    // jsEventListeners is hard-coded 0: getEventListeners() (a DevTools/CDP-only helper)
+    // does not exist in the regular page.evaluate() context, so listener-based links
+    // cannot be detected here. The field is retained because frozen result JSONs include it.
     divAsLink: { divOnclick, spanOnclick, roleLink, jsEventListeners: 0, totalAnchorLinks },
     headingSemantics: { semanticHeadings, ariaHeadings, divClassHeadings },
     tableSemantics: { semanticTables, roleTables, divClassTables },

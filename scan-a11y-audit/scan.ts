@@ -1,7 +1,8 @@
 #!/usr/bin/env npx tsx
 /**
  * Ecological validity audit scanner.
- * Scans 30+ real websites × 3 pages each with axe-core + custom checks.
+ * Scans 34 sites × 3 pages each with axe-core + custom checks
+ * (30 real-world public sites + 4 WebArena Docker environments).
  *
  * Usage:
  *   npx tsx scan.ts                        # scan all public sites

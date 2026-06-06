@@ -2,8 +2,9 @@
 """
 Ecological validity analysis: maps axe-core scan results to low variant patches.
 Produces:
-  - Table 1 (paper): per-patch prevalence across 30 sites
-  - Table 2 (supplementary): full 30 sites × 12 patches matrix
+  - Table 1 (paper): per-patch prevalence across all scanned sites
+    (34 total: 30 real-world + 4 WebArena; Table 3/4/5 split the two)
+  - Table 2 (supplementary): full sites × 12 patches matrix
   - Summary statistics by category
 """
 
@@ -508,6 +509,9 @@ def main():
     print("  P11 at 12% is a conservative lower bound: only detects explicit onclick")
     print("    attributes. Modern frameworks use event delegation invisible to static")
     print("    DOM analysis. True prevalence likely 40-60% (HTTP Archive: div+span ≈ 40%)")
+    # NOTE for citation: the paper §4 Tier-3 headline (82.4%) is computed over ALL 34
+    # scanned sites; the 83.3% below is the alternate 30-site real-world-only denominator.
+    # Cite 82.4%/34 as the authoritative figure to avoid mixing the two denominators.
     print("  L3 structural violations (P7+P9+P11) present on 83.3% of real-world sites")
 
 
