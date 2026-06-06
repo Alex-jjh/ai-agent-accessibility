@@ -1,0 +1,15 @@
+# Optional analysis dependencies — NOT needed to reproduce the paper.
+# These regenerate already-frozen, already-published data:
+#   - scikit-learn: a few exploratory amt_statistics code paths
+#   - scikit-image / Pillow / ImageHash: Stage 4b SSIM *generation*
+#       (the verifier reads pre-computed SSIM CSVs; it does not need these)
+#   - pymer4 / shap: R-backed GLMM + SHAP exploration (pymer4 needs an R runtime)
+#
+# Install only if you intend to re-derive raw artifacts:
+#   pip install -r analysis/requirements-optional.txt
+scikit-learn==1.6.1
+scikit-image>=0.22.0
+Pillow>=10.0.0
+ImageHash>=4.3.0
+# pymer4>=0.8.1   # requires a working R installation; uncomment if needed
+# shap>=0.45.0
