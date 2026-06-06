@@ -57,9 +57,25 @@ fi
 echo "Using hf CLI: $HF"
 
 # --- 1. clone the two code repos ------------------------------
+# The code repo is PUBLIC (anonymous clone OK). The paper repo is PRIVATE, so
+# it needs a GitHub credential: either `gh auth login`, or an https token, or
+# SSH. We try gh first (most robust), then plain git, then warn (the paper is
+# not required to run the analysis).
 cd "$WORKSPACE"
 [ -d "$CODE_DIR/.git" ] || git clone "$CODE_REPO" "$CODE_DIR"
-[ -d "${WORKSPACE}/paper/.git" ] || git clone "$PAPER_REPO" "${WORKSPACE}/paper"
+
+if [ ! -d "${WORKSPACE}/paper/.git" ]; then
+  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+    gh repo clone "${GH_USER}/ai-accessibility-paper" "${WORKSPACE}/paper" || true
+  fi
+  if [ ! -d "${WORKSPACE}/paper/.git" ]; then
+    git clone "$PAPER_REPO" "${WORKSPACE}/paper" || {
+      echo "WARNING: could not clone the PRIVATE paper repo. Authenticate first" >&2
+      echo "  (gh auth login, or a GitHub token), then re-run. The analysis" >&2
+      echo "  layer below does not need the paper repo." >&2
+    }
+  fi
+fi
 
 # --- 2. download the data from HuggingFace --------------------
 # Dataset layout: the case-corpus directories (stage3-claude/, mode-a-*/,
