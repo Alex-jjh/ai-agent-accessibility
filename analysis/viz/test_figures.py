@@ -88,7 +88,10 @@ class TestVariantSuccessHeatmap:
 
 
 class TestShapSummaryPlot:
+    # shap is imported function-locally in viz/figures.py; gate only this
+    # class so the other ~7 figure tests still run on the core install.
     def test_returns_figure(self):
+        pytest.importorskip("shap")
         fg = FigureGenerator()
         shap_vals, features = _make_shap_data()
         fig = fg.shap_summary_plot(shap_vals, features)

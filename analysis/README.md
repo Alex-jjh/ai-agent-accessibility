@@ -21,7 +21,7 @@ analysis/
 │   ├── phase5_smoker.py         N=2,052 base-solvability gate
 │   ├── phase6_stage3.py         N=7,488 Stage 3 breadth ★ primary
 │   └── phase6_stage4b.py        9,408 SSIM captures ★ visual truth
-├── verify_all.py              ★ Entry: runs all 7 stages → key-numbers.json
+├── verify_all.py              ★ Entry: runs all 8 stages → key-numbers.json
 │
 ├── (heavy analysis scripts — produce CSVs / reports, not assertions)
 ├── amt_statistics.py            Mode A + C.2 inferential tests (Fisher, Holm)

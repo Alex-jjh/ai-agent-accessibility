@@ -96,9 +96,16 @@ def main():
             'raw_p': row['ca_p'],
         })
 
-    # Add cross-model chi-square
-    secondary_tests.append({'test': 'claude_low_vs_base_chi2', 'raw_p': 2.83e-11})  # from key-numbers
-    secondary_tests.append({'test': 'llama4_low_vs_base_chi2', 'raw_p': 1.09e-04})
+    # Add cross-model chi-square (read low_vs_base text-only chi2_p from the
+    # existing primary_tests.csv — single source of truth; not recomputed here).
+    primary_tests = pd.read_csv(ROOT / "results" / "stats" / "primary_tests.csv")
+    def _low_vs_base_chi2_p(model):
+        sub = primary_tests[(primary_tests['comparison'] == 'low_vs_base') &
+                            (primary_tests['agent_type'] == 'text-only') &
+                            (primary_tests['model'] == model)]
+        return float(sub['chi2_p'].iloc[0])
+    secondary_tests.append({'test': 'claude_low_vs_base_chi2', 'raw_p': _low_vs_base_chi2_p('claude-sonnet')})
+    secondary_tests.append({'test': 'llama4_low_vs_base_chi2', 'raw_p': _low_vs_base_chi2_p('llama4-maverick')})
 
     raw_ps = [t['raw_p'] for t in secondary_tests]
     reject, adjusted, _, _ = multipletests(raw_ps, method='holm')

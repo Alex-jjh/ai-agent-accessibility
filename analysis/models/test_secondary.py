@@ -9,6 +9,11 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 import pytest
+
+# secondary.py imports sklearn at module top. Skip the whole module when
+# sklearn is absent (core install) instead of erroring at collection.
+pytest.importorskip("sklearn")
+
 from sklearn.ensemble import RandomForestClassifier
 
 from analysis.models.secondary import (

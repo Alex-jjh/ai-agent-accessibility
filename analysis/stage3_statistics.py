@@ -37,9 +37,7 @@ from scipy import stats
 from statsmodels.stats.multitest import multipletests
 
 # ── Reuse statistical helpers from amt_statistics ──────────────────────
-import sys
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-from amt_statistics import (
+from analysis.amt_statistics import (
     wilson_ci, odds_ratio_ci, cohens_h,
     mantel_haenszel_or, breslow_day,
     test_per_operator_significance,

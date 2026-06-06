@@ -10,6 +10,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
+# analysis.models.primary is re-exported via models/__init__.py alongside
+# secondary.py, which imports sklearn at module top. Skip the whole module
+# when sklearn is absent (core install) instead of erroring at collection.
+pytest.importorskip("sklearn")
+
 from analysis.models.primary import (
     COMPOSITE_COL,
     TIER1_COLS,
