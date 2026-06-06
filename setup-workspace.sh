@@ -61,9 +61,35 @@ cd "$WORKSPACE"
 [ -d "$CODE_DIR/.git" ] || git clone "$CODE_REPO" "$CODE_DIR"
 [ -d "${WORKSPACE}/paper/.git" ] || git clone "$PAPER_REPO" "${WORKSPACE}/paper"
 
-# --- 2. download the 11 GB data tree from HuggingFace ---------
-echo "Downloading data/ from HuggingFace (${HF_DATASET}) ..."
-"$HF" download "$HF_DATASET" --repo-type dataset --local-dir "${CODE_DIR}/data"
+# --- 2. download the data from HuggingFace --------------------
+# Dataset layout: the case-corpus directories (stage3-claude/, mode-a-*/,
+# c2-*/, pilot4-*/, expansion-*/, smoker-*/, stage4b-ssim-replay/, a11y-cua/,
+# amt-audit-batch/, archive/, visual-equivalence/) plus README/SHA256SUMS sit
+# at the dataset ROOT and map to <code>/data/. The one exception is
+# scan-a11y-audit/, which maps to <code>/scan-a11y-audit/results/.
+# Stage to a temp dir, then place each part.
+STAGE="${CODE_DIR}/.hf-stage"
+echo "Downloading data from HuggingFace (${HF_DATASET}) ..."
+"$HF" download "$HF_DATASET" --repo-type dataset --local-dir "$STAGE"
+
+echo "Placing data/ and scan-a11y-audit/ ..."
+mkdir -p "${CODE_DIR}/data" "${CODE_DIR}/scan-a11y-audit/results"
+# Move the ecological audit out first, then everything else becomes data/.
+if [ -d "${STAGE}/scan-a11y-audit" ]; then
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a "${STAGE}/scan-a11y-audit/" "${CODE_DIR}/scan-a11y-audit/results/"
+  else
+    cp -R "${STAGE}/scan-a11y-audit/." "${CODE_DIR}/scan-a11y-audit/results/"
+  fi
+  rm -rf "${STAGE}/scan-a11y-audit"
+fi
+# Remaining staged content is the data corpus.
+if command -v rsync >/dev/null 2>&1; then
+  rsync -a "${STAGE}/" "${CODE_DIR}/data/"
+else
+  cp -R "${STAGE}/." "${CODE_DIR}/data/"
+fi
+rm -rf "$STAGE"
 
 # --- 3. verify data integrity ---------------------------------
 if [ -f "${CODE_DIR}/data/SHA256SUMS" ]; then
