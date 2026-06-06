@@ -1,6 +1,6 @@
 # AMT Operator Specification (v8.1)
 
-> **Purpose**: Normative spec for the 24 independent accessibility manipulation
+> **Purpose**: Normative spec for the 26 independent accessibility manipulation
 > operators that constitute the Accessibility Manipulation Taxonomy (AMT) for
 > CHI 2027. Each operator has an identity, a single-responsibility
 > implementation, and a behavioral contract that external tooling can rely on.
@@ -25,10 +25,10 @@ requires a new ID; modifying an operator requires a version bump (e.g.,
 |--------|------------|-------|-------------------------------|
 | Low    | L1–L13     | 13    | Aggressive degradation         |
 | Midlow | ML1–ML3    | 3     | Pseudo-compliance edge cases   |
-| High   | H1–H8      | 8     | Positive enhancement           |
+| High   | H1–H4, H5a/b/c, H6–H8 | 10 | Positive enhancement           |
 
 **H5** is split into H5a/H5b/H5c in the roadmap; in this spec each sub-
-operator is a **separate ID** for unambiguous targeting. Total: 24 operators.
+operator is a **separate ID** for unambiguous targeting. Total: 26 operators.
 The `H5a/b/c` legacy labels remain valid aliases (see §7 table).
 
 ---
@@ -397,16 +397,21 @@ final DOM after two runs is identical to the final DOM after one run.
 
 ### 9.4 Non-commutativity detection (documentation, not assertion)
 
-For all 24 × 23 = 552 ordered pairs:
+Conceptually, the full sweep is all 26 × 25 = 650 ordered pairs:
 
 - Apply `op_A → op_B` and `op_B → op_A` on fresh fixture DOMs.
 - Hash final DOM of each.
 - Record pairs where hashes differ.
 
-Output: `results/amt/operator-non-commutativity-matrix.json` — consumed
-by the composition study. Non-commutativity is **expected for some
-pairs** (e.g., H4 vs L1 both touch `<nav>`). Writing it down makes the
-composition study's design explicit.
+In practice the exhaustive operator-non-commutativity matrix was **never
+generated**. The test suite (§9.4 of `operators.test.ts`) only spot-checks a
+small sample of pairs to confirm the scan logic works (one commuting, one
+non-commuting). The composition study does not depend on such a matrix: it
+applies operators under the **fixed canonical ordering** of §8.4, so order is
+held constant rather than enumerated. Non-commutativity is **expected for some
+pairs** (e.g., H4 vs L1 both touch `<nav>`); the canonical-order convention
+makes the composition study's design explicit without requiring the full
+sweep.
 
 ### 9.5 Fixture DOMs
 

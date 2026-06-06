@@ -1,6 +1,6 @@
 # AMT Operators
 
-24 independent accessibility manipulation operators, one per file.
+26 independent accessibility manipulation operators, one per file.
 
 **Normative spec**: `docs/amt-operator-spec.md`
 

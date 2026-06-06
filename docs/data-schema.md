@@ -116,7 +116,8 @@ attribution, action sequence analysis, and token breakdown without needing full 
 **Purpose**: Complete trace data for deep-dive analysis. Contains full a11y tree
 observations, agent reasoning text, and (for CUA) screenshot metadata.
 
-**Location**: `data/` directories (synced via S3, not in git)
+**Location**: `data/` directories (hosted on HuggingFace dataset
+`alexjiang04/amt-accessibility-data`, not in git; see `REPRODUCE.md`)
 **Format**: One JSON file per case, existing format from BrowserGym bridge
 
 ---
@@ -187,7 +188,7 @@ results/
     clmm_results.csv
     token_analysis.csv
     failure_attribution.csv
-data/                          # Layer 3: raw traces (S3, not git)
+data/                          # Layer 3: raw traces (HuggingFace, not git)
   pilot4-full/
   pilot4-cua/
   expansion-claude/
@@ -208,7 +209,8 @@ Given `results/trace-summaries.jsonl`, a researcher can additionally:
 5. Analyze action sequences and token patterns
 6. Identify specific failure examples
 
-Given `data/` (raw traces from S3/Zenodo), a researcher can additionally:
+Given `data/` (raw traces from the HuggingFace dataset
+`alexjiang04/amt-accessibility-data`; see `REPRODUCE.md`), a researcher can additionally:
 7. Read full agent observations and reasoning
 8. Re-run failure classification with different criteria
 9. Extract new features not in our summary

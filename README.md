@@ -8,6 +8,12 @@ Empirical research platform studying the relationship between web accessibility 
 
 Degrading web accessibility from baseline to low causes text-only agent success to drop from 93.8% to 38.5% (Cochran-Armitage Z=6.635, p<0.000001) across 13 tasks and 1,040 experimental cases. Three-agent causal decomposition reveals two comparable pathways: DOM semantic degradation contributes ~20pp and functional breakage ~35pp. The effect replicates across both closed-source (Claude Sonnet) and open-source (Llama 4 Maverick) models.
 
+This headline result comes from the composite-variant phase (1,040 cases). The
+full study spans **N=14,768 cases**: 1,040 composite + 4,056 Mode A (per-operator)
++ 2,184 C.2 + 7,488 Stage 3 (48-task scale-up), across 26 AMT operators (13 Low /
+3 Midlow / 10 High), 3 agent architectures, and 2 model families. See
+[`REPRODUCE.md`](REPRODUCE.md) and `docs/data-inventory.md` for the full corpus.
+
 ## How It Works
 
 We hold the agent constant and programmatically manipulate web accessibility at the DOM level, then measure how each agent type is affected.
@@ -20,12 +26,19 @@ python3 -m venv analysis/.venv
 source analysis/.venv/bin/activate  # Windows: analysis\.venv\Scripts\activate
 pip install -r analysis/requirements.txt
 
-# Verify all paper numbers against raw data
-make verify-numbers
+# Verify all paper numbers against raw data (8 stages, 108/108 checks)
+make verify-all
 
 # Full pipeline: export CSV → verify → run statistics
 make all
 ```
+
+`make verify-numbers` is a legacy alias that covers only the composite phase;
+`make verify-all` is the authoritative end-to-end check.
+
+For a fresh-machine reproduce — including how to download the frozen raw data
+from the HuggingFace dataset `alexjiang04/amt-accessibility-data` (private) —
+see [`REPRODUCE.md`](REPRODUCE.md).
 
 ### Five-Layer Architecture
 
@@ -73,6 +86,10 @@ BrowserGym assigns a numeric identifier (bid) to each interactive DOM element. T
 When variant patches replace a DOM element (e.g., `<a>` → `<span>`), the old node with its bid is deleted. The SoM overlay label persists in the screenshot as a stale bitmap — this is the **phantom bid** phenomenon that causes SoM agents to fail at 0% under low accessibility.
 
 ## Pilot Results (N=240+120)
+
+> **Pilot-era numbers.** The tables below are from Pilot 4 and are retained for
+> provenance. They are superseded by the full study (N=14,768; see Key Finding
+> and [`REPRODUCE.md`](REPRODUCE.md)); use the full-study figures for citation.
 
 ### Pilot 4: Text-Only + SoM (N=240)
 
@@ -166,9 +183,14 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Running Experiments
+## Running Experiments (HISTORICAL)
 
-Experiments are configured via YAML and run on EC2 via nohup (SSM sessions disconnect after ~20 min):
+> **Historical.** Data collection is complete and the dataset is frozen. The
+> burner AWS accounts used for live runs expired 2026-05-12, so the commands
+> below are no longer runnable as-is and are kept only for provenance. To
+> reproduce from the frozen raw data instead, see [`REPRODUCE.md`](REPRODUCE.md).
+
+Experiments were configured via YAML and run on EC2 via nohup (SSM sessions disconnect after ~20 min):
 
 ```bash
 # Run a pilot experiment
@@ -181,11 +203,11 @@ nohup npx tsx scripts/runners/run-pilot3.ts --config configs/archive/config-pilo
 ## Testing
 
 ```bash
-# TypeScript (334 tests)
+# TypeScript (414 tests)
 npm test        # vitest
 npm run lint    # tsc --noEmit
 
-# Python (67 tests)
+# Python (67 tests; 48 require scikit-learn/shap from requirements-optional.txt, core install collects 19)
 cd analysis && python -m pytest -v
 ```
 

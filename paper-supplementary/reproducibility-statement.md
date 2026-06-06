@@ -10,7 +10,7 @@
 cd ai-agent-accessibility
 make setup           # one-time: venv + deps
 # obtain raw data — 14,768 case JSONs + 9,408 PNGs (via DOI archive when published)
-make verify-all      # → 100/100 PASS, results/key-numbers.json
+make verify-all      # → 108/108 PASS, results/key-numbers.json
 make audit-paper     # → 28/28 PASS, ~3 seconds
 ```
 
@@ -57,12 +57,12 @@ from the repository for size. Three options to obtain it:
 ### 3. Verify
 
 ```sh
-make verify-all      # primary V&V — 100 assertions across 7 stages
+make verify-all      # primary V&V — 108 assertions across 8 stages
 ```
 
 Expected output:
 ```
-Total: 100 passed, 0 failed across 7 stages
+Total: 108 passed, 0 failed across 8 stages
 Detail: results/key-numbers.json
 ```
 
@@ -152,7 +152,10 @@ have direct verifier assertions.
 
 ## Build provenance
 
-This statement was last updated 2026-05-15 against:
-- `make verify-all` → 100/100 PASS
+This statement was last updated 2026-06-06 against:
+- `make verify-all` → 108/108 PASS
 - `make audit-paper` → 28/28 PASS
-- `pre-archival-2026-05-14` and `pre-vv-2026-05-15` git tags as rollback anchors.
+
+Note: `pre-archival-2026-05-14` and `pre-vv-2026-05-15` git tags were planned
+as rollback anchors for submission but were not created; that historical
+state can no longer be reliably reconstructed.

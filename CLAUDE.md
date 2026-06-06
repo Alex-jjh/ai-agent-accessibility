@@ -46,19 +46,20 @@ expired 2026-05-12; everything is local-analysis from here.
 - `data.zip` (~2.9 GB at repo root, gitignored) is the user-verified
   full backup of `data/`. Do not delete without explicit confirmation.
 - Use `Makefile` targets:
-  - `make verify-all` — V&V all 7 stages (80/80 PASS as of 2026-05-15)
+  - `make verify-all` — V&V all 8 stages (108/108 PASS as of 2026-06-06)
   - `make audit-<phase>` — single stage (e.g. `audit-stage3`)
   - `make export-data`, `make run-stats`, `make all`
   - `make verify-numbers` legacy alias (composite phase only)
-- Per-stage docs in `docs/by-stage/{phase1..phase6_stage4b}.md`.
+- Per-stage docs in `docs/by-stage/phase{1..6}-*.md`.
 - Audit wrappers indexed at `scripts/audit/README.md`.
 
 ## Tech stack quickref
 
 - **TS modules 1–5** (`src/{scanner,variants,runner,classifier,recorder,export}/`):
-  vitest 334 tests, tsc strict.
+  vitest 414 tests, tsc strict.
 - **Python module 6** (`analysis/`): venv at `.venv/`, deps in
-  `requirements.txt`, pytest 67 tests.
+  `requirements.txt`, pytest 67 tests (48 require scikit-learn + shap via
+  requirements-optional.txt; core install collects 19).
 - Playwright 1.49 + Chromium 131 + BrowserGym 0.13 + LiteLLM @ :4000
   (text-only/SoM agents) + AWS Bedrock Computer Use (CUA).
 - Models: `us.anthropic.claude-sonnet-4-20250514-v1:0`,
@@ -76,7 +77,9 @@ expired 2026-05-12; everything is local-analysis from here.
 - `~16.5 GB` total (was ~21 GB). Removed: `.terraform/`, `.venv/`,
   `node_modules/` (both), `<workspace>/.kiro/` mirror.
 - All experiment data (`data/`) and `data.zip` retained intact.
-- Rollback anchor: git tag `pre-archival-2026-05-14` in both repos.
+- A rollback tag `pre-archival-2026-05-14` was planned for the archival
+  pass but was not actually created; no such tag exists in either repo, so
+  the pre-archival state can't be reliably reconstructed from a git anchor.
 
 ## Caches (regenerable; gitignored)
 

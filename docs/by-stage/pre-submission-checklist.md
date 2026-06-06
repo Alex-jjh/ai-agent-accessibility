@@ -12,7 +12,7 @@ make pre-submit
 
 Should output:
 ```
-Total: 100 passed, 0 failed across 7 stages       (verify-all)
+Total: 108 passed, 0 failed across 8 stages       (verify-all)
 AUDIT COMPLETE: 28 passed, 0 failed              (audit-paper)
 === built 18 files in paper-supplementary/ ===   (build-supplementary)
 ✅ Pre-submission gate passed.
@@ -22,14 +22,16 @@ If any line above doesn't appear, fix the failure before continuing.
 
 ## Auto-checked (`make pre-submit`)
 
-- [ ] **`make verify-all` → 100/100 PASS** across 7 stages. Failures here
+- [ ] **`make verify-all` → 108/108 PASS** across 8 stages. Failures here
   mean a paper claim drifted vs current data — read the FAIL line(s) to
   see which `_constants.py` value disagrees with which CSV/JSON.
 - [ ] **`make audit-paper` → 28/28 PASS in ~3s**. Independent re-derivation
   of every paper §4–§5 claim from raw case JSONs; zero external dependency.
 - [ ] **`make audit-archival` → all checks GREEN**. Disk size sane, no
   regenerable caches present, `data.zip` backup present, Stage 4b SHA-256
-  manifest matches filesystem, `pre-archival-2026-05-14` git tag present.
+  manifest matches filesystem. Note: the `pre-archival-2026-05-14` tag was
+  planned as a rollback anchor for the archival pass but was never actually
+  created, so no such git anchor exists.
 - [ ] **`paper-supplementary/` rebuilt** with 18 files (1 `MANIFEST.txt` +
   16 derived statistics + 2 manual MDs). Bundle is gitignored (derivable).
 
@@ -41,11 +43,14 @@ If any line above doesn't appear, fix the failure before continuing.
   git -C paper status --short                     # → empty
   ```
 
-- [ ] **Rollback anchors present** in both repos:
+- [ ] **Rollback anchors**: the `pre-archival-2026-05-14` and
+  `pre-vv-2026-05-15` tags were planned as rollback anchors but were never
+  actually created in either repo, so there is no reliable git anchor to
+  reconstruct those historical states from. If you want a rollback point for
+  this submission, create one explicitly now:
   ```sh
-  git -C ai-agent-accessibility tag --list 'pre-*'
-  git -C paper tag --list 'pre-*'
-  # both should list: pre-archival-2026-05-14, pre-vv-2026-05-15
+  git -C ai-agent-accessibility tag --list 'pre-*'   # currently empty
+  git -C paper tag --list 'pre-*'                    # currently empty
   ```
 
 - [ ] **No N-drift** in paper vs current data:
@@ -93,11 +98,16 @@ When responding to reviewers:
 
 ## Rollback
 
-If anything goes wrong mid-process:
+The `pre-vv-2026-05-15` tag was planned as a rollback anchor for the V&V pass
+but was never actually created, so the historical pre-V&V state can't be
+reliably reconstructed from a git anchor. Before starting any risky pass,
+create your own rollback point and reset to *that* if anything goes wrong:
 
 ```sh
-git -C ai-agent-accessibility reset --hard pre-vv-2026-05-15
-git -C paper reset --hard pre-vv-2026-05-15
+git -C ai-agent-accessibility tag pre-submit-$(date +%Y%m%d)
+git -C paper tag pre-submit-$(date +%Y%m%d)
+# ...then if needed:
+# git -C ai-agent-accessibility reset --hard pre-submit-<date>
 ```
 
 ## See also

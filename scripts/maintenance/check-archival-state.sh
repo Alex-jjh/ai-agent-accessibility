@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # check-archival-state.sh — quick health check for the post-2026-05-14 archival state.
-# Reports disk size of key dirs, presence of caches that should be absent,
-# and whether the SHA-256 manifest for stage4b matches the current files.
+# Reports disk size of key dirs, presence of caches that should be absent in
+# an archived tree, and whether the stage4b SHA-256 manifest has the same
+# *line count* as the number of files on disk. NOTE: this is a cheap count
+# check (wc -l vs find | wc -l), not a content verification — it never runs
+# `shasum -c`, so it catches added/removed files but not modified ones.
 
 set -euo pipefail
 
@@ -12,7 +15,9 @@ echo "=== disk usage (top-level) ==="
 du -sh data results figures docs src scripts analysis infra scan-a11y-audit 2>/dev/null | sort -h
 
 echo
-echo "=== caches that should NOT exist (regenerable) ==="
+echo "=== regenerable caches (expected ABSENT in an archived tree) ==="
+echo "    (a live dev checkout legitimately has these — analysis/.venv is"
+echo "     required by verify-all — so PRESENT only matters when archiving)"
 for path in node_modules scan-a11y-audit/node_modules analysis/.venv infra/.terraform; do
   if [ -e "$path" ]; then
     echo "  PRESENT  $path  ($(du -sh "$path" | awk '{print $1}'))"

@@ -1,7 +1,9 @@
 # Experiment Data Inventory
 
 > **Snapshot date**: 2026-05-14
-> **Total**: ~10.5 GB on disk, 22 experiment directories, ~22.5 k case JSON files (across phases).
+> **Total**: ~10.5 GB on disk, 22 experiment directories, ~16.8 k dedup cases
+> (N=14,768 selected for the paper) spread across ~59 k JSON files on disk
+> (the two-layer per-experiment layout — see §5 — stores each case more than once).
 > **Scope**: top-level directories under `data/`. Per-row schema lives in `data-schema.md`.
 
 This file is the **authoritative directory index**. The original
@@ -130,7 +132,7 @@ Verified 2026-05-14 by a repo-wide grep for `track-a/runs` and
 | Stage 4b only | `data/stage4b-ssim-replay/` local + `data.zip` + Google Drive | Local file count = 9,410; SHA-256 manifest at `data/stage4b-ssim-replay.sha256` |
 | Burner S3 | **dead** (2026-05-11 / 2026-05-12 expirations passed) | n/a |
 
-A `pre-archival-2026-05-14` git tag in this repo + `paper/` repo marks the state at the time of this inventory and serves as the rollback anchor for the consolidation pass that produced this file.
+A `pre-archival-2026-05-14` git tag was planned for this repo + `paper/` repo to mark the state at the time of this inventory and serve as the rollback anchor for the consolidation pass that produced this file, but it was never actually created — no such tag exists, so that pre-consolidation state can't be reliably reconstructed from a git anchor.
 
 ## See also
 

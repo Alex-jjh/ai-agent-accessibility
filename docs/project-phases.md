@@ -12,6 +12,15 @@
 > **Canonical citation for this project**: 6 phases, ~7,000+ total cases,
 > ~12 months calendar time (from conception to CHI submission).
 
+> **Status banner (2026-06-06)**: this doc's dated body (last updated
+> 2026-05-06) describes Phase 6 while it was still *pending* and quotes
+> planning-era estimates (~300 tasks, ~46,800 Stage 3 cases). The final
+> realized scope is **48 Stage-3 tasks × 26 ops × 3 reps × 2 models =
+> 7,488 Stage 3 cases**, contributing to **N=14,768** total case JSONs.
+> See [`docs/by-stage/phase6-stage3.md`](by-stage/phase6-stage3.md) for the
+> as-run Stage 3 numbers. The dated body below is left intact as the
+> historical planning record.
+
 ---
 
 ## The headline sentence (drop into §4.1 Method Overview)

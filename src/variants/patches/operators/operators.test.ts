@@ -262,9 +262,12 @@ describe('AMT idempotence (§9.3)', () => {
 // ─────────────────────────────────────────────────────────────────────
 //
 // We test a small sample of pairs rather than all 26×25=650, just to
-// confirm the scan infrastructure works. The full sweep runs via
-// `scripts/scan-operator-pairs.ts` separately (writes to
-// results/amt/operator-non-commutativity-matrix.json).
+// confirm the scan infrastructure works. The exhaustive operator-
+// non-commutativity matrix was never generated — there is no
+// scan-operator-pairs script and no matrix JSON. The composition study
+// does not need one: it applies operators under the fixed canonical
+// ordering (see amt-operator-spec.md §8.4), so order is held constant
+// rather than enumerated.
 
 describe('AMT non-commutativity scan (§9.4, sample)', () => {
   it('records at least one commuting pair and at least one non-commuting pair', () => {

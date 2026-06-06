@@ -37,7 +37,7 @@ Criticality* (CHI 2027 submission).
 ### Audit & reproducibility
 | File | Contents |
 |---|---|
-| `key-numbers.json` | Machine-readable output of `make verify-all` (100/100 PASS as of build date) |
+| `key-numbers.json` | Machine-readable output of `make verify-all` (108/108 PASS as of build date) |
 | `reproducibility-statement.md` | Full reproducibility instructions (hardware, software, steps) |
 | `MANIFEST.txt` | Auto-generated build timestamp + file inventory |
 

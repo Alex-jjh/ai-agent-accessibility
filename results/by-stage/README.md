@@ -46,5 +46,6 @@ Consumers:
 ## Pre-V&V snapshot
 
 `_pre-vv-snapshot.csv` is a copy of `results/combined-experiment.csv` taken
-before the 2026-05-15 V&V refactor — kept as a rollback aid alongside the
-`pre-vv-2026-05-15` git tag.
+before the 2026-05-15 V&V refactor — kept as a rollback aid. (A
+`pre-vv-2026-05-15` git tag was planned to anchor this snapshot for
+submission but was not created.)
