@@ -16,6 +16,36 @@
 
 ---
 
+## ✅ Execution status (2026-06-06)
+
+A full apply pass ran the same day (commits `40025f4`, `2ca3ae2`, `100fd08`,
+`4e1d2da`, `2fd1753`). **All auto-executable items in Groups A, B, C, and E are
+DONE.** Verified afterward: `make verify-all` still **108/108**, `tsc --noEmit`
+clean, vitest **414/414**, pytest now **0 collection errors** (18 passed + 1
+skipped, was 19 + 2 errors).
+
+**Done:** AppleDouble note (folded into hygiene), figure PDF-`CreationDate`
+reproducibility + `figures/README.md` interpreter fix, `verify-ts` target,
+ecological-corpus README, bootstrap p-value sourced from CSV (stale 2.83e-11 →
+2.51e-11), dead `PATCH_AXE_RULES` (was already gone), stat-doc count fixes,
+`stage3_statistics` import cleanup, pytest collection fix (`conftest.py`), the
+new `audit-ecological` wrapper + Makefile target + `phase4b-ecological.md`
+by-stage doc, and the entire Group C doc-accuracy sweep (8 stages/108, 26
+operators, 414 TS, HuggingFace data location, reworded non-existent rollback
+tags). All checkboxes below predate this pass — trust this banner, not the boxes.
+
+**Deliberately NOT done (still open):**
+- **Group D (paper)** — user deferred all of it this round (documentclass/anonymization,
+  L11 sign convention, latexmk config, figure dedup, bib prune). ⚠ paper source.
+- **`setup-workspace.sh` `._*` purge** (A, HIGH) — the runbook hardening; still worth
+  adding so a Mac-packed tarball reproduce can't fail the 9,408-PNG assert.
+- **`shasum` masked-exit + macOS `hf` probe** (A, LOW) — `setup-workspace.sh` robustness.
+- **Stat-primitive consolidation onto `lib/stats.py`** (B) — deferred (low value, frozen).
+- **`expect_rate` `tol_frac`→`abs_tol` rename, `scan.ts` helper extract** (B, LOW) — deferred.
+- Creating the rollback git **tags** — left as reworded prose, not fabricated. ⚠
+
+---
+
 ## How to read this
 
 Every item below was checked against the actual files — the `evidence`
