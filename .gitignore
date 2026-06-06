@@ -61,3 +61,6 @@ paper-supplementary/signature-alignment-report.md
 
 # macOS Finder metadata
 .DS_Store
+
+# HuggingFace dataset download staging dir (setup-workspace.sh)
+.hf-stage
