@@ -172,7 +172,7 @@ plt.tight_layout()
 fig.savefig(OUT / "F9_task_heatmap.png", dpi=300, bbox_inches='tight',
             facecolor='white', edgecolor='none')
 fig.savefig(OUT / "F9_task_heatmap.pdf", bbox_inches='tight',
-            facecolor='white', edgecolor='none')
+            facecolor='white', edgecolor='none', metadata={'CreationDate': None})
 plt.close()
 
 print(f"✅ F9 saved: {OUT / 'F9_task_heatmap.png'}")

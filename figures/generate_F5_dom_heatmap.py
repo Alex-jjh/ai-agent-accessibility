@@ -144,7 +144,7 @@ plt.tight_layout()
 fig.savefig(OUT / "F5_dom_heatmap.png", dpi=300, bbox_inches='tight',
             facecolor='white', edgecolor='none')
 fig.savefig(OUT / "F5_dom_heatmap.pdf", bbox_inches='tight',
-            facecolor='white', edgecolor='none')
+            facecolor='white', edgecolor='none', metadata={'CreationDate': None})
 plt.close()
 
 print(f"✅ F5 saved: {OUT / 'F5_dom_heatmap.png'}")

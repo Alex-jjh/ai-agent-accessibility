@@ -77,7 +77,7 @@ plt.tight_layout()
 fig.savefig(OUT / "fig10_cross_model.png", dpi=300, bbox_inches='tight',
             facecolor='white', edgecolor='none')
 fig.savefig(OUT / "fig10_cross_model.pdf", bbox_inches='tight',
-            facecolor='white', edgecolor='none')
+            facecolor='white', edgecolor='none', metadata={'CreationDate': None})
 plt.close()
 print(f"OK fig10 saved: {OUT / 'fig10_cross_model.png'}")
 l11 = df[df.operator == 'L11'].iloc[0]

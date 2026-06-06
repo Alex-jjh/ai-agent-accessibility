@@ -128,7 +128,7 @@ plt.tight_layout()
 fig.savefig(OUT / "fig7_behavioral_drop.png", dpi=300, bbox_inches='tight',
             facecolor='white', edgecolor='none')
 fig.savefig(OUT / "fig7_behavioral_drop.pdf", bbox_inches='tight',
-            facecolor='white', edgecolor='none')
+            facecolor='white', edgecolor='none', metadata={'CreationDate': None})
 plt.close()
 print(f"OK fig7 saved: {OUT / 'fig7_behavioral_drop.png'}")
 print(f"   L1={df[df.operator=='L1'].drop_pp.values[0]:.1f}pp, "

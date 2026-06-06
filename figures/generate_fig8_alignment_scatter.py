@@ -139,6 +139,6 @@ plt.tight_layout()
 fig.savefig(OUT / "fig8_alignment_scatter.png", dpi=300, bbox_inches='tight',
             facecolor='white', edgecolor='none')
 fig.savefig(OUT / "fig8_alignment_scatter.pdf", bbox_inches='tight',
-            facecolor='white', edgecolor='none')
+            facecolor='white', edgecolor='none', metadata={'CreationDate': None})
 plt.close()
 print(f"OK fig8 saved: {OUT / 'fig8_alignment_scatter.png'}")

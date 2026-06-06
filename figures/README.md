@@ -30,18 +30,24 @@ are GPT-Image or hand-drawn and regenerate manually.
 All data figures read from `results/` and are reproducible:
 
 ```bash
-python3 figures/generate_fig3_task_funnel.py       # → fig3 (smoker funnel)
-python3 figures/generate_fig7_behavioral_drop.py   # → fig7 (Stage 3 per-op drop)
-python3 figures/generate_fig8_alignment_scatter.py # → fig8 (alignment 42.3%)
-python3 figures/generate_fig9_composition.py       # → fig9 (15/9/4 super-additive)
-python3 figures/generate_fig10_cross_model.py      # → fig10 (cross-model gap)
+# use the verify venv — a bare `python`/`python3` resolves to 3.13 (no matplotlib)
+analysis/.venv/bin/python figures/generate_fig3_task_funnel.py       # → fig3 (smoker funnel)
+analysis/.venv/bin/python figures/generate_fig7_behavioral_drop.py   # → fig7 (Stage 3 per-op drop)
+analysis/.venv/bin/python figures/generate_fig8_alignment_scatter.py # → fig8 (alignment 42.3%)
+analysis/.venv/bin/python figures/generate_fig9_composition.py       # → fig9 (15/9/4 super-additive)
+analysis/.venv/bin/python figures/generate_fig10_cross_model.py      # → fig10 (cross-model gap)
 # then copy figures/figN_*.{png,pdf} into paper/
 ```
+
+> Note: regenerating a figure dirties the binary even when the data is
+> unchanged — the PDF carries a fresh CreationDate (and the PNG differs by
+> rasterization env). If the underlying data hasn't changed, just
+> `git checkout -- figures/` to drop the churn.
 
 `fig7` and `fig10` depend on `results/stage3/cross-model-stage3.csv`, emitted by:
 
 ```bash
-python3 -m analysis.stage3_statistics   # writes per-operator + cross-model CSVs
+analysis/.venv/bin/python -m analysis.stage3_statistics   # writes per-operator + cross-model CSVs
 ```
 
 ## Conceptual / hand-drawn figures (USER regenerates)

@@ -101,6 +101,6 @@ plt.tight_layout()
 fig.savefig(OUT / "fig9_composition.png", dpi=300, bbox_inches='tight',
             facecolor='white', edgecolor='none')
 fig.savefig(OUT / "fig9_composition.pdf", bbox_inches='tight',
-            facecolor='white', edgecolor='none')
+            facecolor='white', edgecolor='none', metadata={'CreationDate': None})
 plt.close()
 print(f"OK fig9 saved: {OUT / 'fig9_composition.png'}")

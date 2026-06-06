@@ -73,7 +73,7 @@ cd ai-agent-accessibility
 5. build the analysis venv (`setup.sh`),
 6. run `make verify-all` (expect **108/108 PASS**).
 
-> Why a tarball: the corpus is ~77k small JSON files. A per-file `hf download`
+> Why a tarball: the corpus is ~77k small files (~59k JSON + ~18k PNGs). A per-file `hf download`
 > issues a HEAD per file and gets rate-limited (429) by HuggingFace, making it
 > very slow. One ~1 GB tarball downloads at full bandwidth in minutes. zstd
 > cross-file dedup compresses the 11 GB tree to ~1 GB because many Stage-4b
@@ -88,6 +88,14 @@ make verify-all                                  # 108/108 PASS across 8 stages
 python figures/generate_fig8_alignment_scatter.py # regenerate a data figure
 cd ../paper && latexmk -pdf main.tex             # rebuild the PDF
 ```
+
+> Note: regenerating a figure dirties the binary even when the data is
+> unchanged — the PDF carries a fresh CreationDate (and the PNG differs by
+> rasterization env). If the underlying data hasn't changed, just
+> `git checkout -- figures/` to drop the churn.
+
+- TypeScript instrument check (optional, not part of the analysis reproduce):
+  `make verify-ts` (`npm ci && npm run lint && npm test` → 414/414).
 
 ## 5. What is / isn't reproduced
 

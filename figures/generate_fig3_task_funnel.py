@@ -103,5 +103,5 @@ plt.tight_layout()
 plt.savefig('figures/fig3_task_funnel.png', dpi=300, bbox_inches='tight',
             facecolor='white')
 plt.savefig('figures/fig3_task_funnel.pdf', bbox_inches='tight',
-            facecolor='white')
+            facecolor='white', metadata={'CreationDate': None})
 print("Saved: figures/fig3_task_funnel.{png,pdf}")
