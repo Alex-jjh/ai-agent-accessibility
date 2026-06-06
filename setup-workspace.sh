@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# ============================================================
+# setup-workspace.sh — reproduce the ENTIRE workspace on a new machine.
+#
+# One command that wires together the three hosting locations:
+#   - GitHub : code  (this repo)  + paper repo
+#   - HuggingFace : the 11 GB frozen data tree
+# and then builds the analysis env and runs the verifier.
+#
+# Layout it produces (siblings under a parent workspace dir):
+#   <workspace>/
+#     ├── ai-agent-accessibility/   (code; this repo)
+#     │     └── data/               (downloaded from HuggingFace)
+#     └── paper/                    (LaTeX paper)
+#
+# Usage:
+#   # from an empty workspace dir:
+#   curl -sSL <raw-url>/setup-workspace.sh | bash
+#   # or, if you already cloned this repo:
+#   cd ai-agent-accessibility && ./setup-workspace.sh
+#
+# Prereqs: git, python3 (>=3.11 preferred), and the `hf` CLI
+#   pip install -U huggingface_hub
+#   hf auth login          # needed while the dataset is private
+# ============================================================
+set -euo pipefail
+
+# --- config ---------------------------------------------------
+GH_USER="Alex-jjh"
+HF_USER="alexjiang04"
+CODE_REPO="https://github.com/${GH_USER}/ai-agent-accessibility.git"
+PAPER_REPO="https://github.com/${GH_USER}/ai-accessibility-paper.git"
+HF_DATASET="${HF_USER}/amt-accessibility-data"
+
+# Resolve a workspace root. If run from inside the code repo, use its parent;
+# otherwise use the current directory.
+if [ -d ".git" ] && [ -f "Makefile" ] && [ -d "analysis" ]; then
+  CODE_DIR="$(pwd)"
+  WORKSPACE="$(cd .. && pwd)"
+else
+  WORKSPACE="$(pwd)"
+  CODE_DIR="${WORKSPACE}/ai-agent-accessibility"
+fi
+echo "Workspace root: ${WORKSPACE}"
+
+# --- locate the hf CLI (it is often not on PATH after pip --user) ---
+HF="$(command -v hf || true)"
+if [ -z "$HF" ]; then
+  for cand in "$HOME/Library/Python/3.9/bin/hf" "$HOME/.local/bin/hf"; do
+    [ -x "$cand" ] && HF="$cand" && break
+  done
+fi
+if [ -z "$HF" ]; then
+  echo "ERROR: 'hf' CLI not found. Install with: pip install -U huggingface_hub" >&2
+  exit 1
+fi
+echo "Using hf CLI: $HF"
+
+# --- 1. clone the two code repos ------------------------------
+cd "$WORKSPACE"
+[ -d "$CODE_DIR/.git" ] || git clone "$CODE_REPO" "$CODE_DIR"
+[ -d "${WORKSPACE}/paper/.git" ] || git clone "$PAPER_REPO" "${WORKSPACE}/paper"
+
+# --- 2. download the 11 GB data tree from HuggingFace ---------
+echo "Downloading data/ from HuggingFace (${HF_DATASET}) ..."
+"$HF" download "$HF_DATASET" --repo-type dataset --local-dir "${CODE_DIR}/data"
+
+# --- 3. verify data integrity ---------------------------------
+if [ -f "${CODE_DIR}/data/SHA256SUMS" ]; then
+  echo "Verifying data integrity (SHA256SUMS) ..."
+  ( cd "${CODE_DIR}/data" && shasum -c SHA256SUMS | grep -v ': OK$' || echo "  all files OK" )
+else
+  echo "WARNING: no SHA256SUMS found in data/; skipping integrity check." >&2
+fi
+
+# --- 4. build the analysis environment ------------------------
+cd "$CODE_DIR"
+./setup.sh
+
+# --- 5. run the verifier --------------------------------------
+echo
+echo "Running verify-all ..."
+analysis/.venv/bin/python -m analysis.verify_all | tail -12
+
+cat <<MSG
+
+============================================================
+Workspace ready.
+  code  : ${CODE_DIR}
+  paper : ${WORKSPACE}/paper
+  data  : ${CODE_DIR}/data  (from HuggingFace)
+
+Next:
+  cd ${CODE_DIR} && source analysis/.venv/bin/activate
+  make verify-all                      # 108/108 PASS
+  python figures/generate_fig8_alignment_scatter.py   # regen a figure
+  cd ${WORKSPACE}/paper && latexmk -pdf main.tex       # build the paper
+============================================================
+MSG
