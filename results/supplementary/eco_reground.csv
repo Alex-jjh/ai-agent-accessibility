@@ -1,0 +1,42 @@
+metric,value
+n_all34,34
+n_real,30
+n_webarena,4
+P7_alone_affected_/34,28/34 = 82.4%
+P9_alone_affected_/34,0/34
+P11_alone_affected_/34,4/34 = 11.8%
+P5_alone_affected_/34,21/34
+P12_alone_affected_/34,5/34
+L3_code(P7|P9|P11)_/34,28/34 = 82.4%
+L3_paper(+P5+P12)_/34,30/34 = 88.2%
+P9_new_beyond_P7,[]
+P11_new_beyond_P7,[]
+P5_new_beyond_codeL3,"['notion', 'webarena-gitlab']"
+P12_new_beyond_codeL3,['notion']
+L3_code_real_/30,25/30 = 83.3%
+mean_L3nodes_all34,33.3
+mean_L3nodes_real30,37.4
+sum_L3nodes_all34,1133
+sum_L3nodes_real30,1123
+  webarena_webarena-admin_L3nodes,6
+  webarena_webarena-gitlab_L3nodes,0
+  webarena_webarena-reddit_L3nodes,3
+  webarena_webarena-shopping_L3nodes,1
+real_affected_count,25
+real_affected_sorted_nodes,"[1, 1, 2, 2, 3, 3, 3, 3, 3, 6, 6, 7, 8, 11, 12, 18, 21, 44, 70, 70, 72, 78, 81, 253, 345]"
+real_affected_median,8
+real_affected_mean,44.9
+real_affected_min,1
+real_affected_max,345
+all34_affected_count,28
+all34_affected_median,6.5
+all34_affected_mean,40.5
+all34_affected_max,345
+top5_real_sites_by_L3nodes,"[('bilibili', 345), ('aliexpress', 253), ('ebay', 81), ('shein', 78), ('jd', 72)]"
+real_affected_with_>=2_L3types,"['aliexpress', 'bestbuy', 'shein', 'target']"
+real_affected_landmark_only,21
+sites_with_loadable_axe,34
+P7_with_landmark_unique,28/34 = 82.4%
+P7_without_landmark_unique,26/34 = 76.5%
+sites_flagged_only_by_landmark_unique,"['github', 'usa-gov']"
+disclosed_L387_ruleset_affected,27/34 = 79.4%

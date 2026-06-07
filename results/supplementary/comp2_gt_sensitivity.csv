@@ -1,0 +1,5 @@
+scenario,super,additive,sub,conditional_binom_p,note
+pre_gt_correction,0,8,20,0.0,binomial conditions on super+sub only
+post_gt_correction,15,9,4,0.0192,paper headline; GT corrections applied
+all28_sharp_null,15,,,0.8506,"binomtest(super,28,0.5); naive omnibus"
+mean_interaction_wilcoxon,,,,0.0556,H0 mean=0; mean=4.23pp; t_p=0.0398; sign_p=0.0357

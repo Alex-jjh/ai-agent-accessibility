@@ -1,0 +1,9 @@
+scenario,baseline,drop_pp,cohens_h,n1,ratio,alpha,alternative,power
+stage3_20pp_a05_2s,0.919,20,0.54,144,10,0.05,two-sided,1.0
+stage3_20pp_holm_2s,0.919,20,0.54,144,10,0.0019230769230769232,two-sided,0.999
+stage3_15pp_holm_2s,0.919,15,0.426,144,10,0.0019230769230769232,two-sided,0.9614
+stage3_20pp_from50_holm_2s,0.5,20,0.412,144,10,0.0019230769230769232,two-sided,0.9459
+modeA_20pp_a05_2s,0.9385,20,0.572,39,10,0.05,two-sided,0.9262
+modeA_20pp_holm_2s,0.9385,20,0.572,39,10,0.0019230769230769232,two-sided,0.6202
+modeA_20pp_a05_1s,0.9385,20,0.572,39,10,0.05,larger,0.9611
+modeA_20pp_holm_1s,0.9385,20,0.572,39,10,0.0019230769230769232,larger,0.6976

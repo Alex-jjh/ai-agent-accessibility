@@ -1,0 +1,5 @@
+source,model,base_rate,base_n,high_rate,high_n,delta_pp,fisher_OR,fisher_p,significant_a05
+composite_phase1_base_referenced,claude-sonnet,0.9385,65,0.8923,65,-4.6,0.543,0.5305,False
+composite_phase1_base_referenced,llama4-maverick,0.7077,65,0.7538,65,4.6,1.265,0.6929,False
+stage3-llama_H2_vs_selfinclusive_pooledH,llama4-maverick,0.7035,1440,0.6944,144,-0.9,,,circular_pooledH_baseline
+mode-a-llama4_H2_vs_selfinclusive_pooledH,llama4-maverick,0.5462,390,0.6154,39,6.9,,,circular_pooledH_baseline

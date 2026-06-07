@@ -1,0 +1,27 @@
+analysis,app,operator,ok,n,rate_pct,drop_pp_from_Hbase,obs_per_single_op
+per_app_Hbaseline,ecommerce,H_pooled,625,660,94.7,,66
+per_app_Hbaseline,ecommerce_admin,H_pooled,327,360,90.8,,36
+per_app_Hbaseline,gitlab,H_pooled,361,390,92.6,,39
+per_app_Hbaseline,reddit,H_pooled,10,30,33.3,,3
+per_app_drop,ecommerce,L1,55,66,83.3,-11.4,66
+per_app_drop,ecommerce,L9,64,66,97.0,2.3,66
+per_app_drop,ecommerce,L5,62,66,93.9,-0.8,66
+per_app_drop,ecommerce,L12,64,66,97.0,2.3,66
+per_app_drop,ecommerce_admin,L1,32,36,88.9,-1.9,36
+per_app_drop,ecommerce_admin,L9,15,36,41.7,-49.2,36
+per_app_drop,ecommerce_admin,L5,22,36,61.1,-29.7,36
+per_app_drop,ecommerce_admin,L12,33,36,91.7,0.8,36
+per_app_drop,gitlab,L1,4,39,10.3,-82.3,39
+per_app_drop,gitlab,L9,35,39,89.7,-2.8,39
+per_app_drop,gitlab,L5,32,39,82.1,-10.5,39
+per_app_drop,gitlab,L12,21,39,53.8,-38.7,39
+per_app_drop,reddit,L1,1,3,33.3,0.0,3
+per_app_drop,reddit,L9,0,3,0.0,-33.3,3
+per_app_drop,reddit,L5,0,3,0.0,-33.3,3
+per_app_drop,reddit,L12,3,3,100.0,66.7,3
+pooled_full_vs_noreddit,ALL,L1,92->91,144->141,63.9->64.5,0.65,141
+pooled_full_vs_noreddit,ALL,L9,114->114,144->141,79.2->80.9,1.68,141
+pooled_full_vs_noreddit,ALL,L5,116->116,144->141,80.6->82.3,1.71,141
+pooled_full_vs_noreddit,ALL,L12,121->118,144->141,84.0->83.7,-0.34,141
+ranking,ALL,full,,,L1 < L9 < L5 < L12,,
+ranking,ALL,no_reddit,,,L1 < L9 < L5 < L12,,

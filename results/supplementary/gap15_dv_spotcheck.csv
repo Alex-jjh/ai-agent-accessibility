@@ -1,0 +1,9 @@
+model,variant,n_success,le1_step_success,le1_step_success_pct,le2_step_success,le2_step_success_pct,min_tokens_among_le1
+claude-sonnet,base,61,5,8.2,16,26.2,3997
+claude-sonnet,high,58,5,8.6,13,22.4,3997
+claude-sonnet,low,25,5,20.0,7,28.0,3997
+claude-sonnet,medium-low,65,5,7.7,13,20.0,3997
+llama4-maverick,base,46,2,4.3,5,10.9,3454
+llama4-maverick,high,49,2,4.1,7,14.3,3455
+llama4-maverick,low,24,3,12.5,8,33.3,3454
+llama4-maverick,medium-low,40,3,7.5,5,12.5,3452

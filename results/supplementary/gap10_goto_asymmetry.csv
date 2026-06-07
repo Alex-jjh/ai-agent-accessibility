@@ -1,0 +1,9 @@
+model,variant,n,goto_use_pct,goto_mean_per_case,click_fail_mean,any_consecutive_clickfail_pct
+claude-sonnet,base,65,0.0,0.0,0.09,9.2
+claude-sonnet,high,65,0.0,0.0,0.05,4.6
+claude-sonnet,low,65,67.7,2.49,2.06,32.3
+claude-sonnet,medium-low,65,0.0,0.0,0.12,12.3
+llama4-maverick,base,65,0.0,0.0,0.28,13.8
+llama4-maverick,high,65,1.5,0.02,0.23,7.7
+llama4-maverick,low,65,49.2,1.38,1.57,41.5
+llama4-maverick,medium-low,65,0.0,0.0,0.51,9.2

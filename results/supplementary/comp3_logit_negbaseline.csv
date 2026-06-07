@@ -1,0 +1,6 @@
+pair,interaction_pp,expected_drop_pp,drop_a_pp,drop_b_pp,neg_baseline,interaction_pp_clamped0,interaction_logit,super_additive_pp,super_additive_clamped,super_additive_logit
+L6+L11,24.1,-4.6,-6.2,1.5,yes,17.9,-2.976,yes,yes,yes
+L9+L11,19.0,5.6,4.1,1.5,no,19.0,-0.916,yes,yes,yes
+L1+L6,16.4,33.8,40.0,-6.2,no,10.3,-2.066,yes,yes,yes
+L4+L6,16.4,-4.6,1.5,-6.2,yes,10.3,-2.542,yes,yes,yes
+L6+L9,13.8,-2.1,-6.2,4.1,yes,7.7,-2.263,yes,yes,yes

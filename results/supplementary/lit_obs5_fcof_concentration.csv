@@ -1,0 +1,4 @@
+agent_type,failure_type,base,high,medium-low,low,low_minus_base,concentrated_under_low
+text-only,F_COF,12,11,5,13,1,False
+text-only,F_ENF,0,0,1,7,7,True
+text-only,timeout,0,1,1,24,24,True

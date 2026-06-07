@@ -61,6 +61,14 @@ SITE_CATEGORY_OVERRIDE = {
 }
 
 # Patch → axe-core rule IDs mapping
+# AUDIT RE-GROUNDING (ECO-1/2/6, paper §4): the Tier-3 headline (82.4% = 28/34)
+# is carried entirely by P7 (landmarks). P9 (table rules) fires on 0/34 sites and
+# P11 (link→span, custom) on 4/34 sites that are all already P7-affected, so neither
+# adds a unique Tier-3 site. Within P7, two sites (github, usa-gov) are flagged ONLY
+# by the best-practice rule `landmark-unique`; dropping it gives 26/34 = 76.5%.
+# P5 (heading-flatten) and P12 (Shadow DOM) are classified L1/L2 by PATCH_SEVERITY,
+# so the probe Tier-3 set is a strict subset of the operator-side Tier-3 definition.
+# Read-only re-derivation + sensitivity table: results/supplementary/eco_reground.{py,csv}.
 PATCH_AXE_RULES = {
     "P1: img alt":       ["image-alt"],
     "P2: aria-label":    ["aria-label", "aria-command-name", "aria-input-field-name"],

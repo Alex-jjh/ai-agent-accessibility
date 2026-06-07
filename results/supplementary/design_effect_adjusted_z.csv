@@ -1,0 +1,5 @@
+basis,icc,cluster_size_m,design_effect,z_naive,z_cluster_robust,p_cluster_robust
+pooled_text_only,0.247,5,1.988,9.829,6.9711,3.144783472574141e-12
+llama4_text_only,0.548,5,3.192,9.829,5.5015,3.766608570503313e-08
+majority_vote_anchor,,5,,9.829,4.005,6.20629896861182e-05
+pooled_is_low_GEE_M3,0.247,5,,9.829,-5.632,1.7834808988701228e-08

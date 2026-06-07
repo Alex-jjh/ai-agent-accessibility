@@ -1,0 +1,5 @@
+operator,rate,h_baseline,cohens_h,cohens_h_abs,magnitude,OR
+L1,0.6389,0.919,-0.712,0.712,medium,0.156
+L9,0.7917,0.919,-0.371,0.371,small,0.336
+L5,0.8056,0.919,-0.336,0.336,small,0.366
+L12,0.8403,0.919,-0.245,0.245,small,0.465
