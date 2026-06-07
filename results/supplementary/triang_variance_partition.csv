@@ -1,0 +1,8 @@
+quantity,value,note
+n_usable_trials,319,320 total minus ambiguous P23-GG1
+ss_site_frac,0.6654,descriptive SS partition (paper's 66.1%)
+ss_participant_frac,0.0226,descriptive SS partition
+vpc_site_latent,0.7297,"crossed RE logistic VPC, site"
+vpc_participant_latent,0.0078,"crossed RE logistic VPC, participant"
+var_site_logit,9.145,"BinomialBayesMixedGLM (variational Bayes, latent logit scale)"
+var_participant_logit,0.0979,"BinomialBayesMixedGLM (variational Bayes, latent logit scale)"
