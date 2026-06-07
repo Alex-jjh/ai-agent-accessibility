@@ -86,8 +86,24 @@ cd ai-agent-accessibility
 source analysis/.venv/bin/activate
 make verify-all                                  # 108/108 PASS across 8 stages
 python figures/generate_fig8_alignment_scatter.py # regenerate a data figure
-cd ../paper && latexmk -pdf main.tex             # rebuild the PDF
+cd ../paper && tectonic main.tex                 # rebuild the PDF (or: latexmk -pdf main.tex)
 ```
+
+> **Building the paper without root** (e.g. a managed dev box where you can't
+> `sudo dnf install texlive`): use Tectonic, a single static binary that pulls
+> the TeX packages it needs on demand — no system TeX install, no `sudo`.
+> ```bash
+> mkdir -p ~/bin
+> curl -fsSL https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.16.9/tectonic-0.16.9-x86_64-unknown-linux-musl.tar.gz \
+>   | tar xz -C ~/bin                # installs ~/bin/tectonic
+> export PATH="$HOME/bin:$PATH"      # if ~/bin isn't already on PATH
+> cd paper && tectonic main.tex      # → main.pdf
+> ```
+> Builder Toolbox / SoftwareRecommendations do **not** ship a LaTeX tool, so the
+> prebuilt Tectonic binary is the no-root path. `main.tex` defaults to
+> `\submissiontrue` (anonymized review build: title page shows "Anonymous
+> Author(s)", PDF author metadata empty); flip to `\submissionfalse` for the
+> camera-ready de-anonymized build.
 
 > Note: regenerating a figure dirties the binary even when the data is
 > unchanged — the PDF carries a fresh CreationDate (and the PNG differs by
