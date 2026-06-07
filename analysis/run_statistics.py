@@ -354,6 +354,26 @@ def level3_gee(df):
 # Level 4: Interaction Effects
 # ============================================================
 
+def _is_separation(beta, se):
+    """Flag a coefficient as quasi/perfect-separation-driven.
+
+    The Level-4 interaction GEEs can hit (quasi-)separation on these small,
+    near-saturated cells (e.g. a 100%-success variant×agent cell), producing a
+    degenerate fit with |beta| astronomically large, SE collapsed to 0, and a
+    meaningless p=0. We detect that here and report "unestimable (separation)"
+    rather than a spurious "Significant".
+    """
+    import math as _math
+    if beta is None or se is None:
+        return True
+    try:
+        if _math.isnan(beta) or _math.isnan(se):
+            return True
+    except TypeError:
+        return True
+    return se == 0.0 or abs(beta) > 50.0
+
+
 def level4_interactions(df):
     """Test variant × agent_type and variant × model interactions."""
     results = {"interactions": []}
@@ -376,16 +396,23 @@ def level4_interactions(df):
                            family=Binomial(link=Logit()), cov_struct=Exchangeable())
             result = model.fit()
 
+            sep = any(_is_separation(float(result.params[n]), float(result.bse[n]))
+                      for n in result.params.index)
             for name in result.params.index:
                 est = float(result.params[name])
                 se = float(result.bse[name])
                 p = float(result.pvalues[name])
                 lines.append(f"  {name:>15}: β={est:.3f}, SE={se:.3f}, p={fmt_p(p)}")
                 results["interactions"].append({"test": "agent_x_variant", "predictor": name,
-                                                "beta": est, "se": se, "p": p})
+                                                "beta": est, "se": se, "p": p,
+                                                "separation": sep})
 
-            int_p = float(result.pvalues.get("_interaction", 1.0))
-            lines.append(f"\n  Interaction p={fmt_p(int_p)} → {'Significant' if int_p < 0.05 else 'Not significant'}")
+            if sep:
+                lines.append("\n  Interaction: unestimable (quasi/perfect separation; "
+                             "near-saturated cells) — β/SE/p are degenerate and not interpreted.")
+            else:
+                int_p = float(result.pvalues.get("_interaction", 1.0))
+                lines.append(f"\n  Interaction p={fmt_p(int_p)} → {'Significant' if int_p < 0.05 else 'Not significant'}")
         except Exception as e:
             lines.append(f"  ERROR: {e}")
 
@@ -405,13 +432,19 @@ def level4_interactions(df):
                            family=Binomial(link=Logit()), cov_struct=Exchangeable())
             result = model.fit()
 
+            sep = any(_is_separation(float(result.params[n]), float(result.bse[n]))
+                      for n in result.params.index)
             for name in result.params.index:
                 est = float(result.params[name])
                 se = float(result.bse[name])
                 p = float(result.pvalues[name])
                 lines.append(f"  {name:>15}: β={est:.3f}, SE={se:.3f}, p={fmt_p(p)}")
                 results["interactions"].append({"test": "model_x_variant", "predictor": name,
-                                                "beta": est, "se": se, "p": p})
+                                                "beta": est, "se": se, "p": p,
+                                                "separation": sep})
+            if sep:
+                lines.append("\n  Interaction: unestimable (quasi/perfect separation; "
+                             "near-saturated cells) — β/SE/p are degenerate and not interpreted.")
         except Exception as e:
             lines.append(f"  ERROR: {e}")
 

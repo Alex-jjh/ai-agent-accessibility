@@ -137,12 +137,12 @@ high              109,373     57,104 [24,954, 114,251]
 
 ## 4a. Agent Type × Variant Interaction (text-only vs CUA, Claude)
 
-            const: β=-79856138335298487582720.000, SE=0.000, p=<0.000001
+            const: β=-79923252665795422978048.000, SE=0.000, p=<0.000001
          _variant: β=204.517, SE=0.000, p=<0.000001
-         _is_text: β=79856129046624256131072.000, SE=0.000, p=<0.000001
+         _is_text: β=79923243377121191526400.000, SE=0.000, p=<0.000001
      _interaction: β=-84.850, SE=0.000, p=<0.000001
 
-  Interaction p=<0.000001 → Significant
+  Interaction: unestimable (quasi/perfect separation; near-saturated cells) — β/SE/p are degenerate and not interpreted.
 
 ## 4b. Model × Variant Interaction (Claude vs Llama 4, text-only)
 
@@ -150,6 +150,8 @@ high              109,373     57,104 [24,954, 114,251]
          _variant: β=nan, SE=nan, p=nan
        _is_claude: β=nan, SE=nan, p=nan
      _interaction: β=nan, SE=nan, p=nan
+
+  Interaction: unestimable (quasi/perfect separation; near-saturated cells) — β/SE/p are degenerate and not interpreted.
 
 
 # Level 5: Sensitivity Analyses
