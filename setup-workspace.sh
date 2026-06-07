@@ -110,14 +110,26 @@ else
 fi
 
 echo "Placing data/ and scan-a11y-audit/ ..."
-mkdir -p "${CODE_DIR}/data" "${CODE_DIR}/scan-a11y-audit/results"
+mkdir -p "${CODE_DIR}/data" "${CODE_DIR}/scan-a11y-audit/results" \
+         "${CODE_DIR}/scan-a11y-audit/html-snapshots"
 # Move the ecological audit out first, then everything else becomes data/.
+#   HF layout under scan-a11y-audit/:
+#     results/        -> <code>/scan-a11y-audit/results/        (34 axe-core scan JSONs)
+#     html-snapshots/ -> <code>/scan-a11y-audit/html-snapshots/ (21M raw captures + metadata.json)
+#   Back-compat: an older tarball put the result JSONs directly under
+#   scan-a11y-audit/ (no results/ subdir); the trailing PLACE handles that.
+PLACE() { if command -v rsync >/dev/null 2>&1; then rsync -a "$1" "$2"; else cp -R "${1%/}/." "$2"; fi; }
 if [ -d "${STAGE}/scan-a11y-audit" ]; then
-  if command -v rsync >/dev/null 2>&1; then
-    rsync -a "${STAGE}/scan-a11y-audit/" "${CODE_DIR}/scan-a11y-audit/results/"
-  else
-    cp -R "${STAGE}/scan-a11y-audit/." "${CODE_DIR}/scan-a11y-audit/results/"
+  if [ -d "${STAGE}/scan-a11y-audit/html-snapshots" ]; then
+    PLACE "${STAGE}/scan-a11y-audit/html-snapshots/" "${CODE_DIR}/scan-a11y-audit/html-snapshots/"
+    rm -rf "${STAGE}/scan-a11y-audit/html-snapshots"
   fi
+  if [ -d "${STAGE}/scan-a11y-audit/results" ]; then
+    PLACE "${STAGE}/scan-a11y-audit/results/" "${CODE_DIR}/scan-a11y-audit/results/"
+    rm -rf "${STAGE}/scan-a11y-audit/results"
+  fi
+  # Anything still at the scan-a11y-audit root is legacy result JSONs.
+  PLACE "${STAGE}/scan-a11y-audit/" "${CODE_DIR}/scan-a11y-audit/results/"
   rm -rf "${STAGE}/scan-a11y-audit"
 fi
 # Remaining staged content is the data corpus.

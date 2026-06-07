@@ -37,6 +37,24 @@ computed over **all 34 scanned sites**. An alternate 83.3% figure uses a
 30-site real-world-only denominator — cite the 82.4%/34 figure to avoid
 mixing the two denominators.
 
+## What's tracked vs. delivered
+
+Only the **source** of this subproject is in git (`scan.ts`, `analysis.py`,
+`config.ts`, `custom-checks.ts`, `package*.json`, this README). The two data
+artifacts are git-ignored and delivered by the HuggingFace tarball, placed by
+`../setup-workspace.sh` (the same mechanism as `data/`):
+
+- `results/*.json` — the 34 per-site axe-core scan outputs (the 82.4% source;
+  read by `phase4b_ecological`).
+- `html-snapshots/` — ~21 MB of raw site captures (`<site>/<label>.html` +
+  `metadata.json` provenance index) for the 7 sites that cannot be scanned live
+  (auth walls / anti-bot / geo gating). These are **audit evidence only**;
+  `make verify-all` does not read them.
+
+A fresh checkout therefore has no `results/` or `html-snapshots/` until
+`setup-workspace.sh` runs; re-scanning live (or `--local ./html-snapshots` once
+the snapshots are present) regenerates `results/`.
+
 ## Live vs. `--local` scanning
 
 There are two scan paths:

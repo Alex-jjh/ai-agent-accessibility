@@ -3,12 +3,15 @@ test-tmp
 data
 dist
 
-# Scan audit results (large JSON files, not tracked)
+# Scan audit results (large JSON files, not tracked) — delivered via HuggingFace
 scan-a11y-audit/results/*.json
 scan-a11y-audit/results/*.csv
 scan-a11y-audit/node_modules
-# HTML snapshots (large, tracked as audit evidence; metadata.json also tracked)
-# scan-a11y-audit/html-snapshots/**/*_files/  ← uncomment if Save Complete _files dirs appear
+# HTML snapshots (21M of raw site captures, audit evidence only — verify-all does
+# NOT read these). Delivered via the HuggingFace tarball and placed by
+# setup-workspace.sh, mirroring data/ and scan-a11y-audit/results/. metadata.json
+# (provenance index) travels with the snapshots.
+scan-a11y-audit/html-snapshots/
 
 # Python
 __pycache__/

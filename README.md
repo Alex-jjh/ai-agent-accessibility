@@ -40,6 +40,22 @@ For a fresh-machine reproduce — including how to download the frozen raw data
 from the HuggingFace dataset `alexjiang04/amt-accessibility-data` (private) —
 see [`REPRODUCE.md`](REPRODUCE.md).
 
+### Data availability
+
+Only **source** is tracked in git. All large data artifacts are git-ignored and
+delivered by the HuggingFace tarball, placed by [`setup-workspace.sh`](setup-workspace.sh):
+
+| Artifact | Path | Notes |
+|---|---|---|
+| Raw case JSONs (14,768 cases) | `data/` | frozen; integrity-checked via `data/SHA256SUMS` |
+| Ecological scan results (34 sites) | `scan-a11y-audit/results/*.json` | the 82.4% Tier-3 source; read by `phase4b_ecological` |
+| Raw site captures (~21 MB) | `scan-a11y-audit/html-snapshots/` | audit evidence only; **not** read by `make verify-all` |
+
+A fresh `git clone` is ~source-only (no `data/`, no scan results/snapshots) until
+`setup-workspace.sh` runs. `make verify-all` (108/108) needs `data/` and
+`scan-a11y-audit/results/`; the HTML snapshots are provenance evidence and are
+not required for verification.
+
 ### Five-Layer Architecture
 
 ```
