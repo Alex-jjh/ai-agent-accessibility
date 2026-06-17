@@ -5,7 +5,7 @@
 ```
 RESEARCH CONTEXT:
 
-I'm writing a CHI 2027 paper titled "Same Barrier, Different Signatures: An Accessibility Manipulation Taxonomy for Web Agents."
+I'm writing a CHI 2027 paper titled "Structure, Not Magnitude: How Web-Accessibility Degradation Shapes LLM Web-Agent Behavior."
 
 The core research question: Does web accessibility degradation causally reduce AI agent task success? We answer YES, and we provide a systematic taxonomy (AMT) to characterize exactly HOW different types of accessibility violations affect different types of AI agents.
 
@@ -18,10 +18,18 @@ KEY CONCEPTS:
 - We measure each operator's effect in TWO independent ways:
   1. DOM Signature: 12-dimensional objective measurement of what changed in the page (structure, semantics, visual, functional)
   2. Behavioral Signature: How much each of 3 different AI agent architectures drops in task success
-- The 3 agent architectures:
-  - Text-only: reads the accessibility tree (most sensitive to semantic changes)
-  - SoM (Set-of-Mark): sees screenshot with numbered labels (hybrid)
-  - CUA (Computer Use Agent): sees only screenshot, clicks coordinates (pure vision, zero DOM dependency)
+- The 3 agent architectures (but with DELIBERATELY UNEQUAL evidentiary weight — see framing note):
+  - Text-only: reads the accessibility tree (most sensitive to semantic changes) — the PRIMARY measure, the only agent in the 48-task breadth set (N=7,488)
+  - CUA (Computer Use Agent): sees only screenshot, clicks coordinates (zero DOM dependency) — used as a DOM-BYPASS CONTROL, not as a "vision" arm; it is what makes the functional/semantic decomposition and the super-additivity dissociation possible
+  - SoM (Set-of-Mark): screenshot + DOM-derived numbered overlays — the weakest arm; only a single-phase phantom-bid probe
+
+- FRAMING NOTE (important for how to draw the behavioral side): the VISUAL
+  dimension is captured OBJECTIVELY by the SSIM row inside the DOM signature
+  (we audited 9,408 screenshots), NOT by pitting a vision agent against a text
+  agent. So the behavioral signature is NOT three co-equal agents — it is
+  text-only (primary) + CUA (DOM-bypass control), with SoM as a minor probe.
+  Drawing three equal agent columns would over-claim SoM/CUA and invite the
+  reviewer question "where is the breadth data for those agents?"
 - The CORE CONTRIBUTION is "Signature Alignment" — cross-referencing DOM signatures with behavioral signatures to empirically determine which layer (semantic/visual/functional) each operator actually affects.
 - KEY FINDING: 42% of operators show MISALIGNMENT — the DOM changes a lot but agents don't care (agent adaptation), or the DOM barely changes but agents collapse (structural criticality). The misalignments are the most scientifically interesting cases.
 
@@ -57,7 +65,7 @@ MIDDLE BOX:
 - Fill: very light orange (#FEF5E7), border: dark orange (#E67E22), 2px
 - Header: "Midlow (ML1–ML3)"
 - Subheader: "3 pseudo-compliance operators"
-- Body: ML1 Empty btn→div | ML2 Clone-replace handlers | ML3 Remove label+aria
+- Body: ML1 Empty btn→div | ML2 Remove kbd handlers (role=button) | ML3 Remove labels (no placeholder)
 
 RIGHT BOX:
 - Fill: very light green (#EAFAF1), border: dark green (#27AE60), 2px
@@ -71,22 +79,33 @@ Two parallel rounded rectangles side by side:
 
 LEFT BOX (DOM Signature):
 - Fill: light blue (#EBF5FB), border: #2471A3
-- Header (bold): "DOM Signature (12 dimensions)"
-- Body as 4 compact rows:
-  "D1-D3: Structure (tags, attributes, nodes)"
-  "A1-A3: Semantics (roles, names, ARIA states)"
-  "V1-V3: Visual (SSIM, bbox shift, contrast)"
-  "F1-F3: Functional (interactive count, handlers, focusable)"
-- Small footer: "Objective, per-operator, averaged over 13 tasks × 3 reps"
+- Header (bold): "DOM Signature (12 dimensions, 4 categories)"
+- Body as 4 compact rows (use EXACTLY these dimension labels — they must match
+  the paper; do NOT invent D2/D3 or V2/V3):
+  "Structure (D1): tag-count delta"
+  "Semantics (A1–A3): role, accessible-name, ARIA-state changes"
+  "Visual (V1): full-page SSIM  ← objective visual-equivalence audit"
+  "Functional (F1–F3): interactive-element, handler, focusable-element deltas"
+- Small footer: "Objective, per-operator (39 samples); the V1/SSIM row is how we
+  rule out visual confounds — e.g. L1 changes behavior at SSIM=1.000"
 
 RIGHT BOX (Behavioral Signature):
 - Fill: light purple (#F4ECF7), border: #7D3C98
-- Header (bold): "Behavioral Signature (3 agents × 2 models)"
-- Body as 3 rows:
-  "Text-only: a11y tree → text actions (most sensitive)"
-  "SoM Vision: screenshot + bid overlay → click actions"
-  "CUA Coordinate: screenshot only → coordinate actions (zero DOM dependency)"
-- Small footer: "Claude Sonnet 4 + Llama 4 Maverick, 13 tasks × 3 reps"
+- Header (bold): "Behavioral Signature"
+- This box is NOT three equal agents. Draw ONE prominent primary row, ONE
+  smaller control row, and a single footnote line — reflecting that the visual
+  dimension is handled objectively by the SSIM row on the left, not by a vision
+  agent here:
+  • PRIMARY row (bold, larger, take ~55% of the box height):
+    "Text-only agent — a11y tree → text actions
+     PRIMARY measure · Claude Sonnet 4 + Llama 4 Maverick · all phases,
+     incl. the 48-task breadth set (N=7,488)"
+  • CONTROL row (smaller, ~30% height, visually secondary):
+    "CUA agent — raw pixels → coordinates · DOM-BYPASS CONTROL
+     (isolates the functional pathway; yields the super-additivity dissociation)"
+  • FOOTNOTE line (small, muted, ~15% height):
+    "SoM overlay agent: single-phase phantom-bid probe (Phase 1 + depth only); see §5.7"
+- Small footer: "Behavioral drop vs. High-operator baseline"
 
 Between the two boxes, a small "×" symbol indicating cross-product measurement.
 
@@ -125,7 +144,7 @@ or SSIM<0.99; behavior-active ≥5pp) and must match paper §5.2 exactly.
 
 ═══ CONNECTING ELEMENTS ═══
 
-- Thick downward arrow from Band 1 → Band 2, labeled "JavaScript injection via Plan D (context.route + MutationObserver)"
+- Thick downward arrow from Band 1 → Band 2, labeled "JavaScript DOM injection after page load (idempotent IIFE via page.evaluate)"
 - Two arrows from Band 2 → Band 3: left arrow "12-dim vector", right arrow "drop in pp"
 - The overall visual flow is clearly top-to-bottom: Define → Measure → Analyze
 
