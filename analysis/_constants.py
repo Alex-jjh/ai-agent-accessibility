@@ -139,15 +139,17 @@ COMPOSITE_CA_Z_CLAUDE = COMPOSITE_CA_Z_CLAUDE_TEXT
 COMPOSITE_CA_P_THRESHOLD = 1e-6  # paper says CA trend p < 10⁻⁶
 
 # Token inflation (Mann-Whitney U, low vs base, Claude text-only, paper §5.1)
-# Verified 2026-05-15 on results/combined-experiment.csv:
-#   per-case MW (n=65×65) one-sided 'greater':  p ≈ 1.3×10⁻⁴ (log10 = −3.89)
-#   per-task paired Wilcoxon (n=13):             p ≈ 3.4×10⁻²  (log10 = −1.47)
-# Paper §5.1 line 48 was originally "Wilcoxon p < 10⁻⁶". This was overstated;
-# corrected 2026-05-15 (commit a9dc740 paper-side) to "Mann-Whitney U p < 10⁻⁴
-# per-case" with a footnote disclosing the per-task sensitivity check.
-COMPOSITE_TOKEN_LOW_MEDIAN = 97000
-COMPOSITE_TOKEN_BASE_MEDIAN = 40000
-COMPOSITE_TOKEN_INFLATION_RATIO = 2.4
+# Verified on results/combined-experiment.csv (== trace-summaries.jsonl):
+#   FULL-SET per-case MW (n=65×65) one-sided 'greater': p ≈ 1.3×10⁻⁴ (log10 = −3.89)
+#   per-task paired Wilcoxon (n=13):                    p ≈ 3.4×10⁻²  (log10 = −1.47)
+# Medians corrected 2026-06-28 to the FULL-SET recipe so they match the MW p
+# above and the fig6 figure/alt-text. Prior values (97000/40000) mixed recipes:
+# 97000 was the drop-F_COF median (97259, excludes the HTTP-429/overflow tail),
+# while the MW p and the figure use the full set. The 2.4× ratio is unchanged.
+# See paper/notes/fig6-token-median-discrepancy-2026-06-28.md for the full audit.
+COMPOSITE_TOKEN_LOW_MEDIAN = 102557     # full-set median, text-only Claude, low
+COMPOSITE_TOKEN_BASE_MEDIAN = 42345     # full-set median, text-only Claude, base
+COMPOSITE_TOKEN_INFLATION_RATIO = 2.4   # 102557/42345 = 2.42
 COMPOSITE_TOKEN_WILCOXON_LOG10_P = -3   # observed log10(p) ≈ -3.89 (paper now reports exact 1.3e-4)
 
 # Bootstrap pathway decomposition (composite Claude-only, paper §5.1, B=2000)
