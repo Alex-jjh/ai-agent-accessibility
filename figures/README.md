@@ -13,12 +13,12 @@ has a different source-of-truth repo:
   `generate_fig*.py` scripts in **this** directory; they read `results/` CSVs and
   are tied to the V&V pipeline (`make verify-all`). **Source of truth = here.**
   After regenerating, push the PDFs to the paper with `./sync-figures.sh`.
-- **Schematic figures** — `fig1, fig4, fig5, figA1`. Zero data dependency
+- **Schematic figures** — `fig1, fig2, fig4, fig5, figA1`. Zero data dependency
   (concept/architecture diagrams). **Source of truth = the PAPER repo**:
   `paper/figures/src/*.drawio`, rendered to vector PDF by
   `paper/figures/src/export.sh` (draw.io CLI). Not generated here anymore.
-- **fig2** — three-agent architecture, legacy matplotlib, stable PNG already in
-  the paper. Generator archived at `archive/generate_figure3_simplified.py`.
+  (fig2 was redrawn from legacy matplotlib into draw.io on 2026-06-28; the old
+  generator is at `archive/generate_figure3_simplified.py`.)
 
 `paper/figures/` is the **self-contained submission window** holding all 11
 deliverable PDFs (data figs synced from here; schematics exported from its own
@@ -29,7 +29,7 @@ deliverable PDFs (data figs synced from here; schematics exported from its own
 | Fig | Paper § | Title | Class | Source of truth |
 |----|---------|-------|-------|-----------------|
 | **fig1** | §1 | AMT framework teaser | schematic | `paper/figures/src/fig1_amt_framework.drawio` |
-| **fig2** | §4 | Three-agent architecture | schematic (legacy mpl) | `archive/generate_figure3_simplified.py` (stable PNG in paper) |
+| **fig2** | §4 | Three-agent architecture | schematic | `paper/figures/src/fig2_three_agent_arch.drawio` |
 | **fig3** | §4 | Task-selection funnel 684→48 | data | `generate_fig3_task_funnel.py` |
 | **fig4** | §4 | Severity Tier 1/2/3 framework | schematic | `paper/figures/src/fig4_severity_framework.drawio` |
 | **fig5** | §5.1 | Contribution decomposition | schematic | `paper/figures/src/fig5_causal_decomposition.drawio` |
