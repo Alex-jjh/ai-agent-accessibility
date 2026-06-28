@@ -37,10 +37,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 
-plt.rcParams.update({
-    'font.family': 'DejaVu Sans', 'font.size': 8, 'figure.dpi': 300,
-    'axes.spines.top': False, 'axes.spines.right': False,
-})
+from figstyle import apply_rc, COLWIDTH_IN, VARIANT_COLORS
+apply_rc()
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = Path(__file__).resolve().parent
@@ -52,9 +50,7 @@ CONTEXT_WINDOW_REF = 200_000
 
 ORDER = ['low', 'medium-low', 'base', 'high']
 LABELS = {'low': 'Low', 'medium-low': 'Med-low', 'base': 'Base', 'high': 'High'}
-VARIANT_COLOR = {
-    'low': '#C0392B', 'medium-low': '#E67E22', 'base': '#2C3E50', 'high': '#27AE60',
-}
+VARIANT_COLOR = VARIANT_COLORS
 
 
 def main():
@@ -71,7 +67,7 @@ def main():
     data = [np.array(by_variant[v], dtype=float) for v in ORDER]
     positions = np.arange(1, len(ORDER) + 1)
 
-    fig, ax = plt.subplots(figsize=(5.4, 4.2))
+    fig, ax = plt.subplots(figsize=(COLWIDTH_IN, 4.0))
     parts = ax.violinplot(data, positions=positions, widths=0.8,
                           showmedians=True, showextrema=True)
     for i, body in enumerate(parts['bodies']):
@@ -111,9 +107,7 @@ def main():
     ax.set_ylim(0, 660_000)
     ax.yaxis.set_major_formatter(
         plt.FuncFormatter(lambda x, _: f'{x/1e3:.0f}K'))
-    ax.set_title('Token Consumption by Variant (text-only Claude)\n'
-                 f'Low inflates median ~{ratio:.1f}x; tails reach ~6.1e5 tokens',
-                 fontsize=8.5, fontweight='bold', pad=10)
+    # (Title + the "~2.4x / tails" framing live in the LaTeX \caption.)
 
     plt.tight_layout()
     fig.savefig(OUT / "fig6_token_violin.png", dpi=300, bbox_inches='tight',

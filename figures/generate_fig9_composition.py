@@ -29,10 +29,8 @@ import matplotlib.pyplot as plt
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from analysis.amt_statistics import load_cases, test_compositional_interaction
 
-plt.rcParams.update({
-    'font.family': 'DejaVu Sans', 'font.size': 8, 'figure.dpi': 300,
-    'axes.spines.top': False, 'axes.spines.right': False,
-})
+from figstyle import apply_rc, COLWIDTH_IN
+apply_rc()
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = Path(__file__).resolve().parent
@@ -43,6 +41,8 @@ CAT_COLOR = {
     'additive': '#7F8C8D',
     'sub-additive': '#2471A3',
 }
+# Redundant marker shape per category (grayscale/CVD safe).
+CAT_MARKER = {'super-additive': '^', 'additive': 'o', 'sub-additive': 'v'}
 
 # ── Compute the 28 pairs via the canonical path ──
 singletons = load_cases([DATA / "mode-a-shard-a", DATA / "mode-a-shard-b"])
@@ -51,10 +51,10 @@ results, summary = test_compositional_interaction(singletons, pairs, agent="text
 print(f"super={summary['super']} additive={summary['additive']} "
       f"sub={summary['sub']} binom_p={summary['binomial_p']:.4f}")
 
-fig, ax = plt.subplots(figsize=(7, 7))
+fig, ax = plt.subplots(figsize=(COLWIDTH_IN, COLWIDTH_IN))
 ax.plot([-10, 70], [-10, 70], 'k--', linewidth=0.8, alpha=0.4, zorder=1)
-ax.fill_between([-10, 70], [-10, 70], [70, 70], alpha=0.03, color='#C0392B', zorder=0)
-ax.fill_between([-10, 70], [-15, 65], [-10, 70], alpha=0.03, color='#2471A3', zorder=0)
+ax.fill_between([-10, 70], [-10, 70], [70, 70], alpha=0.10, color='#C0392B', zorder=0)
+ax.fill_between([-10, 70], [-15, 65], [-10, 70], alpha=0.10, color='#2471A3', zorder=0)
 
 for cat, color in CAT_COLOR.items():
     sub = [r for r in results if r['category'] == cat]
@@ -64,8 +64,9 @@ for cat, color in CAT_COLOR.items():
     ys = [r['observed_drop_pp'] for r in sub]
     nice = {'super-additive': 'Super-additive', 'additive': 'Additive',
             'sub-additive': 'Sub-additive'}[cat]
-    ax.scatter(xs, ys, c=color, s=60, alpha=0.8, edgecolors='white',
-               linewidth=0.5, label=f"{nice} (n={len(sub)})", zorder=5)
+    ax.scatter(xs, ys, c=color, marker=CAT_MARKER[cat], s=64, alpha=0.8,
+               edgecolors='white', linewidth=0.5,
+               label=f"{nice} (n={len(sub)})", zorder=5)
 
 # Annotate the amplifier anchors
 by_pair = {r['pair']: r for r in results}
@@ -90,11 +91,7 @@ ax.text(55, 15, 'Sub-additive\n(failure saturation)', fontsize=8,
         color='#2471A3', ha='center', style='italic', alpha=0.7)
 ax.text(15, 50, 'Super-additive\n(amplification)', fontsize=8,
         color='#C0392B', ha='center', style='italic', alpha=0.7)
-ax.set_title(f'Compositional Interaction: Expected vs Observed Pairwise Drop\n'
-             f'(28 pairs, Claude text-only, GT-corrected; '
-             f'{summary["super"]} super / {summary["additive"]} additive / '
-             f'{summary["sub"]} sub, binomial p={summary["binomial_p"]:.3f})',
-             fontsize=9.5, fontweight='bold', pad=12)
+# (Title + the super/additive/sub split live in the LaTeX \caption.)
 ax.legend(loc='upper left', fontsize=8, framealpha=0.9)
 
 plt.tight_layout()

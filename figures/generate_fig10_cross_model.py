@@ -25,18 +25,16 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-plt.rcParams.update({
-    'font.family': 'DejaVu Sans', 'font.size': 8, 'figure.dpi': 300,
-    'axes.spines.top': False, 'axes.spines.right': False,
-})
+from figstyle import apply_rc, COLWIDTH_IN, MODEL_COLORS, MODEL_MARKER
+apply_rc()
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = Path(__file__).resolve().parent
 CROSS = ROOT / "results" / "stage3" / "cross-model-stage3.csv"
 BEH = ROOT / "results" / "amt" / "behavioral_signature_matrix.csv"
 
-CLAUDE_COLOR = '#2471A3'
-LLAMA_COLOR = '#8E44AD'
+CLAUDE_COLOR = MODEL_COLORS['claude']
+LLAMA_COLOR = MODEL_COLORS['llama']
 HIGHLIGHT_COLOR = '#C0392B'
 
 df = pd.read_csv(CROSS)
@@ -44,7 +42,7 @@ desc = {r['operator']: r['description'] for _, r in pd.read_csv(BEH).iterrows()}
 df['description'] = df['operator'].map(lambda o: desc.get(o, o))
 df = df.sort_values('claude_drop_pp', ascending=True).reset_index(drop=True)
 
-fig, ax = plt.subplots(figsize=(7, 4.5))
+fig, ax = plt.subplots(figsize=(COLWIDTH_IN, 4.5))
 y_pos = np.arange(len(df))
 
 for i, row in df.iterrows():
@@ -56,21 +54,24 @@ for i, row in df.iterrows():
                     fontsize=7, color=HIGHLIGHT_COLOR, style='italic', ha='left',
                     arrowprops=dict(arrowstyle='->', color=HIGHLIGHT_COLOR, lw=0.8))
     else:
-        ax.plot([c, l], [i, i], color='#CCCCCC', linewidth=1.2, zorder=2)
+        ax.plot([c, l], [i, i], color='#999999', linewidth=1.2, zorder=2)
 
-ax.scatter(df['claude_drop_pp'], y_pos, s=55, color=CLAUDE_COLOR, zorder=5,
-           label='Claude Sonnet 4')
-ax.scatter(df['llama_drop_pp'], y_pos, s=55, color=LLAMA_COLOR, marker='D', zorder=5,
-           label='Llama 4 Maverick')
+ax.scatter(df['claude_drop_pp'], y_pos, s=55, color=CLAUDE_COLOR,
+           marker=MODEL_MARKER['claude'], edgecolors='white', linewidth=0.4,
+           zorder=5, label='Claude Sonnet 4')
+ax.scatter(df['llama_drop_pp'], y_pos, s=55, color=LLAMA_COLOR,
+           marker=MODEL_MARKER['llama'], edgecolors='white', linewidth=0.4,
+           zorder=5, label='Llama 4 Maverick')
 
 labels = [f"{r['operator']}  {r['description']}" for _, r in df.iterrows()]
 ax.set_yticks(y_pos)
 ax.set_yticklabels(labels, fontsize=8)
 ax.set_xlabel('Drop from H-baseline (percentage points, Stage 3 breadth)', fontsize=9)
 ax.axvline(x=0, color='#AAAAAA', linestyle='--', linewidth=0.6)
-ax.set_title('Cross-Model Replication: Claude vs Llama 4 Per-Operator Drop\n'
-             '(text-only; operators with >5pp effect in either model; Breslow-Day p<0.001)',
-             fontsize=9, fontweight='bold', pad=12)
+# Headroom on the right so the L11 adaptive-recovery-gap callout never clips.
+_xmax = max(df['claude_drop_pp'].max(), df['llama_drop_pp'].max())
+ax.set_xlim(min(df['claude_drop_pp'].min(), df['llama_drop_pp'].min()) - 2, _xmax + 12)
+# (Title + Breslow-Day p live in the LaTeX \caption.)
 ax.legend(loc='lower right', fontsize=8, framealpha=0.9)
 
 plt.tight_layout()
