@@ -70,7 +70,7 @@ for cat, color in CAT_COLOR.items():
 
 # Annotate the amplifier anchors
 by_pair = {r['pair']: r for r in results}
-ANNOT = {'L6+L11': (8, 6), 'L9+L11': (8, 4), 'L1+L5': (-12, -8), 'L4+L5': (8, -4)}
+ANNOT = {'L6+L11': (-13, 7), 'L9+L11': (-13, 5), 'L1+L5': (-12, -8), 'L4+L5': (8, -4)}
 for pair, (dx, dy) in ANNOT.items():
     r = by_pair.get(pair)
     if not r:
@@ -92,7 +92,7 @@ ax.text(55, 15, 'Sub-additive\n(failure saturation)', fontsize=8,
 ax.text(15, 50, 'Super-additive\n(amplification)', fontsize=8,
         color='#C0392B', ha='center', style='italic', alpha=0.7)
 # (Title + the super/additive/sub split live in the LaTeX \caption.)
-ax.legend(loc='upper left', fontsize=8, framealpha=0.9)
+ax.legend(loc='lower right', fontsize=8, framealpha=0.95)
 
 plt.tight_layout()
 fig.savefig(OUT / "fig9_composition.png", dpi=300, bbox_inches='tight',
