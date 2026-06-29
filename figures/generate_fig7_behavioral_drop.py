@@ -92,9 +92,13 @@ ax.scatter(df.loc[mask, 'llama_drop_pp'], y_pos[mask.values], marker='D', s=28,
            label='Llama 4 Maverick (text-only)')
 
 ax.axvline(x=0, color='#27AE60', linestyle='--', linewidth=1.0, alpha=0.9)
-ax.text(0.4, len(df) - 0.4,
-        f'H-baseline ({h_rate:.1f}%)\n= pooled High family\n({n_high} enhancement ops,\ndrop $\\equiv$ 0 by construction)',
-        fontsize=6.5, color='#1E8449', ha='left', va='top', style='italic')
+# Place the baseline note in the open whitespace on the mid-right (the bars
+# there are short), below the L11 callout and above the legend.
+ax.text(19, len(df) * 0.40,
+        f'Green line = H-baseline ({h_rate:.1f}%)\n= pooled High family\n({n_high} enhancement ops;\ndrop = 0 by construction)',
+        fontsize=6.5, color='#1E8449', ha='left', va='center', style='italic',
+        bbox=dict(boxstyle='round,pad=0.3', facecolor='white',
+                  edgecolor='#27AE60', linewidth=0.6, alpha=0.9))
 
 labels = [f"{r['operator']}  {r['description']}" for _, r in df.iterrows()]
 ax.set_yticks(y_pos)
@@ -127,8 +131,8 @@ for _, r in df.iterrows():
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 legend_elements = [
-    Patch(facecolor=COLORS['Low'], hatch=FAMILY_HATCH['Low'], label='Low family (L1-L13)'),
-    Patch(facecolor=COLORS['Midlow'], hatch=FAMILY_HATCH['Midlow'], label='Midlow family (ML1-ML3)'),
+    Patch(facecolor=COLORS['Low'], edgecolor='white', hatch=FAMILY_HATCH['Low'], label='Low family (L1-L13)'),
+    Patch(facecolor=COLORS['Midlow'], edgecolor='white', hatch=FAMILY_HATCH['Midlow'], label='Midlow family (ML1-ML3)'),
     Line2D([0], [0], color='#27AE60', linestyle='--', linewidth=1.0,
            label='High family = baseline (drop $\\equiv$ 0)'),
     Line2D([0], [0], marker='D', color='w', markerfacecolor=LLAMA_COLOR,
