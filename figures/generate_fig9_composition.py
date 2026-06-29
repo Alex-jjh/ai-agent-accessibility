@@ -53,8 +53,11 @@ print(f"super={summary['super']} additive={summary['additive']} "
 
 fig, ax = plt.subplots(figsize=(COLWIDTH_IN, COLWIDTH_IN))
 ax.plot([-10, 70], [-10, 70], 'k--', linewidth=0.8, alpha=0.4, zorder=1)
-ax.fill_between([-10, 70], [-10, 70], [70, 70], alpha=0.10, color='#C0392B', zorder=0)
-ax.fill_between([-10, 70], [-15, 65], [-10, 70], alpha=0.10, color='#2471A3', zorder=0)
+# Shade the whole half-plane above the additivity diagonal red (super-additive)
+# and the whole half-plane below it blue (sub-additive), so there is no
+# ambiguous unshaded region — every point's colour matches its region.
+ax.fill_between([-10, 70], [-10, 70], 60, alpha=0.10, color='#C0392B', zorder=0)
+ax.fill_between([-10, 70], -5, [-10, 70], alpha=0.10, color='#2471A3', zorder=0)
 
 for cat, color in CAT_COLOR.items():
     sub = [r for r in results if r['category'] == cat]
@@ -70,14 +73,16 @@ for cat, color in CAT_COLOR.items():
 
 # Annotate the amplifier anchors
 by_pair = {r['pair']: r for r in results}
-ANNOT = {'L6+L11': (-13, 7), 'L9+L11': (-13, 5), 'L1+L5': (-12, -8), 'L4+L5': (8, -4)}
+ANNOT = {'L6+L11': (0, 8), 'L9+L11': (0, 8), 'L1+L5': (-12, -8), 'L4+L5': (8, -4)}
 for pair, (dx, dy) in ANNOT.items():
     r = by_pair.get(pair)
     if not r:
         continue
+    ha = 'center' if dx == 0 else ('left' if dx > 0 else 'right')
     ax.annotate(pair, xy=(r['expected_drop_pp'], r['observed_drop_pp']),
                 xytext=(r['expected_drop_pp'] + dx, r['observed_drop_pp'] + dy),
                 fontsize=7, fontweight='bold', color=CAT_COLOR[r['category']],
+                ha=ha, va='center',
                 arrowprops=dict(arrowstyle='->', color=CAT_COLOR[r['category']], lw=0.8),
                 bbox=dict(boxstyle='round,pad=0.2', facecolor='white',
                           edgecolor=CAT_COLOR[r['category']], alpha=0.9))
