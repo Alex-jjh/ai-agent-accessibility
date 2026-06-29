@@ -94,7 +94,7 @@ ax.axvline(x=DOM_THRESHOLD + 1, color='#AAAAAA', linestyle='--', linewidth=0.8, 
 # Each entry: (x-multiplier, y-offset) for the label position relative to the point.
 ANNOT = {
     'L1':  (1.6, 6),    'L11': (0.42, 9),
-    'L5':  (0.55, 4),   'L12': (1.6, 4), 'L10': (1.6, -5),
+    'L5':  (0.55, 4),   'L12': (1.6, 4), 'L10': (1.05, 5),
 }
 for _, r in m.iterrows():
     if r['operator'] in ANNOT:
