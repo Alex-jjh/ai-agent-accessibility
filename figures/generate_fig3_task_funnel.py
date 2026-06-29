@@ -71,9 +71,15 @@ for i, (label, n, color) in enumerate(stages):
     )
     ax.add_patch(rect)
     
-    # Count label inside box
-    ax.text(5, y, f"n = {n}", ha='center', va='center',
-            fontsize=11, fontweight='bold', color='white')
+    # Count label: white inside the box when it is wide enough to hold the
+    # text; otherwise place it just to the right of the (narrow) box in dark
+    # ink so it never gets clipped (the n=84 and n=48 bars are too narrow).
+    if w >= 1.4:
+        ax.text(5, y, f"n = {n}", ha='center', va='center',
+                fontsize=11, fontweight='bold', color='white')
+    else:
+        ax.text(5 + w/2 + 0.15, y, f"n = {n}", ha='left', va='center',
+                fontsize=10, fontweight='bold', color=color)
     
     # Stage label on left
     ax.text(x_left - 0.2, y, label, ha='right', va='center',
