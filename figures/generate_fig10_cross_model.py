@@ -50,8 +50,9 @@ for i, row in df.iterrows():
     if row['operator'] == 'L11':
         ax.plot([c, l], [i, i], color=HIGHLIGHT_COLOR, linewidth=2.5, zorder=3, alpha=0.85)
         ax.annotate('Adaptive recovery gap:\nClaude uses goto() fallback,\nLlama 4 persists with clicks',
-                    xy=((c + l) / 2, i), xytext=(l + 1, i - 1.5),
+                    xy=((c + l) / 2, i), xytext=(l + 2, i + 1.15),
                     fontsize=7, color=HIGHLIGHT_COLOR, style='italic', ha='left',
+                    va='center',
                     arrowprops=dict(arrowstyle='->', color=HIGHLIGHT_COLOR, lw=0.8))
     else:
         ax.plot([c, l], [i, i], color='#999999', linewidth=1.2, zorder=2)
