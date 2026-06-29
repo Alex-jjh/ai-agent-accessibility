@@ -58,14 +58,22 @@ cross = pd.read_csv(CROSS).set_index('operator')['llama_drop_pp'].to_dict()
 df['family'] = df['operator'].map(family_of)
 df['description'] = df['operator'].map(lambda o: desc.get(o, o))
 df['llama_drop_pp'] = df['operator'].map(lambda o: cross.get(o, np.nan))
+
+# H-baseline success rate for the annotation — computed over the pooled High
+# operators BEFORE we drop them from the plot (must use the full frame).
+n_high = int(df['operator'].str.startswith('H').sum())
+h_rate = df[df['operator'].str.startswith('H')]['rate'].mean() * 100
+
+# The 10 High operators are the pooled baseline itself, so their "drop from
+# H-baseline" is 0 by construction (zero-length bars + a green legend swatch
+# that never appears). We therefore do NOT plot them as bars; they are
+# represented by the zero-line reference and a note. Only the L/ML operators
+# (the ones actually measured against the High baseline) get bars.
+df = df[~df['operator'].str.startswith('H')].copy()
 df = df.sort_values('drop_pp', ascending=True).reset_index(drop=True)
 
-# H-baseline success rate for the annotation (pooled H operators)
-h_rate = df[df['operator'].str.startswith('H')].apply(
-    lambda r: r['rate'], axis=1).mean() * 100
-
 # ── Plot ──
-fig, ax = plt.subplots(figsize=(COLWIDTH_IN, 7.4))
+fig, ax = plt.subplots(figsize=(COLWIDTH_IN, 6.0))
 y_pos = np.arange(len(df))
 bar_colors = [COLORS[f] for f in df['family']]
 bar_hatch = [FAMILY_HATCH[f] for f in df['family']]
@@ -83,9 +91,10 @@ ax.scatter(df.loc[mask, 'llama_drop_pp'], y_pos[mask.values], marker='D', s=28,
            color=LLAMA_COLOR, edgecolors='white', linewidth=0.5, zorder=5,
            label='Llama 4 Maverick (text-only)')
 
-ax.axvline(x=0, color=BASELINE_COLOR, linestyle='--', linewidth=0.8, alpha=0.6)
-ax.text(0.5, len(df) - 0.5, f'H-baseline\n({h_rate:.1f}%)', fontsize=7,
-        color=BASELINE_COLOR, ha='left', va='top', style='italic')
+ax.axvline(x=0, color='#27AE60', linestyle='--', linewidth=1.0, alpha=0.9)
+ax.text(0.4, len(df) - 0.4,
+        f'H-baseline ({h_rate:.1f}%)\n= pooled High family\n({n_high} enhancement ops,\ndrop $\\equiv$ 0 by construction)',
+        fontsize=6.5, color='#1E8449', ha='left', va='top', style='italic')
 
 labels = [f"{r['operator']}  {r['description']}" for _, r in df.iterrows()]
 ax.set_yticks(y_pos)
@@ -120,7 +129,8 @@ from matplotlib.lines import Line2D
 legend_elements = [
     Patch(facecolor=COLORS['Low'], hatch=FAMILY_HATCH['Low'], label='Low family (L1-L13)'),
     Patch(facecolor=COLORS['Midlow'], hatch=FAMILY_HATCH['Midlow'], label='Midlow family (ML1-ML3)'),
-    Patch(facecolor=COLORS['High'], hatch=FAMILY_HATCH['High'], label='High family (H1-H8, incl. H5a/b/c)'),
+    Line2D([0], [0], color='#27AE60', linestyle='--', linewidth=1.0,
+           label='High family = baseline (drop $\\equiv$ 0)'),
     Line2D([0], [0], marker='D', color='w', markerfacecolor=LLAMA_COLOR,
            markersize=6, label='Llama 4 Maverick'),
     Line2D([0], [0], marker='$*$', color=STAR_COLOR, linestyle='None',
